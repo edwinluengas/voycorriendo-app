@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,22 +68,32 @@ export default function TokenesScreen({ navigation }) {
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
   const comprar = async (packId) => {
+    const label = packId.charAt(0).toUpperCase() + packId.slice(1);
     Alert.alert(
       'Confirmar compra',
-      `¿Comprar pack ${packId.charAt(0).toUpperCase() + packId.slice(1)}?\n\n(Modo sandbox — se acredita sin cobro real)`,
+      `¿Comprar pack ${label}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: 'Comprar',
           onPress: async () => {
             setComprando(packId);
             try {
               const { data } = await tokensAPI.comprar(packId);
-              Alert.alert(
-                '¡Tokens acreditados!',
-                `+${data.data.tokens_acreditados} tokens\nVence: ${formatFecha(data.data.expires_at)}`,
-              );
-              cargar();
+
+              // Sandbox: acreditado directo
+              if (data.sandbox) {
+                Alert.alert('¡Tokens acreditados! (Sandbox)', `+${data.data.tokens_acreditados} tokens`);
+                cargar();
+                return;
+              }
+
+              // Producción: abrir checkout de Mercado Pago
+              const url = data.data?.sandbox_init_point || data.data?.init_point;
+              if (url) {
+                await Linking.openURL(url);
+                Alert.alert('Pago iniciado', 'Completa el pago en Mercado Pago. Los tokens se acreditarán automáticamente.');
+              }
             } catch (e) {
               Alert.alert('Error', e.mensajeAmigable || 'No se pudo procesar la compra.');
             } finally { setComprando(null); }
