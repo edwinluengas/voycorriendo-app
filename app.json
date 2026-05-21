@@ -1,29 +1,81 @@
 {
   "expo": {
-    "name": "voycorriendo-v2",
+    "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "mx.voycorriendo.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "VoyCorriendo usa tu ubicación para asignarte pedidos cercanos.",
+        "NSLocationAlwaysUsageDescription": "VoyCorriendo usa tu ubicación para rastrear entregas en curso.",
+        "NSCameraUsageDescription": "VoyCorriendo necesita la cámara para tomar fotos de tus documentos.",
+        "NSPhotoLibraryUsageDescription": "VoyCorriendo necesita acceso a tu galería para subir fotos de documentos."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F97316"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "mx.voycorriendo.app",
+      "versionCode": 2,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VoyCorriendo usa tu ubicación para asignarte pedidos cercanos.",
+          "locationAlwaysPermission": "VoyCorriendo usa tu ubicación para rastrear entregas en curso."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "VoyCorriendo necesita tu galería para subir fotos de documentos.",
+          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F97316",
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1b3b85c7-7e86-4acc-8825-a4d1e0f92285"
+      }
+    },
+    "owner": "edwinluengas"
   }
 }
