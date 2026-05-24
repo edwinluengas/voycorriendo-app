@@ -79,6 +79,8 @@ export const negociosAPI = {
   buscar:     (texto) => api.get(`/negocios?buscar=${encodeURIComponent(texto)}`),
   actualizarProducto: (negocioId, productoId, data) =>
     api.put(`/negocios/${negocioId}/productos/${productoId}`, data),
+  crearProducto: (negocioId, data) =>
+    api.post(`/negocios/${negocioId}/productos`, data),
 };
 
 export const pedidosAPI = {

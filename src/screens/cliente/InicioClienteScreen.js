@@ -7,7 +7,7 @@ import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Todos',        emoji: '🏪' },
-  { id: 'ahivoy store',         nombre: 'Ahívoy',       emoji: '🛍️', esAhivoy: true },
+  { id: 'ahivoy store',         nombre: 'VoyCorriendo', emoji: '🛍️', esAhivoy: true },
   { id: 'restaurante',          nombre: 'Restaurantes', emoji: '🍽️' },
   { id: 'tienda_conveniencia',  nombre: 'Tiendita',     emoji: '🏪' },
   { id: 'farmacia',             nombre: 'Farmacia',     emoji: '💊' },
@@ -98,17 +98,17 @@ export default function InicioClienteScreen({ navigation, route }) {
               >
                 <View style={estilos.bannerContenido}>
                   <View style={estilos.bannerLogo}>
-                    <Text style={estilos.bannerLogoTxt}>A</Text>
+                    <Text style={estilos.bannerLogoTxt}>VC</Text>
                     <Text style={estilos.bannerLogoBolsa}>🛍️</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={estilos.bannerFila}>
-                      <Text style={estilos.bannerTitulo}>Ahívoy</Text>
+                      <Text style={estilos.bannerTitulo}>Voy Corriendo</Text>
                       <View style={estilos.bannerBadge}>
-                        <Text style={estilos.bannerBadgeTxt}>STORE</Text>
+                        <Text style={estilos.bannerBadgeTxt}>STORE CDMX</Text>
                       </View>
                     </View>
-                    <Text style={estilos.bannerSubtitulo}>Productos de CDMX a tu puerta 📦</Text>
+                    <Text style={estilos.bannerSubtitulo}>Productos de Ciudad de México a tu puerta 📦</Text>
                     <Text style={estilos.bannerCta}>Tocar para explorar →</Text>
                   </View>
                 </View>
@@ -197,7 +197,7 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
       <View style={[estilos.imagenPlaceholder, esAhivoy && estilos.imagenAhivoy]}>
         {esAhivoy ? (
           <View style={estilos.miniLogo}>
-            <Text style={estilos.miniLogoA}>A</Text>
+            <Text style={estilos.miniLogoA}>VC</Text>
           </View>
         ) : (
           <Text style={estilos.imagenEmoji}>
@@ -265,10 +265,10 @@ const estilos = StyleSheet.create({
     position: 'relative',
   },
   bannerLogoTxt: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '900',
     color: colors.primario,
-    lineHeight: 36,
+    lineHeight: 26,
   },
   bannerLogoBolsa: {
     position: 'absolute',
@@ -306,10 +306,10 @@ const estilos = StyleSheet.create({
     borderColor: '#FFD700',
   },
   miniLogoA: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '900',
     color: colors.primario,
-    lineHeight: 32,
+    lineHeight: 22,
   },
 
   // Tabs de categoría
