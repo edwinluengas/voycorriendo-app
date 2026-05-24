@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import MapView, { Marker } from 'react-native-maps';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { pedidosAPI, pagosAPI } from '../../api/client';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { colors, espacio, radio } from '../../theme/colors';
+
+// Centro de Puerto Escondido como fallback si no hay GPS
+const CENTRO_PE = { latitude: 15.8647, longitude: -97.0732 };
 
 const FEE_ENVIO = { express: 50, standard: 25 };
 
@@ -30,9 +34,13 @@ export default function PagoScreen({ route, navigation }) {
   const [cotizando, setCotizando]       = useState(true);
   const [cobertura, setCobertura]       = useState({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
   const [ubicacion, setUbicacion]       = useState(null);
-  const [costoEnvioReal, setCostoEnvio] = useState(null); // viene del API
+  const [costoEnvioReal, setCostoEnvio] = useState(null);
 
-  // Usa costo real del API si está disponible, si no usa el fee hardcodeado como fallback
+  // Pin en el mapa para la dirección de entrega
+  const [pinCoords, setPinCoords]         = useState(null); // { latitude, longitude }
+  const [geocodificando, setGeocodificando] = useState(false);
+  const mapRef = useRef(null);
+
   const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
   const total = subtotal + costoEnvio;
 
@@ -40,9 +48,9 @@ export default function PagoScreen({ route, navigation }) {
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [ineFoto, setIneFoto]   = useState(null); // { uri, base64 }
+  const [ineFoto, setIneFoto]   = useState(null);
 
-  // Pedir ubicación y cotizar al entrar
+  // Pedir ubicación, colocar pin y cotizar al entrar
   useEffect(() => {
     (async () => {
       try {
@@ -52,6 +60,18 @@ export default function PagoScreen({ route, navigation }) {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
           setUbicacion(coords);
+          const pin = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setPinCoords(pin);
+          // Reverse geocode para prellenar la dirección
+          const geo = await Location.reverseGeocodeAsync(pin);
+          if (geo?.[0]) {
+            const g = geo[0];
+            const partes = [g.street, g.streetNumber, g.district || g.subregion].filter(Boolean);
+            if (partes.length > 0) setDir(partes.join(' '));
+          }
+        } else {
+          // Sin GPS: pin en el centro de Puerto Escondido
+          setPinCoords(CENTRO_PE);
         }
         if (!carrito.negocio?.id) { setCotizando(false); return; }
         const { data } = await pedidosAPI.cotizar(
@@ -60,9 +80,7 @@ export default function PagoScreen({ route, navigation }) {
           coords?.lng,
         );
         if (data?.data) {
-          if (data.data.costo_envio != null) {
-            setCostoEnvio(Number(data.data.costo_envio));
-          }
+          if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
           setCobertura({
             fuera_de_cobertura: data.data.fuera_de_cobertura || false,
             aviso: data.data.aviso || null,
@@ -71,13 +89,42 @@ export default function PagoScreen({ route, navigation }) {
         }
       } catch (e) {
         console.log('Cotización falló:', e?.mensajeAmigable || e?.message);
+        setPinCoords(CENTRO_PE);
       } finally {
         setCotizando(false);
       }
     })();
-    // Solo al montar; el carrito es estable durante esta pantalla
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cuando el usuario mueve el pin: reverse geocode y re-cotizar
+  const onPinDragEnd = async (e) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    setPinCoords({ latitude, longitude });
+    setUbicacion({ lat: latitude, lng: longitude });
+    setGeocodificando(true);
+    try {
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geo?.[0]) {
+        const g = geo[0];
+        const partes = [g.street, g.streetNumber, g.district || g.subregion].filter(Boolean);
+        if (partes.length > 0) setDir(partes.join(' '));
+      }
+      // Re-cotizar con nueva ubicación
+      if (carrito.negocio?.id) {
+        const { data } = await pedidosAPI.cotizar(carrito.negocio.id, latitude, longitude);
+        if (data?.data) {
+          if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
+          setCobertura({
+            fuera_de_cobertura: data.data.fuera_de_cobertura || false,
+            aviso: data.data.aviso || null,
+            distancia_km: data.data.distancia_km || null,
+          });
+        }
+      }
+    } catch (_) {}
+    setGeocodificando(false);
+  };
 
   const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 1000));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
@@ -167,8 +214,8 @@ export default function PagoScreen({ route, navigation }) {
           notas: it.notas || null,
         })),
         direccion_entrega: direccion,
-        latitud_entrega:  ubicacion?.lat  || null,
-        longitud_entrega: ubicacion?.lng || null,
+        latitud_entrega:  pinCoords?.latitude  || ubicacion?.lat  || null,
+        longitud_entrega: pinCoords?.longitude || ubicacion?.lng || null,
         notas_entrega: notas,
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
@@ -285,8 +332,44 @@ export default function PagoScreen({ route, navigation }) {
         )}
 
         <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
+
+        {/* Mapa para seleccionar pin de entrega */}
+        <View style={estilos.mapaContenedor}>
+          {pinCoords ? (
+            <MapView
+              ref={mapRef}
+              style={estilos.mapa}
+              initialRegion={{
+                latitude: pinCoords.latitude,
+                longitude: pinCoords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker
+                coordinate={pinCoords}
+                draggable
+                onDragEnd={onPinDragEnd}
+                title="Tu entrega aquí"
+                pinColor={colors.primario}
+              />
+            </MapView>
+          ) : (
+            <View style={[estilos.mapa, estilos.mapaCargando]}>
+              <ActivityIndicator color={colors.primario} />
+              <Text style={estilos.mapaCargandoTxt}>Obteniendo ubicación…</Text>
+            </View>
+          )}
+          <View style={estilos.mapaHint}>
+            <Text style={estilos.mapaHintTxt}>
+              📍 Arrastra el pin para ajustar tu punto de entrega
+            </Text>
+            {geocodificando && <ActivityIndicator size="small" color={colors.primario} style={{ marginLeft: 8 }} />}
+          </View>
+        </View>
+
         <Campo
-          placeholder="Ej. Calle Juárez #15, junto a la tienda de don Beto"
+          placeholder="Ej. Hotel Olas Altas, detrás de la farmacia…"
           multiline
           value={direccion}
           onChangeText={setDir}
@@ -349,6 +432,36 @@ const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
   scroll: { padding: espacio.lg },
   seccion: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md, marginBottom: espacio.sm },
+
+  // Mapa selector de dirección
+  mapaContenedor: {
+    borderRadius: radio.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.borde,
+    marginBottom: espacio.sm,
+  },
+  mapa: {
+    width: '100%',
+    height: 220,
+  },
+  mapaCargando: {
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mapaCargandoTxt: { fontSize: 13, color: colors.textoSuave, marginTop: 4 },
+  mapaHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.superficie,
+    paddingHorizontal: espacio.md,
+    paddingVertical: espacio.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borde,
+  },
+  mapaHintTxt: { fontSize: 12, color: colors.textoSuave, flex: 1 },
 
   // Resumen del pedido
   resumenPedido: {
