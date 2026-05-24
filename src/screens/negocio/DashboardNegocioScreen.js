@@ -8,7 +8,7 @@
  * - Al crearse un pedido nuevo: alerta/beep (Socket.io 'nuevo_pedido')
  * - Al cambiar estado: refresco automático ('estado_pedido')
  */
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator,
   RefreshControl, Vibration, Alert, Switch, ScrollView,
@@ -16,10 +16,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
+import { Ionicons } from '@expo/vector-icons';
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
+
+// Categorías que no requieren aprobación del admin para operar
+const CATEGORIAS_DIRECTAS = ['ahivoy store'];
 
 // Tabs y su mapeo a los estados de la base de datos
 const TABS = [
@@ -49,7 +53,7 @@ const formatoHora = (fecha) => {
 };
 
 export default function DashboardNegocioScreen({ navigation }) {
-  const { usuario, cerrarSesion, cargarRoles } = useAuth();
+  const { usuario, cerrarSesion, cargarRoles, cambiarModo } = useAuth();
   const [tab, setTab]             = useState('nuevos');
   const [pedidos, setPedidos]     = useState([]);
   const [negocio, setNegocio]     = useState(null);
@@ -82,6 +86,24 @@ export default function DashboardNegocioScreen({ navigation }) {
   }, []);
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
+
+  const handleVolver = useCallback(async () => {
+    try {
+      await cambiarModo('cliente');
+    } catch (_) {
+      Alert.alert('Error', 'No se pudo volver al modo cliente.');
+    }
+  }, [cambiarModo]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <Pressable onPress={handleVolver} style={{ paddingHorizontal: 8 }}>
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </Pressable>
+      ),
+    });
+  }, [navigation, handleVolver]);
 
   // Socket.io: solo si el negocio está aprobado
   useEffect(() => {
@@ -126,7 +148,8 @@ export default function DashboardNegocioScreen({ navigation }) {
   }
 
   // ─── Si NO está aprobado: mostrar estado y CTA ────────────────
-  if (!negocio || negocio.verificacion_estado !== 'aprobado') {
+  const esDirecta = CATEGORIAS_DIRECTAS.includes(negocio?.categoria);
+  if (!negocio || (negocio.verificacion_estado !== 'aprobado' && !esDirecta)) {
     return (
       <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
         <ScrollView contentContainerStyle={estilos.scrollEstado}>

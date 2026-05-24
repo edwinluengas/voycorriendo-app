@@ -11,8 +11,8 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Pressable,
-  ActivityIndicator, Alert, Image, ScrollView,
+  View, Text, StyleSheet, Pressable,
+  ActivityIndicator, Alert, Image, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +27,9 @@ export default function FotosNegocioScreen({ navigation }) {
   const [negocio, setNegocio]   = useState(null);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(null); // 'portada' | 'logo' | productoId
+  const [mostrandoForm, setMostrandoForm] = useState(false);
+  const [nuevoProducto, setNuevoProducto] = useState({ nombre: '', precio: '', categoria: '' });
+  const [guardandoProducto, setGuardandoProducto] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -118,6 +121,36 @@ export default function FotosNegocioScreen({ navigation }) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
     } finally {
       setSubiendo(null);
+    }
+  };
+
+  // ── Agregar nuevo producto ───────────────────────────────
+  const agregarProducto = async () => {
+    if (!nuevoProducto.nombre.trim()) return Alert.alert('Falta', 'Pon el nombre del producto.');
+    const precio = parseFloat(nuevoProducto.precio);
+    if (!nuevoProducto.precio || isNaN(precio)) return Alert.alert('Falta', 'Pon un precio válido.');
+    setGuardandoProducto(true);
+    try {
+      const { data } = await negociosAPI.crearProducto(negocio.id, {
+        nombre: nuevoProducto.nombre.trim(),
+        precio,
+        categoria: nuevoProducto.categoria.trim() || 'General',
+      });
+      const productoNuevo = data.data?.producto || {
+        id: String(Date.now()),
+        nombre: nuevoProducto.nombre.trim(),
+        precio,
+        categoria: nuevoProducto.categoria.trim() || 'General',
+        foto_url: null,
+      };
+      setNegocio((n) => ({ ...n, productos: [...(n.productos || []), productoNuevo] }));
+      setNuevoProducto({ nombre: '', precio: '', categoria: '' });
+      setMostrandoForm(false);
+      Alert.alert('¡Listo!', 'Producto agregado. Ahora puedes subir su foto.');
+    } catch (e) {
+      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo agregar el producto.');
+    } finally {
+      setGuardandoProducto(false);
     }
   };
 
@@ -231,18 +264,25 @@ export default function FotosNegocioScreen({ navigation }) {
 
         {/* ── Productos ── */}
         <View style={estilos.seccion}>
-          <Text style={estilos.seccionTitulo}>🍽️ Fotos de productos</Text>
+          <View style={estilos.seccionEncab}>
+            <Text style={estilos.seccionTitulo}>🍽️ Fotos de productos</Text>
+            <Pressable style={estilos.btnAgregarProducto} onPress={() => setMostrandoForm(true)}>
+              <Text style={estilos.btnAgregarProductoTxt}>+ Agregar</Text>
+            </Pressable>
+          </View>
           <Text style={estilos.seccionDesc}>
-            Agrega fotos a cada platillo o producto. Los clientes ordenan más cuando ven la imagen real.
+            Agrega tus productos y súbeles una foto. Los clientes ordenan más cuando ven la imagen real.
           </Text>
 
           {productos.length === 0 ? (
             <View style={estilos.sinProductos}>
               <Text style={{ fontSize: 40, textAlign: 'center' }}>📭</Text>
               <Text style={estilos.sinProductosTxt}>
-                No tienes productos todavía. Pídele al equipo de VoyCorriendo que los cargue
-                o espera a que se habilite la gestión de menú.
+                Aún no tienes productos. Toca "+ Agregar" para crear el primero.
               </Text>
+              <Pressable style={estilos.btnAgregarPrimero} onPress={() => setMostrandoForm(true)}>
+                <Text style={estilos.btnAgregarPrimeroTxt}>+ Agregar mi primer producto</Text>
+              </Pressable>
             </View>
           ) : (
             productos.map((producto) => (
@@ -265,6 +305,55 @@ export default function FotosNegocioScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
+      {/* ── Modal: agregar producto ── */}
+      <Modal visible={mostrandoForm} transparent animationType="slide" onRequestClose={() => setMostrandoForm(false)}>
+        <KeyboardAvoidingView style={estilos.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={{ flex: 1 }} onPress={() => setMostrandoForm(false)} />
+          <View style={estilos.modalContenido}>
+            <Text style={estilos.modalTitulo}>Agregar producto</Text>
+
+            <Text style={estilos.modalLabel}>Nombre *</Text>
+            <TextInput
+              style={estilos.modalInput}
+              placeholder="Ej. Tacos de canasta"
+              placeholderTextColor={colors.textoSuave}
+              value={nuevoProducto.nombre}
+              onChangeText={(v) => setNuevoProducto((p) => ({ ...p, nombre: v }))}
+            />
+
+            <Text style={estilos.modalLabel}>Precio *</Text>
+            <TextInput
+              style={estilos.modalInput}
+              placeholder="0.00"
+              placeholderTextColor={colors.textoSuave}
+              value={nuevoProducto.precio}
+              onChangeText={(v) => setNuevoProducto((p) => ({ ...p, precio: v.replace(/[^0-9.]/g, '') }))}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={estilos.modalLabel}>Categoría</Text>
+            <TextInput
+              style={estilos.modalInput}
+              placeholder="Ej. Platillo principal, Bebida..."
+              placeholderTextColor={colors.textoSuave}
+              value={nuevoProducto.categoria}
+              onChangeText={(v) => setNuevoProducto((p) => ({ ...p, categoria: v }))}
+            />
+
+            <View style={estilos.modalBotones}>
+              <Pressable style={estilos.modalBtnCancelar} onPress={() => setMostrandoForm(false)} disabled={guardandoProducto}>
+                <Text style={estilos.modalBtnCancelarTxt}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={estilos.modalBtnGuardar} onPress={agregarProducto} disabled={guardandoProducto}>
+                {guardandoProducto
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={estilos.modalBtnGuardarTxt}>Agregar</Text>
+                }
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -362,9 +451,54 @@ const estilos = StyleSheet.create({
   },
   btnCambiarLogoTxt: { color: colors.primario, fontWeight: '700', fontSize: 14 },
 
+  // Encabezado sección con botón
+  seccionEncab: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  btnAgregarProducto: {
+    paddingHorizontal: 12, paddingVertical: 5,
+    backgroundColor: colors.primario, borderRadius: radio.full,
+  },
+  btnAgregarProductoTxt: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+
   // Productos
   sinProductos:   { alignItems: 'center', paddingVertical: espacio.lg },
   sinProductosTxt: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.sm, textAlign: 'center', lineHeight: 18 },
+  btnAgregarPrimero: {
+    marginTop: espacio.md,
+    paddingVertical: 10, paddingHorizontal: 20,
+    backgroundColor: colors.primario, borderRadius: radio.md,
+  },
+  btnAgregarPrimeroTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+
+  // Modal agregar producto
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalContenido: {
+    backgroundColor: colors.superficie,
+    borderTopLeftRadius: radio.lg, borderTopRightRadius: radio.lg,
+    padding: espacio.lg,
+    paddingBottom: espacio.xl,
+  },
+  modalTitulo: { fontSize: 20, fontWeight: '800', color: colors.texto, marginBottom: espacio.md },
+  modalLabel: { fontSize: 14, fontWeight: '600', color: colors.texto, marginBottom: espacio.xs },
+  modalInput: {
+    backgroundColor: colors.fondo,
+    borderWidth: 1, borderColor: colors.borde,
+    borderRadius: radio.md,
+    paddingHorizontal: espacio.md,
+    paddingVertical: 12,
+    fontSize: 16, color: colors.texto,
+    marginBottom: espacio.md,
+  },
+  modalBotones: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.sm },
+  modalBtnCancelar: {
+    flex: 1, paddingVertical: 12, borderRadius: radio.md,
+    borderWidth: 2, borderColor: colors.borde, alignItems: 'center',
+  },
+  modalBtnCancelarTxt: { color: colors.textoSuave, fontWeight: '700', fontSize: 15 },
+  modalBtnGuardar: {
+    flex: 2, paddingVertical: 12, borderRadius: radio.md,
+    backgroundColor: colors.primario, alignItems: 'center',
+  },
+  modalBtnGuardarTxt: { color: '#FFF', fontWeight: '700', fontSize: 15 },
 
   productoCard: {
     flexDirection: 'row',
