@@ -13,6 +13,17 @@ const TABS = [
   { key: 'repartidores', label: '🛵 Repartidores' },
 ];
 
+const formatoFecha = (iso) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('es-MX', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch (_) { return null; }
+};
+
 export default function AprobacionesScreen() {
   const [tab, setTab]             = useState('negocios');
   const [dash, setDash]           = useState({});
@@ -158,6 +169,8 @@ function Stat({ label, valor, resaltado }) {
 }
 
 function TarjetaNegocio({ negocio, enProceso, onAprobar }) {
+  const fechaEnvio    = formatoFecha(negocio.enviado_revision_en);
+  const fechaResolucion = formatoFecha(negocio.resolucion_en);
   return (
     <View style={estilos.tarjeta}>
       <View style={estilos.encabFila}>
@@ -165,8 +178,22 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar }) {
         <EstadoBadge estado={negocio.verificacion_estado} />
       </View>
       <Text style={estilos.sub}>{negocio.categoria}  ·  📞 {negocio.telefono || 'Sin tel'}</Text>
-      {negocio.email ? <Text style={estilos.sub}>✉️ {negocio.email}</Text> : null}
+      {negocio.dueno?.email ? <Text style={estilos.sub}>✉️ {negocio.dueno.email}</Text> : null}
       {negocio.direccion ? <Text style={estilos.sub}>📍 {negocio.direccion}</Text> : null}
+
+      <View style={estilos.timestampsBox}>
+        <Text style={estilos.tsLabel}>
+          📤 Enviado a revisión:{'  '}
+          <Text style={estilos.tsValor}>{fechaEnvio || 'No registrado'}</Text>
+        </Text>
+        {fechaResolucion ? (
+          <Text style={estilos.tsLabel}>
+            ✅ Resuelto por admin:{'  '}
+            <Text style={estilos.tsValor}>{fechaResolucion}</Text>
+          </Text>
+        ) : null}
+      </View>
+
       {negocio.verificacion_nota ? (
         <Text style={estilos.nota}>📝 {negocio.verificacion_nota}</Text>
       ) : null}
@@ -186,11 +213,13 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar }) {
 function TarjetaRepartidor({ repartidor, enProceso, onAprobar }) {
   const nombre = repartidor.usuario?.nombre || repartidor.nombre || 'Sin nombre';
   const tel    = repartidor.usuario?.telefono || '';
+  const fechaEnvio      = formatoFecha(repartidor.enviado_revision_en);
+  const fechaResolucion = formatoFecha(repartidor.resolucion_en);
   return (
     <View style={estilos.tarjeta}>
       <View style={estilos.encabFila}>
         <Text style={estilos.nombre} numberOfLines={1}>🛵 {nombre}</Text>
-        <EstadoBadge estado={repartidor.estado} />
+        <EstadoBadge estado={repartidor.verificacion_estado || repartidor.estado} />
       </View>
       {tel ? <Text style={estilos.sub}>📞 {tel}</Text> : null}
       {repartidor.tipo_vehiculo ? (
@@ -199,8 +228,22 @@ function TarjetaRepartidor({ repartidor, enProceso, onAprobar }) {
       {repartidor.placa_vehiculo ? (
         <Text style={estilos.sub}>🪪 Placa: {repartidor.placa_vehiculo}</Text>
       ) : null}
-      {repartidor.mensaje ? (
-        <Text style={estilos.nota}>📝 {repartidor.mensaje}</Text>
+
+      <View style={estilos.timestampsBox}>
+        <Text style={estilos.tsLabel}>
+          📤 Enviado a revisión:{'  '}
+          <Text style={estilos.tsValor}>{fechaEnvio || 'No registrado'}</Text>
+        </Text>
+        {fechaResolucion ? (
+          <Text style={estilos.tsLabel}>
+            ✅ Resuelto por admin:{'  '}
+            <Text style={estilos.tsValor}>{fechaResolucion}</Text>
+          </Text>
+        ) : null}
+      </View>
+
+      {repartidor.verificacion_nota ? (
+        <Text style={estilos.nota}>📝 {repartidor.verificacion_nota}</Text>
       ) : null}
       <Pressable
         style={[estilos.btnAprobar, enProceso && estilos.btnDeshabilitado]}
@@ -273,6 +316,18 @@ const estilos = StyleSheet.create({
   nombre:   { fontSize: 16, fontWeight: '800', color: colors.texto, flex: 1, marginRight: espacio.sm },
   sub:      { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
   nota:     { fontSize: 12, color: colors.advertencia, marginTop: espacio.xs, fontStyle: 'italic' },
+
+  timestampsBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: radio.sm,
+    padding: espacio.sm,
+    marginTop: espacio.sm,
+    borderWidth: 1,
+    borderColor: colors.borde,
+    gap: 4,
+  },
+  tsLabel:  { fontSize: 12, color: colors.textoSuave },
+  tsValor:  { fontSize: 12, color: colors.texto, fontWeight: '700' },
 
   pill: {
     paddingHorizontal: 10, paddingVertical: 3,
