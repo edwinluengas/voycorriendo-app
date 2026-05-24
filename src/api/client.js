@@ -71,14 +71,14 @@ export const authAPI = {
 export const negociosAPI = {
   listar:     ()      => api.get('/negocios'),
   detalle:    (id)    => api.get(`/negocios/${id}`),
-  // NOTA: los productos vienen dentro de detalle() como negocio.productos.
-  // Se conserva este helper por compatibilidad: extrae productos del detalle.
   productos:  async (id) => {
     const resp = await api.get(`/negocios/${id}`);
     const productos = resp.data?.data?.negocio?.productos || [];
     return { data: { data: { productos } } };
   },
   buscar:     (texto) => api.get(`/negocios?buscar=${encodeURIComponent(texto)}`),
+  actualizarProducto: (negocioId, productoId, data) =>
+    api.put(`/negocios/${negocioId}/productos/${productoId}`, data),
 };
 
 export const pedidosAPI = {
@@ -136,6 +136,8 @@ export const repartidoresAPI = {
   enviarARevision:   ()                   => api.post('/repartidores/enviar-a-revision'),
   conectarse:        (conectado, lat, lng) =>
     api.patch('/repartidores/conectarse', { conectado, latitud: lat, longitud: lng }),
+  ubicacion:         (lat, lng)           =>
+    api.patch('/repartidores/conectarse', { conectado: true, latitud: lat, longitud: lng }),
   pedidosDisponibles: ()                   => api.get('/repartidores/pedidos-disponibles'),
   aceptarPedido:      (pedido_id)          => api.post('/repartidores/aceptar-pedido', { pedido_id }),
   actualizarEstado:   (pedido_id, estado)  => api.patch(`/pedidos/${pedido_id}/estado`, { estado }),
@@ -144,6 +146,14 @@ export const repartidoresAPI = {
   misEntregas:        ()                   => api.get('/repartidores/mis-entregas'),
   miRuta:             ()                   => api.get('/repartidores/mi-ruta'),
   crearPerfil:        (data)               => api.post('/repartidores/perfil', data),
+};
+
+export const adminAPI = {
+  dashboard:          ()           => api.get('/admin/dashboard'),
+  aprobarNegocio:     (id)         => api.patch(`/admin/negocios/${id}/aprobar`),
+  rechazarNegocio:    (id, motivo) => api.patch(`/admin/negocios/${id}/rechazar`, { motivo }),
+  aprobarRepartidor:  (id)         => api.patch(`/admin/repartidores/${id}/aprobar`),
+  rechazarRepartidor: (id, motivo) => api.patch(`/admin/repartidores/${id}/rechazar`, { motivo }),
 };
 
 export const tokensAPI = {

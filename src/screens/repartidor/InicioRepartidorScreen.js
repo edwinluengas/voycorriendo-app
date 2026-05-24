@@ -45,13 +45,15 @@ export default function InicioRepartidorScreen({ navigation }) {
     if (r?.conectado !== undefined) setConectado(!!r.conectado);
   }, [r?.conectado]);
 
-  // Carga pedidos solo si esta conectado
+  // Polling cada 10s cuando está conectado y aprobado
   useEffect(() => {
-    if (conectado && aprobado) {
-      cargarPedidos();
-    } else {
+    if (!conectado || !aprobado) {
       setPedidos([]);
+      return;
     }
+    cargarPedidos();
+    const intervalo = setInterval(cargarPedidos, 10000);
+    return () => clearInterval(intervalo);
   }, [conectado, aprobado]);
 
   const cargarPedidos = async () => {

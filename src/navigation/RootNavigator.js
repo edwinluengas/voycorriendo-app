@@ -26,6 +26,7 @@ import SoporteScreen from '../screens/cliente/SoporteScreen';
 // Pantallas Repartidor
 import InicioRepartidorScreen    from '../screens/repartidor/InicioRepartidorScreen';
 import PedidoActivoScreen        from '../screens/repartidor/PedidoActivoScreen';
+import MisEntregasScreen         from '../screens/repartidor/MisEntregasScreen';
 import OnboardingRepartidorScreen from '../screens/repartidor/OnboardingRepartidorScreen';
 import TierScreen                from '../screens/repartidor/TierScreen';
 
@@ -34,6 +35,10 @@ import DashboardNegocioScreen      from '../screens/negocio/DashboardNegocioScre
 import PedidoDetalleNegocioScreen  from '../screens/negocio/PedidoDetalleNegocioScreen';
 import OnboardingNegocioScreen     from '../screens/negocio/OnboardingNegocioScreen';
 import TokenesScreen               from '../screens/negocio/TokenesScreen';
+import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
+
+// Pantallas Admin
+import AprobacionesScreen from '../screens/admin/AprobacionesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -49,73 +54,70 @@ const AuthStack = () => (
 
 // ─── Tabs del Cliente ────────────────────────────────────
 const ClienteTabs = () => {
-  // Inset inferior del sistema (barra de gestos / nav bar de Android, notch de iOS)
-  // Lo sumamos al alto y al padding del tab bar para que "Inicio/Pedidos/Ayuda/Perfil"
-  // queden por arriba de la barra del celular y se puedan tocar.
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom || 0;
 
   return (
-  <Tab.Navigator
-    screenOptions={{
-      tabBarActiveTintColor: colors.primario,
-      tabBarInactiveTintColor: colors.textoSuave,
-      tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-      tabBarStyle: {
-        paddingTop: 6,
-        paddingBottom: 6 + bottomInset,
-        height: 62 + bottomInset,
-      },
-      headerStyle: { backgroundColor: colors.primario },
-      headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
-    }}
-  >
-    <Tab.Screen
-      name="Inicio"
-      component={InicioClienteScreen}
-      options={{
-        title: '¿Qué se te antoja?',
-        tabBarLabel: 'Inicio',
-        tabBarIcon: ({ color, size, focused }) => (
-          <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
-        ),
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: colors.primario,
+        tabBarInactiveTintColor: colors.textoSuave,
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarStyle: {
+          paddingTop: 6,
+          paddingBottom: 6 + bottomInset,
+          height: 62 + bottomInset,
+        },
+        headerStyle: { backgroundColor: colors.primario },
+        headerTintColor: '#FFF',
+        headerTitleStyle: { fontWeight: '700' },
       }}
-    />
-    <Tab.Screen
-      name="MisPedidos"
-      component={MisPedidosScreen}
-      options={{
-        title: 'Mis pedidos',
-        tabBarLabel: 'Pedidos',
-        tabBarIcon: ({ color, size, focused }) => (
-          <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={size} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Soporte"
-      component={SoporteScreen}
-      options={{
-        title: 'Ayuda 24/7',
-        tabBarLabel: 'Ayuda',
-        tabBarIcon: ({ color, size, focused }) => (
-          <Ionicons name={focused ? 'help-buoy' : 'help-buoy-outline'} size={size} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Perfil"
-      component={PerfilScreen}
-      options={{
-        title: 'Mi perfil',
-        tabBarLabel: 'Perfil',
-        tabBarIcon: ({ color, size, focused }) => (
-          <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={size} color={color} />
-        ),
-      }}
-    />
-  </Tab.Navigator>
+    >
+      <Tab.Screen
+        name="Inicio"
+        component={InicioClienteScreen}
+        options={{
+          title: '¿Qué se te antoja?',
+          tabBarLabel: 'Inicio',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MisPedidos"
+        component={MisPedidosScreen}
+        options={{
+          title: 'Mis pedidos',
+          tabBarLabel: 'Pedidos',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Soporte"
+        component={SoporteScreen}
+        options={{
+          title: 'Ayuda 24/7',
+          tabBarLabel: 'Ayuda',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'help-buoy' : 'help-buoy-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Perfil"
+        component={PerfilScreen}
+        options={{
+          title: 'Mi perfil',
+          tabBarLabel: 'Perfil',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
   );
 };
 
@@ -146,22 +148,72 @@ const ClienteStack = () => (
   </Stack.Navigator>
 );
 
+// ─── Tabs del Repartidor ─────────────────────────────────
+const RepartidorTabs = () => {
+  const insets = useSafeAreaInsets();
+  const bottomInset = insets.bottom || 0;
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: colors.secundario,
+        tabBarInactiveTintColor: colors.textoSuave,
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarStyle: {
+          paddingTop: 6,
+          paddingBottom: 6 + bottomInset,
+          height: 62 + bottomInset,
+        },
+        headerStyle: { backgroundColor: colors.secundario },
+        headerTintColor: '#FFF',
+        headerTitleStyle: { fontWeight: '700' },
+      }}
+    >
+      <Tab.Screen
+        name="Pedidos"
+        component={InicioRepartidorScreen}
+        options={{
+          title: 'Pedidos disponibles',
+          tabBarLabel: 'Pedidos',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'bicycle' : 'bicycle-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MisEntregas"
+        component={MisEntregasScreen}
+        options={{
+          title: 'Mis entregas',
+          tabBarLabel: 'Entregas',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'cash' : 'cash-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
 // ─── Stack del Repartidor ────────────────────────────────
 const RepartidorStack = () => (
   <Stack.Navigator
     screenOptions={{
       headerStyle: { backgroundColor: colors.secundario },
       headerTintColor: '#FFF',
+      headerTitleStyle: { fontWeight: '700' },
     }}
   >
-    <Stack.Screen name="Inicio"       component={InicioRepartidorScreen} options={{ title: 'Pedidos disponibles' }} />
-    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}     options={{ title: 'Pedido en curso' }} />
-    <Stack.Screen name="Tier"         component={TierScreen}             options={{ title: 'Tipo de cobro' }} />
+    <Stack.Screen name="InicioRep"    component={RepartidorTabs}        options={{ headerShown: false }} />
+    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}    options={{ title: 'Pedido en curso' }} />
+    <Stack.Screen name="Tier"         component={TierScreen}            options={{ title: 'Tipo de cobro' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}
       options={{ title: 'Completa tu registro' }}
     />
+    {/* Alias "Inicio" para compatibilidad con navigation.replace('Inicio') en PedidoActivoScreen */}
+    <Stack.Screen name="Inicio"       component={RepartidorTabs}        options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -177,7 +229,25 @@ const NegocioStack = () => (
     <Stack.Screen name="DashboardNegocio"     component={DashboardNegocioScreen}     options={{ title: 'Mis pedidos' }} />
     <Stack.Screen name="PedidoDetalleNegocio" component={PedidoDetalleNegocioScreen}  options={{ title: 'Detalle del pedido' }} />
     <Stack.Screen name="Tokens"               component={TokenesScreen}               options={{ title: 'Tokens' }} />
+    <Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
+  </Stack.Navigator>
+);
+
+// ─── Stack Admin ─────────────────────────────────────────
+const AdminStack = () => (
+  <Stack.Navigator
+    screenOptions={{
+      headerStyle: { backgroundColor: colors.primario },
+      headerTintColor: '#FFF',
+      headerTitleStyle: { fontWeight: '700' },
+    }}
+  >
+    <Stack.Screen
+      name="Aprobaciones"
+      component={AprobacionesScreen}
+      options={{ title: 'Panel de administración' }}
+    />
   </Stack.Navigator>
 );
 
@@ -195,10 +265,9 @@ export default function RootNavigator() {
 
   if (!usuario) return <AuthStack />;
 
-  // Multi-rol (estilo Uber/Rappi): el modo activo decide que tabs ve.
-  // El usuario puede cambiar de modo desde el switch en Perfil.
   const modo = usuario.modo_activo || usuario.rol || 'cliente';
-  if (modo === 'repartidor') return <RepartidorStack />;
-  if (modo === 'negocio')    return <NegocioStack />;
+  if (modo === 'admin')       return <AdminStack />;
+  if (modo === 'repartidor')  return <RepartidorStack />;
+  if (modo === 'negocio')     return <NegocioStack />;
   return <ClienteStack />;
 }

@@ -27,12 +27,14 @@ export default function PagoScreen({ route, navigation }) {
 
   const requiereINE = carrito.items.some((it) => it.requiere_id);
 
-  // Solo usamos cotización para verificar cobertura (fuera_de_cobertura)
-  const [cotizando, setCotizando] = useState(true);
-  const [cobertura, setCobertura] = useState({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
-  const [ubicacion, setUbicacion] = useState(null);
+  const [cotizando, setCotizando]       = useState(true);
+  const [cobertura, setCobertura]       = useState({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
+  const [ubicacion, setUbicacion]       = useState(null);
+  const [costoEnvioReal, setCostoEnvio] = useState(null); // viene del API
 
-  const total = subtotal + feeEnvio;
+  // Usa costo real del API si está disponible, si no usa el fee hardcodeado como fallback
+  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
+  const total = subtotal + costoEnvio;
 
   const [metodo, setMetodo]     = useState(total > 1000 ? 'tarjeta' : 'efectivo');
   const [direccion, setDir]     = useState('');
@@ -58,6 +60,9 @@ export default function PagoScreen({ route, navigation }) {
           coords?.lng,
         );
         if (data?.data) {
+          if (data.data.costo_envio != null) {
+            setCostoEnvio(Number(data.data.costo_envio));
+          }
           setCobertura({
             fuera_de_cobertura: data.data.fuera_de_cobertura || false,
             aviso: data.data.aviso || null,
@@ -226,9 +231,9 @@ export default function PagoScreen({ route, navigation }) {
             </View>
             <View style={estilos.resumenLinea}>
               <Text style={estilos.resumenSub}>
-                Envío {tipoEnvio === 'express' ? 'Express' : 'Estándar'}
+                Envío {cotizando ? '(calculando…)' : tipoEnvio === 'express' ? 'Express' : 'Estándar'}
               </Text>
-              <Text style={estilos.resumenSub}>${feeEnvio.toFixed(2)}</Text>
+              <Text style={estilos.resumenSub}>${costoEnvio.toFixed(2)}</Text>
             </View>
             {distancia_km != null && (
               <Text style={estilos.tarifaInfo}>

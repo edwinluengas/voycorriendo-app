@@ -266,9 +266,14 @@ export default function DashboardNegocioScreen({ navigation }) {
 
       {/* Footer */}
       <View style={estilos.footer}>
-        <Pressable onPress={() => navigation.navigate('Tokens')} style={estilos.tokenBtn}>
-          <Text style={estilos.tokenBtnTxt}>🪙 Mis tokens</Text>
-        </Pressable>
+        <View style={estilos.footerBotones}>
+          <Pressable onPress={() => navigation.navigate('Tokens')} style={estilos.tokenBtn}>
+            <Text style={estilos.tokenBtnTxt}>🪙 Mis tokens</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('FotosNegocio')} style={estilos.fotosBtn}>
+            <Text style={estilos.fotosBtnTxt}>📷 Fotos</Text>
+          </Pressable>
+        </View>
         <Pressable onPress={() => {
           Alert.alert('Cerrar sesión', '¿Seguro que deseas salir?', [
             { text: 'Cancelar', style: 'cancel' },
@@ -445,7 +450,10 @@ const estilos = StyleSheet.create({
   vacioSub: { fontSize: 13, color: colors.textoSuave, marginTop: 4, textAlign: 'center' },
 
   footer: { padding: espacio.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.borde, backgroundColor: colors.superficie, gap: espacio.sm },
+  footerBotones: { flexDirection: 'row', gap: espacio.sm },
   tokenBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#FFF3E8', borderRadius: radio.full, borderWidth: 1, borderColor: colors.primario },
   tokenBtnTxt: { color: colors.primario, fontSize: 14, fontWeight: '700' },
+  fotosBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#EFF6FF', borderRadius: radio.full, borderWidth: 1, borderColor: '#3B82F6' },
+  fotosBtnTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
   salir: { color: colors.error, fontSize: 14, fontWeight: '600' },
 });
