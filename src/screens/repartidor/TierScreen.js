@@ -14,8 +14,8 @@ const TIERS = [
     id: 'daily',
     label: 'Diario',
     emoji: '⚡',
-    pago: '$22 MXN',
-    desc: 'Cobras en menos de 2 horas por cada entrega. Se descuenta un pequeño fee de liquidez inmediata.',
+    pago: '$35 MXN',
+    desc: 'Recibes tu pago el mismo día al completar cada entrega. Ideal si necesitas liquidez inmediata.',
     color: '#F59E0B',
     bg: '#FFFBEB',
     border: '#FCD34D',
@@ -24,8 +24,8 @@ const TIERS = [
     id: 'weekly',
     label: 'Semanal',
     emoji: '📅',
-    pago: '$28 MXN',
-    desc: 'Cobras el monto completo cada viernes vía SPEI. Sin descuentos, máximo por entrega.',
+    pago: '$35 MXN',
+    desc: 'Acumulas tus entregas y recibes el total cada viernes vía SPEI. Sin diferencia en la tarifa.',
     color: colors.primario,
     bg: '#FFF3E8',
     border: colors.primario,
@@ -107,9 +107,9 @@ export default function TierScreen({ navigation }) {
           </View>
         )}
 
-        <Text style={estilos.titulo}>Tipo de cobro</Text>
+        <Text style={estilos.titulo}>Cuándo cobrar</Text>
         <Text style={estilos.sub}>
-          Puedes cambiar tu tipo de cobro una vez por semana. Aplica a partir del siguiente pedido.
+          Tarifa flat $35 por entrega · $50 por entrega express. Elige cuándo quieres recibir tu dinero.
         </Text>
 
         {TIERS.map((t) => {
@@ -142,14 +142,18 @@ export default function TierScreen({ navigation }) {
         })}
 
         <View style={estilos.comparativa}>
-          <Text style={estilos.comparativaTitulo}>Comparativa (10 entregas/día)</Text>
+          <Text style={estilos.comparativaTitulo}>Ejemplo: 10 entregas estándar en un día</Text>
           <View style={estilos.comparativaFila}>
-            <Text style={estilos.comparativaLabel}>⚡ Diario</Text>
-            <Text style={estilos.comparativaValor}>$220 MXN · mismo día</Text>
+            <Text style={estilos.comparativaLabel}>💰 Ganancia</Text>
+            <Text style={estilos.comparativaValor}>$350 MXN</Text>
           </View>
           <View style={estilos.comparativaFila}>
-            <Text style={estilos.comparativaLabel}>📅 Semanal</Text>
-            <Text style={estilos.comparativaValor}>$280 MXN · cada viernes</Text>
+            <Text style={estilos.comparativaLabel}>⚡ Express (si aplica)</Text>
+            <Text style={estilos.comparativaValor}>$50 por entrega</Text>
+          </View>
+          <View style={estilos.comparativaFila}>
+            <Text style={estilos.comparativaLabel}>📦 Bono por 10 pedidos/día</Text>
+            <Text style={estilos.comparativaValor}>$50 MXN extra</Text>
           </View>
         </View>
 

@@ -140,6 +140,29 @@ export default function PerfilScreen({ navigation }) {
           }
         />
 
+        {/* ─── VoyTokens ─────────────────────────────────────── */}
+        {(usuario?.voytokens >= 0) && (
+          <View style={estilos.tokensBox}>
+            <View style={estilos.tokensEncab}>
+              <Text style={estilos.tokensEmoji}>🪙</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={estilos.tokensTitulo}>{usuario.voytokens || 0} VoyTokens</Text>
+                <Text style={estilos.tokensSub}>
+                  {(usuario.voytokens || 0) >= 35
+                    ? '¡Tienes envío gratis! Úsalo en tu próximo pedido.'
+                    : `${35 - (usuario.voytokens || 0)} tokens más para tu próximo envío gratis`}
+                </Text>
+              </View>
+              <Text style={estilos.tokensCont}>{Math.min(usuario.voytokens || 0, 35)}/35</Text>
+            </View>
+            <View style={estilos.tokensBarFondo}>
+              <View style={[estilos.tokensBarRelleno, {
+                width: `${Math.min(((usuario.voytokens || 0) / 35) * 100, 100)}%`,
+              }]} />
+            </View>
+          </View>
+        )}
+
         {/* ─── Opciones de cuenta ─────────────────────────────── */}
         <Text style={estilos.tituloSeccion}>Mi cuenta</Text>
         <View style={estilos.opciones}>
@@ -309,4 +332,25 @@ const estilos = StyleSheet.create({
   opcionTxt: { flex: 1, fontSize: 15, color: colors.texto, fontWeight: '600' },
   opcionFlecha: { fontSize: 24, color: colors.textoSuave },
   version: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.lg },
+
+  tokensBox: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: radio.md,
+    padding: espacio.md,
+    marginTop: espacio.lg,
+    marginBottom: espacio.xs,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+  },
+  tokensEncab: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm },
+  tokensEmoji: { fontSize: 28, marginRight: espacio.sm },
+  tokensTitulo: { fontSize: 17, fontWeight: '800', color: '#92400E' },
+  tokensSub: { fontSize: 12, color: '#92400E', marginTop: 2, lineHeight: 16 },
+  tokensCont: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+  tokensBarFondo: {
+    height: 8, backgroundColor: '#FDE68A', borderRadius: 4, overflow: 'hidden',
+  },
+  tokensBarRelleno: {
+    height: 8, backgroundColor: '#F59E0B', borderRadius: 4,
+  },
 });
