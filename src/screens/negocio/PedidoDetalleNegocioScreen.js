@@ -90,6 +90,19 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
     Linking.openURL(`tel:${tel}`).catch(() => {});
   };
 
+  const whatsappCliente = () => {
+    const tel = pedido?.cliente?.telefono;
+    if (!tel) return;
+    const num = `52${tel.replace(/\D/g, '')}`;
+    const msg = encodeURIComponent(
+      `Hola ${pedido.cliente?.nombre || ''}, soy de Tienda VoyCorriendo 🛍️\n` +
+      `Recibimos tu pedido #${pedido.numero}.\n` +
+      `Te escribimos para darte seguimiento personalizado y coordinar tu envío.`
+    );
+    Linking.openURL(`whatsapp://send?phone=${num}&text=${msg}`)
+      .catch(() => Linking.openURL(`https://wa.me/${num}?text=${msg}`));
+  };
+
   if (cargando || !pedido) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.fondo }}>
@@ -118,9 +131,14 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
         <Seccion titulo="Cliente">
           <Text style={estilos.nombre}>👤 {pedido.cliente?.nombre || 'Cliente'}</Text>
           {pedido.cliente?.telefono && (
-            <Pressable onPress={llamarCliente} style={estilos.telBoton}>
-              <Text style={estilos.telTxt}>📞 {pedido.cliente.telefono} (toca para llamar)</Text>
-            </Pressable>
+            <View style={estilos.contactoFila}>
+              <Pressable onPress={llamarCliente} style={estilos.contactoBtn}>
+                <Text style={estilos.contactoBtnTxt}>📞 Llamar</Text>
+              </Pressable>
+              <Pressable onPress={whatsappCliente} style={[estilos.contactoBtn, estilos.contactoBtnWA]}>
+                <Text style={[estilos.contactoBtnTxt, { color: '#FFF' }]}>💬 WhatsApp</Text>
+              </Pressable>
+            </View>
           )}
           <Text style={estilos.direccion}>📍 {pedido.direccion_entrega}</Text>
           {(pedido.zona || pedido.distancia_km != null) && (
@@ -340,8 +358,14 @@ const estilos = StyleSheet.create({
   seccionTitulo: { fontSize: 14, fontWeight: '800', color: colors.texto, marginBottom: espacio.sm, textTransform: 'uppercase' },
 
   nombre:     { fontSize: 16, fontWeight: '700', color: colors.texto },
-  telBoton:   { marginTop: espacio.xs },
-  telTxt:     { fontSize: 14, color: colors.secundario, fontWeight: '600', textDecorationLine: 'underline' },
+  contactoFila: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.sm },
+  contactoBtn: {
+    flex: 1, paddingVertical: espacio.sm, borderRadius: radio.md,
+    alignItems: 'center', backgroundColor: '#F0FDF4',
+    borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  contactoBtnWA: { backgroundColor: '#25D366', borderColor: '#25D366' },
+  contactoBtnTxt: { fontSize: 14, fontWeight: '700', color: '#16A34A' },
   direccion:  { fontSize: 14, color: colors.texto, marginTop: espacio.xs },
   notasEntrega: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, fontStyle: 'italic' },
 
