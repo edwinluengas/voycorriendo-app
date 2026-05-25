@@ -228,7 +228,7 @@ export default function NegocioScreen({ route, navigation }) {
   }
 
   const emojiNegocio = EMOJI_POR_CATEGORIA_NEGOCIO[negocio.categoria] || '🏪';
-  const envioTxt = negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $25 MXN';
+  const envioTxt = negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $35 MXN';
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -240,6 +240,10 @@ export default function NegocioScreen({ route, navigation }) {
           <View style={estilos.header}>
             {negocio.foto_portada ? (
               <Image source={{ uri: negocio.foto_portada }} style={estilos.portadaImagen} />
+            ) : negocio.categoria === 'ahivoy store' ? (
+              <View style={[estilos.portada, estilos.portadaAhivoy]}>
+                <Image source={require('../../../assets/icon.png')} style={estilos.portadaLogoAhivoy} />
+              </View>
             ) : (
               <View style={estilos.portada}>
                 <Text style={estilos.portadaEmoji}>{emojiNegocio}</Text>
@@ -268,8 +272,8 @@ export default function NegocioScreen({ route, navigation }) {
           const tieneOpciones = !!(item.opciones && Array.isArray(item.opciones.valores) && item.opciones.valores.length > 0);
           return (
             <Pressable style={estilos.producto} onPress={() => agregar(item)}>
-              {!!item.foto_url && (
-                <Image source={{ uri: item.foto_url }} style={estilos.productoFoto} />
+              {!!(item.imagen || item.foto_url) && (
+                <Image source={{ uri: item.imagen || item.foto_url }} style={estilos.productoFoto} />
               )}
               <View style={{ flex: 1 }}>
                 <View style={estilos.pnombreFila}>
@@ -425,6 +429,14 @@ const estilos = StyleSheet.create({
     width: '100%',
     height: 180,
     resizeMode: 'cover',
+  },
+  portadaAhivoy: {
+    backgroundColor: '#F97316',
+  },
+  portadaLogoAhivoy: {
+    width: 110,
+    height: 110,
+    borderRadius: 22,
   },
   portadaEmoji: { fontSize: 72 },
   productoFoto: {
