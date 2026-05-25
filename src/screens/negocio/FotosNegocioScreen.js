@@ -43,11 +43,6 @@ export default function FotosNegocioScreen({ navigation }) {
 
   // ── Picker genérico ──────────────────────────────────────
   const elegirImagen = async (aspectRatio) => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permiso necesario', 'Activa el acceso a tu galería en Ajustes.');
-      return null;
-    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -62,11 +57,6 @@ export default function FotosNegocioScreen({ navigation }) {
   };
 
   const tomarFoto = async (aspectRatio) => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permiso necesario', 'Activa el acceso a la cámara en Ajustes.');
-      return null;
-    }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: aspectRatio,
@@ -240,8 +230,8 @@ export default function FotosNegocioScreen({ navigation }) {
             <View style={estilos.sinProductos}>
               <Text style={{ fontSize: 40, textAlign: 'center' }}>📭</Text>
               <Text style={estilos.sinProductosTxt}>
-                No tienes productos todavía. Pídele al equipo de VoyCorriendo que los cargue
-                o espera a que se habilite la gestión de menú.
+                Aún no tienes productos. Ve a la sección "🍽️ Productos" en el dashboard
+                para agregar tu menú y luego vuelve aquí a subir las fotos.
               </Text>
             </View>
           ) : (

@@ -118,24 +118,8 @@ export default function OnboardingNegocioScreen({ navigation }) {
     }
   };
 
-  const elegirYSubir = async (tipo, columnaLocal) => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Necesitamos permiso', 'Activa el permiso de galería para subir tu foto.');
-      return;
-    }
-    const r = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.6,
-      allowsEditing: false,
-    });
-    if (r.canceled || !r.assets?.length) return;
-    const asset = r.assets[0];
-    if (!asset.base64) {
-      Alert.alert('Error', 'No pudimos leer la foto.');
-      return;
-    }
+  const _subirDocConAsset = async (tipo, columnaLocal, asset) => {
+    if (!asset?.base64) { Alert.alert('Error', 'No pudimos leer la foto.'); return; }
     setGuardando(true);
     try {
       const mime = asset.mimeType || 'image/jpeg';
@@ -148,29 +132,26 @@ export default function OnboardingNegocioScreen({ navigation }) {
     }
   };
 
-  const tomarYSubir = async (tipo, columnaLocal) => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Necesitamos permiso', 'Activa el permiso de cámara para tomar la foto.');
-      return;
-    }
-    const r = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.6,
-      allowsEditing: false,
-    });
-    if (r.canceled || !r.assets?.length) return;
-    const asset = r.assets[0];
-    setGuardando(true);
-    try {
-      const mime = asset.mimeType || 'image/jpeg';
-      const { data } = await negocioOnboardingAPI.subirDocumento(tipo, asset.base64, mime);
-      setDatos((d) => ({ ...d, [columnaLocal]: data.data?.url }));
-    } catch (e) {
-      Alert.alert('Error al subir', e.mensajeAmigable || 'Intenta de nuevo.');
-    } finally {
-      setGuardando(false);
-    }
+  const seleccionarYSubir = (tipo, columnaLocal) => {
+    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
+      {
+        text: '📷 Tomar foto',
+        onPress: async () => {
+          const r = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, allowsEditing: false });
+          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
+        },
+      },
+      {
+        text: '🖼️ Elegir de galería',
+        onPress: async () => {
+          const r = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.6, allowsEditing: false,
+          });
+          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   // ── Avanzar / retroceder ───────────────────────────────
@@ -266,7 +247,7 @@ export default function OnboardingNegocioScreen({ navigation }) {
           {paso === 1 && <PasoBasico       datos={datos} setDatos={setDatos} />}
           {paso === 2 && <PasoDireccion    datos={datos} setDatos={setDatos} />}
           {paso === 3 && <PasoHorarios     datos={datos} setDatos={setDatos} />}
-          {paso === 4 && <PasoDocumentos   datos={datos} elegir={elegirYSubir} tomar={tomarYSubir} />}
+          {paso === 4 && <PasoDocumentos   datos={datos} seleccionar={seleccionarYSubir} />}
           {paso === 5 && <PasoBancario     datos={datos} setDatos={setDatos} />}
           {paso === 6 && <PasoResumen      datos={datos} />}
         </ScrollView>
@@ -450,7 +431,7 @@ function PasoHorarios({ datos, setDatos }) {
   );
 }
 
-function PasoDocumentos({ datos, elegir, tomar }) {
+function PasoDocumentos({ datos, seleccionar }) {
   const docs = [
     { tipo: 'foto_local',            columna: 'foto_local',            label: 'Foto del local *', desc: 'Frente o entrada de tu tienda.' },
     { tipo: 'comprobante_domicilio', columna: 'comprobante_domicilio', label: 'Comprobante de domicilio *', desc: 'Recibo de luz, agua o predial reciente.' },
@@ -474,14 +455,11 @@ function PasoDocumentos({ datos, elegir, tomar }) {
               <Text style={estilos.fotoPlaceholderTxt}>Sin foto</Text>
             </View>
           )}
-          <View style={estilos.fotoBotones}>
-            <Pressable style={estilos.fotoBoton} onPress={() => tomar(doc.tipo, doc.columna)}>
-              <Text style={estilos.fotoBotonTxt}>📸 Tomar foto</Text>
-            </Pressable>
-            <Pressable style={estilos.fotoBoton} onPress={() => elegir(doc.tipo, doc.columna)}>
-              <Text style={estilos.fotoBotonTxt}>🖼️ Seleccionar foto</Text>
-            </Pressable>
-          </View>
+          <Pressable style={[estilos.fotoBoton, { alignSelf: 'stretch' }]} onPress={() => seleccionar(doc.tipo, doc.columna)}>
+            <Text style={estilos.fotoBotonTxt}>
+              {datos[doc.columna] ? '🔄 Cambiar foto' : '📷 Subir foto'}
+            </Text>
+          </Pressable>
         </View>
       ))}
     </View>

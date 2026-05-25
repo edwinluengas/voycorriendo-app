@@ -92,27 +92,8 @@ export default function OnboardingRepartidorScreen({ navigation }) {
   };
 
   // ── Picker + subida de fotos ──────────────────────────────
-  const elegirYSubir = async (tipo, columnaLocal) => {
-    // Pedir permisos primero
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Necesitamos permiso', 'Activa el permiso de galería para subir tu foto.');
-      return;
-    }
-    const r = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.6,
-      allowsEditing: false,
-    });
-    if (r.canceled || !r.assets?.length) return;
-
-    const asset = r.assets[0];
-    if (!asset.base64) {
-      Alert.alert('Error', 'No pudimos leer la foto. Intenta otra.');
-      return;
-    }
-
+  const _subirFotoConAsset = async (tipo, columnaLocal, asset) => {
+    if (!asset?.base64) { Alert.alert('Error', 'No pudimos leer la foto.'); return; }
     setGuardando(true);
     try {
       const mime = asset.mimeType || 'image/jpeg';
@@ -125,30 +106,26 @@ export default function OnboardingRepartidorScreen({ navigation }) {
     }
   };
 
-  const tomarYSubir = async (tipo, columnaLocal) => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Necesitamos permiso', 'Activa el permiso de cámara para tomar la foto.');
-      return;
-    }
-    const r = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.6,
-      allowsEditing: false,
-    });
-    if (r.canceled || !r.assets?.length) return;
-
-    const asset = r.assets[0];
-    setGuardando(true);
-    try {
-      const mime = asset.mimeType || 'image/jpeg';
-      const { data } = await repartidoresAPI.subirFoto(tipo, asset.base64, mime);
-      setDatos((d) => ({ ...d, [columnaLocal]: data.data?.url }));
-    } catch (e) {
-      Alert.alert('Error al subir', e.mensajeAmigable || 'Intenta de nuevo.');
-    } finally {
-      setGuardando(false);
-    }
+  const seleccionarYSubir = (tipo, columnaLocal) => {
+    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
+      {
+        text: '📷 Tomar foto',
+        onPress: async () => {
+          const r = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, allowsEditing: false });
+          if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
+        },
+      },
+      {
+        text: '🖼️ Elegir de galería',
+        onPress: async () => {
+          const r = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.6, allowsEditing: false,
+          });
+          if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   // ── Avanzar / retroceder ──────────────────────────────────
@@ -247,8 +224,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
                 { tipo: 'ine_reverso', columna: 'foto_ine_reverso', label: 'INE - Reverso' },
               ]}
               datos={datos}
-              elegir={elegirYSubir}
-              tomar={tomarYSubir}
+              seleccionar={seleccionarYSubir}
             />
           )}
           {paso === 3 && (
@@ -260,8 +236,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
                 { tipo: 'tarjeta_circulacion', columna: 'foto_tarjeta_circulacion', label: 'Tarjeta de circulación (opcional)' },
               ]}
               datos={datos}
-              elegir={elegirYSubir}
-              tomar={tomarYSubir}
+              seleccionar={seleccionarYSubir}
             />
           )}
           {paso === 4 && <PasoBancario datos={datos} setDatos={setDatos} />}
@@ -387,7 +362,7 @@ function OpcionTipo({ activo, icono, label, onPress }) {
 }
 
 // ─── Paso 2 y 3: Fotos genericas ────────────────────────────
-function PasoFotos({ titulo, subtitulo, fotos, datos, elegir, tomar }) {
+function PasoFotos({ titulo, subtitulo, fotos, datos, seleccionar }) {
   return (
     <View>
       <Text style={estilos.tituloPaso}>📸 {titulo}</Text>
@@ -404,14 +379,11 @@ function PasoFotos({ titulo, subtitulo, fotos, datos, elegir, tomar }) {
               <Text style={estilos.fotoPlaceholderTxt}>Sin foto aún</Text>
             </View>
           )}
-          <View style={estilos.fotoBotones}>
-            <Pressable style={estilos.fotoBoton} onPress={() => tomar(f.tipo, f.columna)}>
-              <Text style={estilos.fotoBotonTxt}>📸 Tomar foto</Text>
-            </Pressable>
-            <Pressable style={estilos.fotoBoton} onPress={() => elegir(f.tipo, f.columna)}>
-              <Text style={estilos.fotoBotonTxt}>🖼️ Seleccionar foto</Text>
-            </Pressable>
-          </View>
+          <Pressable style={[estilos.fotoBoton, { alignSelf: 'stretch' }]} onPress={() => seleccionar(f.tipo, f.columna)}>
+            <Text style={estilos.fotoBotonTxt}>
+              {datos[f.columna] ? '🔄 Cambiar foto' : '📷 Subir foto'}
+            </Text>
+          </Pressable>
         </View>
       ))}
     </View>

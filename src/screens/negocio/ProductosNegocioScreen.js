@@ -92,26 +92,41 @@ export default function ProductosNegocioScreen() {
     }
   };
 
-  const subirFoto = async (prod) => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería.');
-      return;
-    }
+  const subirFotoDesdeGaleria = async (prod) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      base64: true,
+      allowsEditing: true, quality: 0.7, base64: true,
     });
-    if (result.canceled) return;
+    if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
-    const mime = asset.mimeType || 'image/jpeg';
     try {
-      await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, mime);
+      await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, asset.mimeType || 'image/jpeg');
       await cargar();
     } catch (e) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir la foto.');
     }
+  };
+
+  const subirFotoDesdeCamara = async (prod) => {
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true, quality: 0.7, base64: true,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    try {
+      await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, asset.mimeType || 'image/jpeg');
+      await cargar();
+    } catch (e) {
+      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir la foto.');
+    }
+  };
+
+  const subirFoto = (prod) => {
+    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
+      { text: '📷 Tomar foto',        onPress: () => subirFotoDesdeCamara(prod) },
+      { text: '🖼️ Elegir de galería',  onPress: () => subirFotoDesdeGaleria(prod) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   if (cargando) {

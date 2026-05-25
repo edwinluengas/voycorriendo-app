@@ -131,6 +131,9 @@ export default function SeguimientoScreen({ route, navigation }) {
         <View style={estilos.header}>
           <Text style={estilos.numero}>Pedido {pedido.numero}</Text>
           <Text style={estilos.total}>${parseFloat(pedido.total).toFixed(2)} MXN</Text>
+          {!!pedido.direccion_entrega && (
+            <Text style={estilos.direccionEntrega}>📍 {pedido.direccion_entrega}</Text>
+          )}
         </View>
 
         {/* 🗺️ Mapa en vivo */}
@@ -284,6 +287,7 @@ const estilos = StyleSheet.create({
   header: { padding: espacio.lg, backgroundColor: colors.superficie, alignItems: 'center' },
   numero: { fontSize: 14, color: colors.textoSuave, fontWeight: '600' },
   total: { fontSize: 28, fontWeight: '800', color: colors.primario, marginTop: espacio.xs },
+  direccionEntrega: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center', paddingHorizontal: espacio.md },
 
   // 🗺️ Mapa
   mapaContenedor: {

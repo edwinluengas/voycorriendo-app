@@ -16,10 +16,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "mx.voycorriendo.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "VoyCorriendo usa tu ubicación para asignarte pedidos cercanos.",
+        "NSLocationWhenInUseUsageDescription": "Para saber dónde entregarte tu pedido.",
         "NSLocationAlwaysUsageDescription": "VoyCorriendo usa tu ubicación para rastrear entregas en curso.",
-        "NSCameraUsageDescription": "VoyCorriendo necesita la cámara para tomar fotos de tus documentos.",
-        "NSPhotoLibraryUsageDescription": "VoyCorriendo necesita acceso a tu galería para subir fotos de documentos."
+        "NSCameraUsageDescription": "Para tomar fotos de tus productos y documentos.",
+        "NSPhotoLibraryUsageDescription": "Para elegir fotos de tus productos desde tu galería."
       }
     },
     "android": {
@@ -29,7 +29,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "mx.voycorriendo.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
