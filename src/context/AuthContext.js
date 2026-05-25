@@ -6,7 +6,10 @@
  * que tabs ve la app en este momento.
  */
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { authAPI, usuariosAPI } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -15,6 +18,29 @@ export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
   const [roles, setRoles] = useState(null);     // {cliente:{}, repartidor:{}, negocio:{}}
   const [cargando, setCargando] = useState(true);
+
+  // Registra el Expo push token en el backend
+  const registrarPushToken = useCallback(async () => {
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'VoyCorriendo',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF6B00',
+        });
+      }
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') return;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      const { data: pushToken } = await Notifications.getExpoPushTokenAsync(
+        projectId ? { projectId } : {}
+      );
+      if (pushToken) await usuariosAPI.guardarPushToken(pushToken);
+    } catch (e) {
+      console.log('[Push] No se pudo registrar token:', e?.message);
+    }
+  }, []);
 
   // Carga inicial: verifica si hay sesion guardada
   useEffect(() => {
@@ -25,7 +51,10 @@ export const AuthProvider = ({ children }) => {
           const { data } = await authAPI.yo();
           const user = data.data?.usuario || data.usuario || null;
           setUsuario(user);
-          if (user) await cargarRoles();
+          if (user) {
+            await cargarRoles();
+            await registrarPushToken();
+          }
         }
       } catch (_) {
         await SecureStore.deleteItemAsync('jwt');
@@ -58,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.setItemAsync('jwt', token);
     setUsuario(user);
     await cargarRoles();
+    registrarPushToken();
     return user;
   };
 
@@ -67,6 +97,7 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.setItemAsync('jwt', token);
     setUsuario(user);
     await cargarRoles();
+    registrarPushToken();
     return user;
   };
 

@@ -124,8 +124,9 @@ export const pagosAPI = {
 
 // Multi-rol (estilo Uber/Rappi): consultar y cambiar modo activo
 export const usuariosAPI = {
-  misRoles:    ()      => api.get('/usuarios/mis-roles'),
-  cambiarModo: (modo)  => api.post('/usuarios/cambiar-modo', { modo }),
+  misRoles:         ()      => api.get('/usuarios/mis-roles'),
+  cambiarModo:      (modo)  => api.post('/usuarios/cambiar-modo', { modo }),
+  guardarPushToken: (token) => api.patch('/usuarios/push-token', { token }),
 };
 
 export const repartidoresAPI = {
