@@ -6,13 +6,13 @@ import { negociosAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
-  { id: 'todos',                nombre: 'Todos',        emoji: '🏪' },
-  { id: 'ahivoy store',         nombre: 'Ahívoy',       emoji: '🛍️', esAhivoy: true },
-  { id: 'restaurante',          nombre: 'Restaurantes', emoji: '🍽️' },
-  { id: 'tienda_conveniencia',  nombre: 'Tiendita',     emoji: '🏪' },
-  { id: 'farmacia',             nombre: 'Farmacia',     emoji: '💊' },
-  { id: 'papeleria',            nombre: 'Papelería',    emoji: '✏️' },
-  { id: 'panaderia',            nombre: 'Panadería',    emoji: '🥖' },
+  { id: 'todos',                nombre: 'Todos',          emoji: '🏪' },
+  { id: 'ahivoy store',         nombre: 'VoyCorriendo',   emoji: '🛍️', esAhivoy: true },
+  { id: 'restaurante',          nombre: 'Restaurantes',   emoji: '🍽️' },
+  { id: 'tienda_conveniencia',  nombre: 'Tiendita',       emoji: '🏪' },
+  { id: 'farmacia',             nombre: 'Farmacia',       emoji: '💊' },
+  { id: 'papeleria',            nombre: 'Papelería',      emoji: '✏️' },
+  { id: 'panaderia',            nombre: 'Panadería',      emoji: '🥖' },
 ];
 
 const EMOJI_POR_CATEGORIA = {
@@ -90,25 +90,25 @@ export default function InicioClienteScreen({ navigation, route }) {
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
             </View>
 
-            {/* Banner de Mi Tienda Ahívoy — con logo distintivo, no estrella */}
+            {/* Banner Tienda VoyCorriendo — tienda oficial, envíos desde México */}
             {tiendaAhivoy && categoria === 'todos' && (
               <Pressable
                 style={estilos.bannerAhivoy}
                 onPress={() => navigation.navigate('Negocio', { id: tiendaAhivoy.id })}
               >
                 <View style={estilos.bannerContenido}>
-                  <View style={estilos.bannerLogo}>
-                    <Text style={estilos.bannerLogoTxt}>A</Text>
-                    <Text style={estilos.bannerLogoBolsa}>🛍️</Text>
-                  </View>
+                  <Image
+                    source={require('../../../assets/icon.png')}
+                    style={estilos.bannerLogoImg}
+                  />
                   <View style={{ flex: 1 }}>
                     <View style={estilos.bannerFila}>
-                      <Text style={estilos.bannerTitulo}>Ahívoy</Text>
+                      <Text style={estilos.bannerTitulo}>VoyCorriendo</Text>
                       <View style={estilos.bannerBadge}>
                         <Text style={estilos.bannerBadgeTxt}>STORE</Text>
                       </View>
                     </View>
-                    <Text style={estilos.bannerSubtitulo}>Productos de CDMX a tu puerta 📦</Text>
+                    <Text style={estilos.bannerSubtitulo}>Productos de México a tu puerta 📦</Text>
                     <Text style={estilos.bannerCta}>Tocar para explorar →</Text>
                   </View>
                 </View>
@@ -193,17 +193,15 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
   <Pressable style={estilos.tarjeta} onPress={onPress}>
     {negocio.foto_portada ? (
       <Image source={{ uri: negocio.foto_portada }} style={estilos.imagenPlaceholder} />
+    ) : esAhivoy ? (
+      <View style={[estilos.imagenPlaceholder, estilos.imagenAhivoy]}>
+        <Image source={require('../../../assets/icon.png')} style={estilos.miniLogoImg} />
+      </View>
     ) : (
-      <View style={[estilos.imagenPlaceholder, esAhivoy && estilos.imagenAhivoy]}>
-        {esAhivoy ? (
-          <View style={estilos.miniLogo}>
-            <Text style={estilos.miniLogoA}>A</Text>
-          </View>
-        ) : (
-          <Text style={estilos.imagenEmoji}>
-            {EMOJI_POR_CATEGORIA[negocio.categoria] || '🏪'}
-          </Text>
-        )}
+      <View style={estilos.imagenPlaceholder}>
+        <Text style={estilos.imagenEmoji}>
+          {EMOJI_POR_CATEGORIA[negocio.categoria] || '🏪'}
+        </Text>
       </View>
     )}
     <View style={{ flex: 1, padding: espacio.md }}>
@@ -247,34 +245,14 @@ const estilos = StyleSheet.create({
   bannerSubtitulo: { color: '#FFF', fontSize: 13, opacity: 0.95, marginTop: 2 },
   bannerCta: { color: '#FFF', fontSize: 12, fontWeight: '700', marginTop: espacio.xs, opacity: 0.9 },
 
-  // Logo distintivo Ahívoy (círculo con letra "A" + bolsa)
-  bannerLogo: {
+  // Logo VoyCorriendo en el banner
+  bannerLogoImg: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 14,
     borderWidth: 3,
     borderColor: '#FFD700',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-    position: 'relative',
-  },
-  bannerLogoTxt: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.primario,
-    lineHeight: 36,
-  },
-  bannerLogoBolsa: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    fontSize: 22,
+    backgroundColor: '#FFF',
   },
   bannerFila: {
     flexDirection: 'row',
@@ -294,22 +272,11 @@ const estilos = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Mini logo para tarjetas Ahívoy
-  miniLogo: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFD700',
-  },
-  miniLogoA: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.primario,
-    lineHeight: 32,
+  // Mini logo VoyCorriendo en tarjetas
+  miniLogoImg: {
+    width: 62,
+    height: 62,
+    borderRadius: 10,
   },
 
   // Tabs de categoría
