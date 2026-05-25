@@ -9,21 +9,24 @@ const ESTADO_COLOR = {
   pendiente: colors.advertencia,
   confirmado: colors.secundario,
   preparando: colors.secundario,
-  listo: colors.secundario,
-  en_camino: colors.primario,
-  entregado: colors.exito,
-  cancelado: colors.error,
+  listo:      colors.secundario,
+  en_camino:  colors.primario,
+  en_envio:   colors.primario,
+  entregado:  colors.exito,
+  cancelado:  colors.error,
+  rechazado:  colors.error,
 };
 
 const ESTADO_TXT = {
-  pendiente: 'Esperando',
+  pendiente:  'Esperando',
   confirmado: 'Confirmado',
   preparando: 'Preparando',
-  listo: 'Listo',
-  en_camino: 'En camino',
-  entregado: 'Entregado',
-  cancelado: 'Cancelado',
-  rechazado: 'Rechazado',
+  listo:      'Listo',
+  en_camino:  'En camino',
+  en_envio:   '📦 Enviado',
+  entregado:  'Entregado',
+  cancelado:  'Cancelado',
+  rechazado:  'Rechazado',
 };
 
 export default function MisPedidosScreen({ navigation }) {

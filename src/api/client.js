@@ -92,8 +92,8 @@ export const pedidosAPI = {
   cancelar:    (id, motivo)  => api.patch(`/pedidos/${id}/estado`, { estado: 'cancelado', nota: motivo }),
   calificar:   (id, data)    => api.post(`/pedidos/${id}/calificar`, data),
   // Actualización genérica de estado (usada por negocio y repartidor)
-  actualizarEstado: (id, estado, nota) =>
-    api.patch(`/pedidos/${id}/estado`, { estado, nota }),
+  actualizarEstado: (id, estado, nota, extra = {}) =>
+    api.patch(`/pedidos/${id}/estado`, { estado, nota, ...extra }),
 };
 
 // Endpoints para el dueño de un negocio (rol === 'negocio')

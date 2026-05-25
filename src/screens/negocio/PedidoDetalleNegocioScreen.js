@@ -14,7 +14,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, Pressable,
-  ActivityIndicator, Alert, Linking, Modal,
+  ActivityIndicator, Alert, Linking, Modal, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -33,8 +33,9 @@ const ETIQUETA_ESTADO = {
   pendiente:   { texto: 'Nuevo pedido',        color: colors.advertencia, emoji: '🆕' },
   confirmado:  { texto: 'Confirmado',          color: colors.secundario,  emoji: '✅' },
   preparando:  { texto: 'Preparando',          color: colors.primario,    emoji: '🍳' },
-  listo:       { texto: 'Listo para recoger',  color: colors.exito,       emoji: '📦' },
+  listo:       { texto: 'Listo para enviar',   color: colors.exito,       emoji: '📦' },
   en_camino:   { texto: 'En camino',           color: colors.secundario,  emoji: '🛵' },
+  en_envio:    { texto: 'Enviado 🚚',          color: colors.secundario,  emoji: '🚚' },
   entregado:   { texto: 'Entregado',           color: colors.textoSuave,  emoji: '🎉' },
   cancelado:   { texto: 'Cancelado',           color: colors.error,       emoji: '❌' },
   rechazado:   { texto: 'Rechazado',           color: colors.error,       emoji: '🚫' },
@@ -42,10 +43,12 @@ const ETIQUETA_ESTADO = {
 
 export default function PedidoDetalleNegocioScreen({ route, navigation }) {
   const { pedidoId } = route.params || {};
-  const [pedido, setPedido]       = useState(null);
-  const [cargando, setCargando]   = useState(true);
-  const [enviando, setEnviando]   = useState(false);
+  const [pedido, setPedido]         = useState(null);
+  const [cargando, setCargando]     = useState(true);
+  const [enviando, setEnviando]     = useState(false);
   const [mostrarINE, setMostrarINE] = useState(false);
+  const [modalGuia, setModalGuia]   = useState(false);
+  const [guia, setGuia]             = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -82,6 +85,20 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
         onPress: () => cambiarEstado(nuevoEstado),
       },
     ]);
+  };
+
+  const marcarEnviado = async () => {
+    setModalGuia(false);
+    setEnviando(true);
+    try {
+      await pedidosAPI.actualizarEstado(pedidoId, 'en_envio', null, { numero_guia: guia.trim() || null });
+      setGuia('');
+      await cargar();
+    } catch (e) {
+      Alert.alert('Error', e.mensajeAmigable || 'No se pudo actualizar el pedido.');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const llamarCliente = () => {
@@ -153,6 +170,13 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
             <Text style={estilos.notasEntrega}>📝 {pedido.notas_entrega}</Text>
           ) : null}
         </Seccion>
+
+        {/* Número de guía si ya fue enviado */}
+        {pedido.numero_guia && (
+          <Seccion titulo="📦 Número de guía">
+            <Text style={estilos.guiaTxt}>{pedido.numero_guia}</Text>
+          </Seccion>
+        )}
 
         {/* INE si aplica */}
         {hayINE && (
@@ -250,6 +274,7 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
       <BarraAcciones
         estado={pedido.estado}
         enviando={enviando}
+        esPaqueteria={pedido.negocio?.tipo_entrega === 'paqueteria'}
         onAceptar={() => confirmarAccion(
           'Aceptar pedido',
           `¿Aceptas el pedido #${pedido.numero}? El cliente será notificado.`,
@@ -263,7 +288,47 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
         )}
         onPreparando={() => cambiarEstado('preparando')}
         onListo={() => cambiarEstado('listo')}
+        onMarcarEnviado={() => setModalGuia(true)}
+        onConfirmarEntrega={() => confirmarAccion(
+          'Confirmar entrega',
+          `¿Confirmas que el pedido #${pedido.numero} fue entregado al cliente?`,
+          'entregado'
+        )}
       />
+
+      {/* Modal para ingresar número de guía */}
+      <Modal visible={modalGuia} transparent animationType="slide">
+        <View style={estilos.modalOverlay}>
+          <View style={estilos.modalCaja}>
+            <Text style={estilos.modalTitulo}>📦 Marcar como enviado</Text>
+            <Text style={estilos.modalSub}>Agrega el número de guía (opcional)</Text>
+            <TextInput
+              style={estilos.guiaInput}
+              placeholder="Ej. 1Z999AA10123456784"
+              value={guia}
+              onChangeText={setGuia}
+              autoCapitalize="characters"
+            />
+            <View style={{ flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md }}>
+              <Pressable
+                style={[estilos.btnModal, { flex: 1, backgroundColor: colors.fondo, borderWidth: 1, borderColor: colors.borde }]}
+                onPress={() => { setModalGuia(false); setGuia(''); }}
+              >
+                <Text style={{ fontWeight: '700', color: colors.texto }}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={[estilos.btnModal, { flex: 2, backgroundColor: colors.primario }]}
+                onPress={marcarEnviado}
+                disabled={enviando}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800' }}>
+                  {enviando ? 'Enviando…' : '🚚 Confirmar envío'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de foto INE en grande */}
       <Modal visible={mostrarINE} transparent animationType="fade" onRequestClose={() => setMostrarINE(false)}>
@@ -295,7 +360,7 @@ function FilaMonto({ etiqueta, monto }) {
   );
 }
 
-function BarraAcciones({ estado, enviando, onAceptar, onRechazar, onPreparando, onListo }) {
+function BarraAcciones({ estado, enviando, esPaqueteria, onAceptar, onRechazar, onPreparando, onListo, onMarcarEnviado, onConfirmarEntrega }) {
   if (estado === 'pendiente') {
     return (
       <View style={estilos.barra}>
@@ -303,9 +368,7 @@ function BarraAcciones({ estado, enviando, onAceptar, onRechazar, onPreparando, 
           <Text style={estilos.btnRechazarTxt}>🚫 Rechazar</Text>
         </Pressable>
         <Pressable style={[estilos.btn, estilos.btnAceptar]} disabled={enviando} onPress={onAceptar}>
-          <Text style={estilos.btnAceptarTxt}>
-            {enviando ? 'Enviando…' : '✅ Aceptar'}
-          </Text>
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Enviando…' : '✅ Aceptar'}</Text>
         </Pressable>
       </View>
     );
@@ -314,9 +377,7 @@ function BarraAcciones({ estado, enviando, onAceptar, onRechazar, onPreparando, 
     return (
       <View style={estilos.barra}>
         <Pressable style={[estilos.btn, estilos.btnAceptar, { flex: 1 }]} disabled={enviando} onPress={onPreparando}>
-          <Text style={estilos.btnAceptarTxt}>
-            {enviando ? 'Actualizando…' : '🍳 Empezar a preparar'}
-          </Text>
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : '🍳 Empezar a preparar'}</Text>
         </Pressable>
       </View>
     );
@@ -325,14 +386,29 @@ function BarraAcciones({ estado, enviando, onAceptar, onRechazar, onPreparando, 
     return (
       <View style={estilos.barra}>
         <Pressable style={[estilos.btn, estilos.btnAceptar, { flex: 1 }]} disabled={enviando} onPress={onListo}>
-          <Text style={estilos.btnAceptarTxt}>
-            {enviando ? 'Actualizando…' : '📦 Marcar como listo'}
-          </Text>
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : '📦 Listo para enviar'}</Text>
         </Pressable>
       </View>
     );
   }
-  // listo / en_camino / entregado / cancelado / rechazado → solo lectura
+  if (estado === 'listo' && esPaqueteria) {
+    return (
+      <View style={estilos.barra}>
+        <Pressable style={[estilos.btn, estilos.btnAceptar, { flex: 1 }]} disabled={enviando} onPress={onMarcarEnviado}>
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : '🚚 Marcar como enviado'}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (estado === 'en_envio' && esPaqueteria) {
+    return (
+      <View style={estilos.barra}>
+        <Pressable style={[estilos.btn, estilos.btnAceptar, { flex: 1, backgroundColor: colors.exito }]} disabled={enviando} onPress={onConfirmarEntrega}>
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : '✅ Confirmar entregado'}</Text>
+        </Pressable>
+      </View>
+    );
+  }
   return null;
 }
 
@@ -413,4 +489,20 @@ const estilos = StyleSheet.create({
   modalFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: espacio.md },
   ineGrande:  { width: '100%', height: '80%' },
   cerrarModal:{ color: '#FFF', marginTop: espacio.md, fontSize: 14 },
+
+  guiaTxt: { fontSize: 16, fontWeight: '700', color: colors.primario, letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCaja: {
+    backgroundColor: colors.superficie,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: espacio.lg,
+  },
+  modalTitulo: { fontSize: 18, fontWeight: '800', color: colors.texto, marginBottom: espacio.xs },
+  modalSub:    { fontSize: 13, color: colors.textoSuave, marginBottom: espacio.md },
+  guiaInput: {
+    borderWidth: 1, borderColor: colors.borde, borderRadius: radio.md,
+    paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    fontSize: 15, color: colors.texto, backgroundColor: colors.fondo,
+  },
+  btnModal: { paddingVertical: 14, borderRadius: radio.md, alignItems: 'center' },
 });
