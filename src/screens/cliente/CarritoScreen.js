@@ -5,11 +5,13 @@ import { getCarrito, carritoRequiereINE } from './NegocioScreen';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const FEES = { express: 50, standard: 25 };
+const FEES = { standard: 35, express: 60 };
+const PEDIDO_MINIMO = 100;
+const TOKENS_POR_PESO = 10;
 
 const TIPOS_ENVIO = [
-  { id: 'standard', label: 'Estándar', sub: 'Entrega normal · mismo día', precio: 25 },
-  { id: 'express',  label: 'Express',  sub: 'Prioridad máxima · llega primero', precio: 50 },
+  { id: 'standard', label: 'Estándar', sub: 'Entrega normal · mismo día', precio: 35 },
+  { id: 'express',  label: 'Express',  sub: 'Prioridad máxima · llega primero', precio: 60 },
 ];
 
 export default function CarritoScreen({ navigation }) {
@@ -20,6 +22,8 @@ export default function CarritoScreen({ navigation }) {
   const subtotal  = items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
   const feeEnvio  = FEES[tipoEnvio];
   const total     = subtotal + feeEnvio;
+  const tokens    = Math.floor(subtotal / TOKENS_POR_PESO);
+  const debajo    = subtotal < PEDIDO_MINIMO;
   const requiereINE = items.some((it) => it.requiere_id);
   const esRestaurante = carrito.negocio?.categoria === 'restaurante';
 
@@ -130,15 +134,34 @@ export default function CarritoScreen({ navigation }) {
         <View style={estilos.separador} />
         <Linea label="Total" valor={total} fuerte />
 
-        {total > 1000 && (
+        {tokens > 0 && !debajo && (
+          <View style={estilos.tokensRow}>
+            <Text style={estilos.tokensTxt}>
+              🪙 Ganarás <Text style={{ fontWeight: '800' }}>{tokens} VoyTokens</Text> con este pedido
+              {tokens >= 35 ? '  ·  ¡Suficientes para 1 envío gratis!' : `  ·  necesitas ${35 - tokens} más para envío gratis`}
+            </Text>
+          </View>
+        )}
+
+        {debajo && (
           <Text style={estilos.aviso}>
-            ⚠️ Tu pedido supera $1,000 MXN. El pago en efectivo no está disponible; elige tarjeta,
+            ⚠️ Pedido mínimo $100 en productos. Te faltan ${(PEDIDO_MINIMO - subtotal).toFixed(2)} MXN.
+          </Text>
+        )}
+
+        {total > 500 && (
+          <Text style={estilos.aviso}>
+            ⚠️ Tu pedido supera $500 MXN. El pago en efectivo no estará disponible; elige tarjeta,
             transferencia o Mercado Pago en el siguiente paso.
           </Text>
         )}
 
         <View style={{ height: espacio.md }} />
-        <Boton titulo="Continuar al pago →" onPress={() => navigation.navigate('Pago', { total, tipo_envio: tipoEnvio })} />
+        <Boton
+          titulo={debajo ? `Mínimo $${PEDIDO_MINIMO} en productos` : 'Continuar al pago →'}
+          deshabilitado={debajo}
+          onPress={() => navigation.navigate('Pago', { total, tipo_envio: tipoEnvio })}
+        />
       </View>
     </SafeAreaView>
   );
@@ -238,6 +261,15 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFF9E6', padding: espacio.sm, borderRadius: radio.sm,
     color: colors.texto, fontSize: 13, marginTop: espacio.md, lineHeight: 18,
   },
+  tokensRow: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: radio.sm,
+    padding: espacio.sm,
+    marginTop: espacio.sm,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  tokensTxt: { fontSize: 12, color: '#92400E', lineHeight: 17 },
   tipoTitulo: { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginBottom: espacio.sm },
   tipoFila: { flexDirection: 'row', gap: espacio.sm, marginBottom: espacio.md },
   tipoBtn: {

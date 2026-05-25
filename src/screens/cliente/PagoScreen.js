@@ -14,10 +14,11 @@ import { colors, espacio, radio } from '../../theme/colors';
 // Centro de Puerto Escondido como fallback si no hay GPS
 const CENTRO_PE = { latitude: 15.8647, longitude: -97.0732 };
 
-const FEE_ENVIO = { express: 50, standard: 25 };
+const FEE_ENVIO = { standard: 35, express: 60 };
+const TOKENS_POR_PESO = 10;
 
 const METODOS = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el pedido (solo hasta $1,000)' },
+  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el pedido (solo hasta $500)' },
   { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago' },
   { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Desde tu cuenta Mercado Pago' },
   { id: 'transferencia',nombre: 'Transferencia',emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria' },
@@ -27,7 +28,8 @@ export default function PagoScreen({ route, navigation }) {
   const carrito   = getCarrito();
   const tipoEnvio = route.params?.tipo_envio || 'standard';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
-  const feeEnvio  = FEE_ENVIO[tipoEnvio] || 25;
+  const feeEnvio  = FEE_ENVIO[tipoEnvio] || 35;
+  const tokens    = Math.floor(subtotal / TOKENS_POR_PESO);
 
   const requiereINE = carrito.items.some((it) => it.requiere_id);
 
@@ -126,7 +128,7 @@ export default function PagoScreen({ route, navigation }) {
     setGeocodificando(false);
   };
 
-  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 1000));
+  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 500));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
   // ── Tomar / elegir foto del INE ──
@@ -282,6 +284,11 @@ export default function PagoScreen({ route, navigation }) {
               </Text>
               <Text style={estilos.resumenSub}>${costoEnvio.toFixed(2)}</Text>
             </View>
+            {tokens > 0 && (
+              <Text style={estilos.tokensInfo}>
+                🪙 Ganarás {tokens} VoyTokens · {tokens >= 35 ? '¡Envío gratis disponible!' : `${35 - tokens} más para envío gratis`}
+              </Text>
+            )}
             {distancia_km != null && (
               <Text style={estilos.tarifaInfo}>
                 📍 ~{distancia_km.toFixed(1)} km del negocio
@@ -397,10 +404,10 @@ export default function PagoScreen({ route, navigation }) {
           </Pressable>
         ))}
 
-        {total > 1000 && (
+        {total > 500 && (
           <Text style={estilos.avisoLimite}>
             💡 Tu pedido es de ${total.toFixed(2)} MXN. El efectivo solo está disponible para pedidos
-            de $1,000 o menos.
+            de $500 o menos.
           </Text>
         )}
 
@@ -484,6 +491,7 @@ const estilos = StyleSheet.create({
   resumenEdad: { fontSize: 12, color: '#9B1C1C', fontWeight: '800' },
   resumenExtra: { fontSize: 12, color: colors.secundario, marginLeft: 16, marginBottom: 2 },
   tarifaInfo:  { fontSize: 11, color: colors.textoSuave, marginTop: 2, fontStyle: 'italic' },
+  tokensInfo:  { fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: '600', backgroundColor: '#FFFBEB', padding: 6, borderRadius: 6 },
   fueraCobertura: {
     backgroundColor: '#FEF2F2',
     padding: espacio.sm, borderRadius: radio.sm,
