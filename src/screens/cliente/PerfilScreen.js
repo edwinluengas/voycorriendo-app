@@ -148,16 +148,16 @@ export default function PerfilScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={estilos.tokensTitulo}>{usuario.voytokens || 0} VoyTokens</Text>
                 <Text style={estilos.tokensSub}>
-                  {(usuario.voytokens || 0) >= 35
+                  {(usuario.voytokens || 0) >= 50
                     ? '¡Tienes envío gratis! Úsalo en tu próximo pedido.'
-                    : `${35 - (usuario.voytokens || 0)} tokens más para tu próximo envío gratis`}
+                    : `${50 - (usuario.voytokens || 0)} tokens más para tu próximo envío gratis`}
                 </Text>
               </View>
-              <Text style={estilos.tokensCont}>{Math.min(usuario.voytokens || 0, 35)}/35</Text>
+              <Text style={estilos.tokensCont}>{Math.min(usuario.voytokens || 0, 50)}/50</Text>
             </View>
             <View style={estilos.tokensBarFondo}>
               <View style={[estilos.tokensBarRelleno, {
-                width: `${Math.min(((usuario.voytokens || 0) / 35) * 100, 100)}%`,
+                width: `${Math.min(((usuario.voytokens || 0) / 50) * 100, 100)}%`,
               }]} />
             </View>
           </View>

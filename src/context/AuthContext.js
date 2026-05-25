@@ -107,6 +107,14 @@ export const AuthProvider = ({ children }) => {
     setRoles(null);
   };
 
+  const refrescarUsuario = useCallback(async () => {
+    try {
+      const { data } = await authAPI.yo();
+      const user = data.data?.usuario || data.usuario || null;
+      if (user) setUsuario(user);
+    } catch (_) {}
+  }, []);
+
   // Cambia el modo activo (cliente/repartidor/negocio)
   // El backend valida que el usuario tenga ese rol aprobado.
   const cambiarModo = async (modo) => {
@@ -126,6 +134,7 @@ export const AuthProvider = ({ children }) => {
       cerrarSesion,
       cambiarModo,
       cargarRoles,
+      refrescarUsuario,
     }}>
       {children}
     </AuthContext.Provider>

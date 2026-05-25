@@ -138,7 +138,7 @@ export default function CarritoScreen({ navigation }) {
           <View style={estilos.tokensRow}>
             <Text style={estilos.tokensTxt}>
               🪙 Ganarás <Text style={{ fontWeight: '800' }}>{tokens} VoyTokens</Text> con este pedido
-              {tokens >= 35 ? '  ·  ¡Suficientes para 1 envío gratis!' : `  ·  necesitas ${35 - tokens} más para envío gratis`}
+              {tokens >= 50 ? '  ·  ¡Suficientes para 1 envío gratis!' : `  ·  necesitas ${50 - tokens} más para envío gratis`}
             </Text>
           </View>
         )}

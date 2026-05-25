@@ -8,6 +8,7 @@ import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { pedidosAPI, pagosAPI } from '../../api/client';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
+import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const FEE_ENVIO = { standard: 35, express: 60 };
@@ -20,7 +21,10 @@ const METODOS = [
   { id: 'transferencia',nombre: 'Transferencia',emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria' },
 ];
 
+const TOKENS_ENVIO_GRATIS = 50;
+
 export default function PagoScreen({ route, navigation }) {
+  const { usuario, refrescarUsuario } = useAuth();
   const carrito   = getCarrito();
   const tipoEnvio = route.params?.tipo_envio || 'standard';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
@@ -34,9 +38,11 @@ export default function PagoScreen({ route, navigation }) {
   const [ubicacion, setUbicacion]       = useState(null);
   const [costoEnvioReal, setCostoEnvio] = useState(null);
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
+  const [usaTokens, setUsaTokens]       = useState(false);
 
-  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
-  const total = subtotal + costoEnvio;
+  const costoEnvioBase = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
+  const costoEnvio     = usaTokens ? 0 : costoEnvioBase;
+  const total          = subtotal + costoEnvio;
 
   const [metodo, setMetodo]     = useState(total > 500 ? 'tarjeta' : 'efectivo');
   const [direccion, setDir]     = useState('');
@@ -210,6 +216,7 @@ export default function PagoScreen({ route, navigation }) {
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
         ine_foto_url,
+        usa_tokens: usaTokens,
       });
       const pedido = data.data?.pedido;
 
@@ -227,6 +234,7 @@ export default function PagoScreen({ route, navigation }) {
 
       // 3. Limpiar carrito y redirigir al seguimiento
       vaciarCarrito();
+      if (usaTokens) refrescarUsuario();
       navigation.replace('Seguimiento', { pedidoId: pedido.id });
     } catch (e) {
       Alert.alert('No pudimos crear tu pedido', e.mensajeAmigable || 'Intenta de nuevo.');
@@ -274,7 +282,7 @@ export default function PagoScreen({ route, navigation }) {
             </View>
             {tokens > 0 && (
               <Text style={estilos.tokensInfo}>
-                🪙 Ganarás {tokens} VoyTokens · {tokens >= 35 ? '¡Envío gratis disponible!' : `${35 - tokens} más para envío gratis`}
+                🪙 Ganarás {tokens} VoyTokens · {tokens >= 50 ? '¡Suficientes para envío gratis!' : `${50 - tokens} más para envío gratis`}
               </Text>
             )}
             {distancia_km != null && (
@@ -324,6 +332,29 @@ export default function PagoScreen({ route, navigation }) {
               </View>
             )}
           </View>
+        )}
+
+        {/* ── Toggle VoyTokens ── */}
+        {(usuario?.voytokens || 0) >= TOKENS_ENVIO_GRATIS && (
+          <Pressable
+            style={[estilos.tokensCanjeBox, usaTokens && estilos.tokensCanjeActivo]}
+            onPress={() => setUsaTokens(v => !v)}
+          >
+            <Text style={estilos.tokensCanjeEmoji}>🪙</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.tokensCanjeTitulo}>
+                Usar {TOKENS_ENVIO_GRATIS} VoyTokens — envío gratis
+              </Text>
+              <Text style={estilos.tokensCanjeSub}>
+                {usaTokens
+                  ? `✓ Envío gratis aplicado · te quedarán ${(usuario.voytokens || 0) - TOKENS_ENVIO_GRATIS} tokens`
+                  : `Tienes ${usuario.voytokens} tokens disponibles`}
+              </Text>
+            </View>
+            <View style={[estilos.tokensCanjeSwitch, usaTokens && estilos.tokensCanjeOn]}>
+              <Text style={estilos.tokensCanjeSwitchTxt}>{usaTokens ? 'ON' : 'OFF'}</Text>
+            </View>
+          </Pressable>
         )}
 
         <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
@@ -406,6 +437,26 @@ const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
   scroll: { padding: espacio.lg },
   seccion: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md, marginBottom: espacio.sm },
+
+  // Toggle VoyTokens
+  tokensCanjeBox: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: espacio.md,
+    borderRadius: radio.md,
+    borderWidth: 1.5, borderColor: '#FDE68A',
+    backgroundColor: '#FFFBEB',
+    marginBottom: espacio.md,
+  },
+  tokensCanjeActivo: { borderColor: '#F59E0B', backgroundColor: '#FFF3CD' },
+  tokensCanjeEmoji: { fontSize: 26, marginRight: espacio.sm },
+  tokensCanjeTitulo: { fontSize: 13, fontWeight: '800', color: '#92400E' },
+  tokensCanjeSub: { fontSize: 11, color: '#92400E', marginTop: 2, lineHeight: 15 },
+  tokensCanjeSwitch: {
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20, backgroundColor: colors.borde, marginLeft: espacio.sm,
+  },
+  tokensCanjeOn: { backgroundColor: '#F59E0B' },
+  tokensCanjeSwitchTxt: { fontSize: 11, fontWeight: '800', color: '#FFF' },
 
   // Botón detectar ubicación
   ubicacionBtn: {
