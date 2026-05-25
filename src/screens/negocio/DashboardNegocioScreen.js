@@ -161,6 +161,9 @@ export default function DashboardNegocioScreen({ navigation }) {
         </ScrollView>
 
         <View style={estilos.footer}>
+          <Pressable style={estilos.perfilBtn} onPress={() => navigation.navigate('Perfil')}>
+            <Text style={estilos.perfilBtnTxt}>👤 Cambiar de modo</Text>
+          </Pressable>
           <Pressable onPress={() => {
             Alert.alert('Cerrar sesión', '¿Seguro que deseas salir?', [
               { text: 'Cancelar', style: 'cancel' },
@@ -267,11 +270,14 @@ export default function DashboardNegocioScreen({ navigation }) {
       {/* Footer */}
       <View style={estilos.footer}>
         <View style={estilos.footerBotones}>
-          <Pressable onPress={() => navigation.navigate('Tokens')} style={estilos.tokenBtn}>
-            <Text style={estilos.tokenBtnTxt}>🪙 Mis tokens</Text>
+          <Pressable onPress={() => navigation.navigate('ProductosNegocio')} style={estilos.tokenBtn}>
+            <Text style={estilos.tokenBtnTxt}>🍽️ Productos</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('FotosNegocio')} style={estilos.fotosBtn}>
             <Text style={estilos.fotosBtnTxt}>📷 Fotos</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Perfil')} style={estilos.perfilBtn}>
+            <Text style={estilos.perfilBtnTxt}>👤 Perfil</Text>
           </Pressable>
         </View>
         <Pressable onPress={() => {
@@ -455,5 +461,7 @@ const estilos = StyleSheet.create({
   tokenBtnTxt: { color: colors.primario, fontSize: 14, fontWeight: '700' },
   fotosBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#EFF6FF', borderRadius: radio.full, borderWidth: 1, borderColor: '#3B82F6' },
   fotosBtnTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
+  perfilBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#F0FDF4', borderRadius: radio.full, borderWidth: 1, borderColor: '#16A34A' },
+  perfilBtnTxt: { color: '#16A34A', fontSize: 14, fontWeight: '700' },
   salir: { color: colors.error, fontSize: 14, fontWeight: '600' },
 });

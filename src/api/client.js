@@ -114,6 +114,11 @@ export const negocioOnboardingAPI = {
   enviarARevision:   ()                    => api.post('/negocios/enviar-a-revision'),
   // ── Abrir/cerrar negocio (estilo Go Online) ──
   cambiarApertura:   (abierto)             => api.patch('/negocios/apertura', { abierto }),
+  // ── Gestión de productos ──
+  misProductos:      ()                    => api.get('/negocios/mi-negocio/productos'),
+  crearProducto:     (data)                => api.post('/negocios/mi-negocio/productos', data),
+  actualizarProducto: (id, data)           => api.patch(`/negocios/mi-negocio/productos/${id}`, data),
+  subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
 };
 
 export const pagosAPI = {

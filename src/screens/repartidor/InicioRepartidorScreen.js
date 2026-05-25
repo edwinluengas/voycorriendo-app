@@ -234,9 +234,14 @@ export default function InicioRepartidorScreen({ navigation }) {
       )}
 
       <View style={estilos.footer}>
-        <Pressable onPress={volverACliente}>
-          <Text style={estilos.cambiarModo}>← Volver a modo cliente</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: espacio.md, justifyContent: 'center' }}>
+          <Pressable onPress={volverACliente}>
+            <Text style={estilos.cambiarModo}>← Modo cliente</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('Perfil')}>
+            <Text style={estilos.cambiarModo}>👤 Mi perfil</Text>
+          </Pressable>
+        </View>
         <Pressable onPress={cerrarSesion}>
           <Text style={estilos.salir}>Cerrar sesion</Text>
         </Pressable>

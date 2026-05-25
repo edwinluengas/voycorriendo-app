@@ -36,6 +36,7 @@ import PedidoDetalleNegocioScreen  from '../screens/negocio/PedidoDetalleNegocio
 import OnboardingNegocioScreen     from '../screens/negocio/OnboardingNegocioScreen';
 import TokenesScreen               from '../screens/negocio/TokenesScreen';
 import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
+import ProductosNegocioScreen      from '../screens/negocio/ProductosNegocioScreen';
 
 // Pantallas Admin
 import AprobacionesScreen from '../screens/admin/AprobacionesScreen';
@@ -212,6 +213,7 @@ const RepartidorStack = () => (
       component={OnboardingRepartidorScreen}
       options={{ title: 'Completa tu registro' }}
     />
+    <Stack.Screen name="Perfil"       component={PerfilScreen}          options={{ title: 'Mi perfil' }} />
     {/* Alias "Inicio" para compatibilidad con navigation.replace('Inicio') en PedidoActivoScreen */}
     <Stack.Screen name="Inicio"       component={RepartidorTabs}        options={{ headerShown: false }} />
   </Stack.Navigator>
@@ -230,6 +232,8 @@ const NegocioStack = () => (
     <Stack.Screen name="PedidoDetalleNegocio" component={PedidoDetalleNegocioScreen}  options={{ title: 'Detalle del pedido' }} />
     <Stack.Screen name="Tokens"               component={TokenesScreen}               options={{ title: 'Tokens' }} />
     <Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
+    <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
+    <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
   </Stack.Navigator>
 );
