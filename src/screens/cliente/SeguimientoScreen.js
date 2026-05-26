@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { pedidosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
+
+const WA_VOYCORRIENDO = '527542462564';
 
 const ESTADOS_LOCAL = [
   { id: 'pendiente',  label: 'Recibimos tu pedido',        emoji: '📝' },
@@ -25,19 +26,13 @@ const ESTADOS_PAQUETERIA = [
   { id: 'entregado',  label: '¡Llegó tu pedido!',            emoji: '🎉' },
 ];
 
-// Centro por defecto: Puerto Escondido, Oaxaca (si no hay coords aún)
-const CENTRO_DEFAULT = { latitude: 15.8631, longitude: -97.0676 };
-
-const toNum = (v) => (v == null ? null : Number(v));
-
 export default function SeguimientoScreen({ route, navigation }) {
   const { pedidoId } = route.params;
-  const [pedido, setPedido]         = useState(null);
-  const [cargando, setCargando]     = useState(true);
-  const [ubicacionRep, setUbicacionRep] = useState(null);
-  const [estrellas, setEstrellas]   = useState(0);
+  const [pedido, setPedido]           = useState(null);
+  const [cargando, setCargando]       = useState(true);
+  const [estrellas, setEstrellas]     = useState(0);
+  const [estrellasRep, setEstrellasRep] = useState(0);
   const [calificando, setCalificando] = useState(false);
-  const mapRef = useRef(null);
 
   const cargar = async () => {
     try {
@@ -69,46 +64,21 @@ export default function SeguimientoScreen({ route, navigation }) {
       if (data.pedido_id === pedidoId) setPedido((p) => ({ ...p, estado: data.estado }));
     });
     socket.on('pago_actualizado', () => cargar());
-    socket.on('ubicacion_repartidor', (data) => {
-      if (data?.lat != null && data?.lng != null) {
-        setUbicacionRep({ lat: Number(data.lat), lng: Number(data.lng) });
-      }
-    });
 
     return () => {
       clearInterval(intervalo);
       socket.off('estado_pedido');
       socket.off('pago_actualizado');
-      socket.off('ubicacion_repartidor');
     };
   }, [pedidoId]);
 
-  // Cuando cambie la ubicación o cargue el pedido, encuadrar el mapa
-  useEffect(() => {
-    if (!mapRef.current || !pedido) return;
-    const puntos = [];
-    const negLat = toNum(pedido.negocio?.latitud);
-    const negLng = toNum(pedido.negocio?.longitud);
-    const entLat = toNum(pedido.latitud_entrega);
-    const entLng = toNum(pedido.longitud_entrega);
-    if (negLat && negLng) puntos.push({ latitude: negLat, longitude: negLng });
-    if (entLat && entLng) puntos.push({ latitude: entLat, longitude: entLng });
-    if (ubicacionRep) puntos.push({ latitude: ubicacionRep.lat, longitude: ubicacionRep.lng });
-    if (puntos.length >= 2) {
-      mapRef.current.fitToCoordinates(puntos, {
-        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-        animated: true,
-      });
-    }
-  }, [pedido, ubicacionRep]);
-
-  const calificar = async (n) => {
-    setEstrellas(n);
+  const calificar = async () => {
+    if (!estrellas) return;
     setCalificando(true);
     try {
       await pedidosAPI.calificar(pedidoId, {
-        calificacion_negocio: n,
-        calificacion_repartidor: pedido.repartidor_id ? n : undefined,
+        calificacion_negocio: estrellas,
+        calificacion_repartidor: (pedido.repartidor_id && estrellasRep) ? estrellasRep : undefined,
       });
       await cargar();
     } catch (_) {} finally {
@@ -121,37 +91,12 @@ export default function SeguimientoScreen({ route, navigation }) {
   }
 
   const esPaqueteria   = pedido.negocio?.tipo_entrega === 'paqueteria';
+  const esAhivoy       = pedido.negocio?.categoria === 'ahivoy store';
   const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : ESTADOS_LOCAL;
   const estadoActual   = ESTADOS.findIndex((e) => e.id === pedido.estado);
   const esRestaurante  = pedido.negocio?.categoria === 'restaurante';
   const mostrarSugerencia = esRestaurante && ['confirmado', 'preparando', 'listo', 'en_camino'].includes(pedido.estado);
   const yaCalificado   = pedido.calificacion_negocio !== null && pedido.calificacion_negocio !== undefined;
-
-  // Coordenadas
-  const negLat = toNum(pedido.negocio?.latitud);
-  const negLng = toNum(pedido.negocio?.longitud);
-  const entLat = toNum(pedido.latitud_entrega);
-  const entLng = toNum(pedido.longitud_entrega);
-  const repLat = ubicacionRep?.lat ?? toNum(pedido.repartidor?.latitud);
-  const repLng = ubicacionRep?.lng ?? toNum(pedido.repartidor?.longitud);
-
-  const tieneCoords = negLat && negLng && entLat && entLng;
-  const mostrarMapa = tieneCoords && ['confirmado', 'preparando', 'listo', 'en_camino', 'entregado'].includes(pedido.estado);
-
-  const regionInicial = {
-    latitude:  negLat || CENTRO_DEFAULT.latitude,
-    longitude: negLng || CENTRO_DEFAULT.longitude,
-    latitudeDelta:  0.02,
-    longitudeDelta: 0.02,
-  };
-
-  // Traza una línea negocio → repartidor (si va en camino) o negocio → destino
-  const trazoCoords = [];
-  if (negLat && negLng) trazoCoords.push({ latitude: negLat, longitude: negLng });
-  if (repLat && repLng && pedido.estado === 'en_camino') {
-    trazoCoords.push({ latitude: repLat, longitude: repLng });
-  }
-  if (entLat && entLng) trazoCoords.push({ latitude: entLat, longitude: entLng });
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -196,80 +141,28 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* 🗺️ Mapa en vivo — solo entregas locales */}
-        {!esPaqueteria && mostrarMapa && (
-          <View style={estilos.mapaContenedor}>
-            <MapView
-              ref={mapRef}
-              style={estilos.mapa}
-              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-              initialRegion={regionInicial}
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-              toolbarEnabled={false}
-            >
-              {/* Negocio (origen) */}
-              {negLat && negLng && (
-                <Marker
-                  coordinate={{ latitude: negLat, longitude: negLng }}
-                  title={pedido.negocio?.nombre || 'Negocio'}
-                  description="Punto de recogida"
-                  pinColor="#FF6B00"
-                >
-                  <View style={estilos.marcadorNegocio}>
-                    <Text style={estilos.marcadorEmoji}>🏪</Text>
-                  </View>
-                </Marker>
-              )}
-
-              {/* Destino (cliente) */}
-              {entLat && entLng && (
-                <Marker
-                  coordinate={{ latitude: entLat, longitude: entLng }}
-                  title="Tu dirección"
-                  description={pedido.direccion_entrega}
-                >
-                  <View style={estilos.marcadorDestino}>
-                    <Text style={estilos.marcadorEmoji}>🏠</Text>
-                  </View>
-                </Marker>
-              )}
-
-              {/* Repartidor en vivo */}
-              {repLat && repLng && pedido.estado === 'en_camino' && (
-                <Marker
-                  coordinate={{ latitude: repLat, longitude: repLng }}
-                  title={pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}
-                  description="Va en camino 🛵"
-                  anchor={{ x: 0.5, y: 0.5 }}
-                >
-                  <View style={estilos.marcadorRepartidor}>
-                    <Text style={estilos.marcadorEmoji}>🛵</Text>
-                  </View>
-                </Marker>
-              )}
-
-              {/* Trazo de ruta */}
-              {trazoCoords.length >= 2 && (
-                <Polyline
-                  coordinates={trazoCoords}
-                  strokeColor={colors.primario}
-                  strokeWidth={4}
-                  lineDashPattern={[8, 6]}
-                />
-              )}
-            </MapView>
-
-            {/* Chip de estado sobre el mapa */}
-            <View style={estilos.chipEstado}>
-              <Text style={estilos.chipEstadoEmoji}>
-                {ESTADOS[estadoActual]?.emoji || '🛵'}
-              </Text>
-              <Text style={estilos.chipEstadoTxt}>
-                {ESTADOS[estadoActual]?.label || 'En curso'}
-              </Text>
-            </View>
+        {/* Estado actual chip (reemplaza mapa) */}
+        {estadoActual >= 0 && pedido.estado !== 'entregado' && pedido.estado !== 'cancelado' && (
+          <View style={estilos.chipEstadoCard}>
+            <Text style={estilos.chipEstadoEmoji}>{ESTADOS[estadoActual]?.emoji}</Text>
+            <Text style={estilos.chipEstadoTxt}>{ESTADOS[estadoActual]?.label}</Text>
           </View>
+        )}
+
+        {/* Botón WhatsApp VoyCorriendo Store */}
+        {esAhivoy && !['entregado', 'cancelado'].includes(pedido.estado) && (
+          <Pressable
+            style={estilos.btnWA}
+            onPress={() => {
+              const msg = encodeURIComponent(
+                `Hola VoyCorriendo Store 🛍️, tengo una pregunta sobre mi pedido #${pedido.numero}.`
+              );
+              Linking.openURL(`whatsapp://send?phone=${WA_VOYCORRIENDO}&text=${msg}`)
+                .catch(() => Linking.openURL(`https://wa.me/${WA_VOYCORRIENDO}?text=${msg}`));
+            }}
+          >
+            <Text style={estilos.btnWATxt}>💬 Contactar VoyCorriendo Store</Text>
+          </Pressable>
         )}
 
         {/* Timeline de estados */}
@@ -330,25 +223,53 @@ export default function SeguimientoScreen({ route, navigation }) {
           </Pressable>
         )}
 
-        {/* ⭐ Calificación — aparece cuando el pedido fue entregado y aún no se calificó */}
+        {/* ⭐ Calificación — dos conjuntos de estrellas: negocio + repartidor */}
         {pedido.estado === 'entregado' && !yaCalificado && (
           <View style={estilos.calificacionBloque}>
             <Text style={estilos.calificacionTitulo}>¿Cómo estuvo tu pedido?</Text>
-            <Text style={estilos.calificacionSub}>Tu opinión ayuda a mejorar el servicio</Text>
+
+            <Text style={estilos.calificacionLabel}>
+              {pedido.negocio?.nombre || 'El negocio'}
+            </Text>
             <View style={estilos.estrellasRow}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} onPress={() => calificar(n)} disabled={calificando}>
+                <Pressable key={n} onPress={() => setEstrellas(n)} disabled={calificando}>
                   <Text style={[estilos.estrella, n <= estrellas && estilos.estrellaActiva]}>★</Text>
                 </Pressable>
               ))}
             </View>
-            {calificando && <ActivityIndicator size="small" color={colors.primario} style={{ marginTop: espacio.sm }} />}
+
+            {!!pedido.repartidor_id && (
+              <>
+                <Text style={[estilos.calificacionLabel, { marginTop: espacio.md }]}>Tu repartidor</Text>
+                <View style={estilos.estrellasRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable key={n} onPress={() => setEstrellasRep(n)} disabled={calificando}>
+                      <Text style={[estilos.estrella, n <= estrellasRep && estilos.estrellaActiva]}>★</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {estrellas > 0 && (
+              <Pressable
+                style={estilos.btnCalificar}
+                onPress={calificar}
+                disabled={calificando}
+              >
+                {calificando
+                  ? <ActivityIndicator color="#FFF" />
+                  : <Text style={estilos.btnCalificarTxt}>Enviar calificación</Text>
+                }
+              </Pressable>
+            )}
           </View>
         )}
 
         {pedido.estado === 'entregado' && yaCalificado && (
           <View style={[estilos.calificacionBloque, { backgroundColor: '#F0FDF4' }]}>
-            <Text style={{ fontSize: 24, textAlign: 'center' }}>{'★'.repeat(pedido.calificacion_negocio)}</Text>
+            <Text style={{ fontSize: 28, textAlign: 'center' }}>{'★'.repeat(pedido.calificacion_negocio)}</Text>
             <Text style={[estilos.calificacionSub, { color: colors.exito, marginTop: espacio.xs }]}>¡Gracias por tu calificación!</Text>
           </View>
         )}
@@ -372,54 +293,22 @@ const estilos = StyleSheet.create({
   total: { fontSize: 28, fontWeight: '800', color: colors.primario, marginTop: espacio.xs },
   direccionEntrega: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center', paddingHorizontal: espacio.md },
 
-  // 🗺️ Mapa
-  mapaContenedor: {
-    height: 280,
+  // Estado card (reemplaza mapa)
+  chipEstadoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.superficie,
     marginHorizontal: espacio.md,
     marginTop: espacio.md,
+    paddingVertical: espacio.md,
     borderRadius: radio.md,
-    overflow: 'hidden',
+    gap: espacio.sm,
     borderWidth: 1,
     borderColor: colors.borde,
   },
-  mapa: { ...StyleSheet.absoluteFillObject },
-  marcadorNegocio: {
-    backgroundColor: '#FF6B00',
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: '#FFF',
-  },
-  marcadorDestino: {
-    backgroundColor: '#2E7D32',
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: '#FFF',
-  },
-  marcadorRepartidor: {
-    backgroundColor: '#1976D2',
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: '#FFF',
-  },
-  marcadorEmoji: { fontSize: 20 },
-  chipEstado: {
-    position: 'absolute',
-    top: espacio.sm,
-    left: espacio.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingVertical: 6,
-    paddingHorizontal: espacio.sm,
-    borderRadius: radio.full,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  chipEstadoEmoji: { fontSize: 16, marginRight: 6 },
-  chipEstadoTxt: { fontSize: 13, fontWeight: '700', color: colors.texto },
+  chipEstadoEmoji: { fontSize: 28 },
+  chipEstadoTxt: { fontSize: 16, fontWeight: '700', color: colors.texto },
 
   timeline: { padding: espacio.lg },
   paso: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.md, position: 'relative' },
@@ -487,12 +376,14 @@ const estilos = StyleSheet.create({
   },
   guiaLabel: { fontSize: 11, color: colors.textoSuave, fontWeight: '600', textTransform: 'uppercase' },
   guiaTxt:   { fontSize: 15, fontWeight: '800', color: colors.primario, letterSpacing: 1, marginTop: 2 },
+  // Botón WhatsApp (paquetería en_envio + VoyCorriendo Store)
   btnWA: {
     flexDirection: 'row', justifyContent: 'center',
     backgroundColor: '#25D366',
     borderRadius: radio.md,
     paddingVertical: espacio.sm,
     marginTop: espacio.sm,
+    marginHorizontal: espacio.md,
   },
   btnWATxt: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
@@ -505,9 +396,20 @@ const estilos = StyleSheet.create({
     padding: espacio.lg,
     alignItems: 'center',
   },
-  calificacionTitulo: { fontSize: 18, fontWeight: '800', color: colors.texto },
+  calificacionTitulo: { fontSize: 18, fontWeight: '800', color: colors.texto, marginBottom: espacio.sm },
+  calificacionLabel:  { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginTop: espacio.xs },
   calificacionSub:    { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
-  estrellasRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md },
+  estrellasRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.xs },
   estrella:     { fontSize: 40, color: colors.borde },
   estrellaActiva: { color: '#FBBF24' },
+  btnCalificar: {
+    marginTop: espacio.lg,
+    backgroundColor: colors.primario,
+    paddingVertical: espacio.md,
+    paddingHorizontal: espacio.xl,
+    borderRadius: radio.md,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
 });
