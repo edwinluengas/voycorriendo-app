@@ -155,11 +155,13 @@ export const repartidoresAPI = {
 };
 
 export const adminAPI = {
-  dashboard:          ()           => api.get('/admin/dashboard'),
-  aprobarNegocio:     (id)         => api.patch(`/admin/negocios/${id}/aprobar`),
-  rechazarNegocio:    (id, motivo) => api.patch(`/admin/negocios/${id}/rechazar`, { motivo }),
-  aprobarRepartidor:  (id)         => api.patch(`/admin/repartidores/${id}/aprobar`),
-  rechazarRepartidor: (id, motivo) => api.patch(`/admin/repartidores/${id}/rechazar`, { motivo }),
+  dashboard:          ()                    => api.get('/admin/dashboard'),
+  aprobarNegocio:     (id)                  => api.patch(`/admin/negocios/${id}/aprobar`),
+  rechazarNegocio:    (id, motivo)          => api.patch(`/admin/negocios/${id}/rechazar`, { motivo }),
+  aprobarRepartidor:  (id)                  => api.patch(`/admin/repartidores/${id}/aprobar`),
+  rechazarRepartidor: (id, motivo)          => api.patch(`/admin/repartidores/${id}/rechazar`, { motivo }),
+  revenue:            (periodo = 'semana')  => api.get('/admin/revenue', { params: { periodo } }),
+  usuarios:           (buscar)              => api.get('/admin/usuarios', { params: buscar ? { buscar } : {} }),
 };
 
 export const tokensAPI = {
