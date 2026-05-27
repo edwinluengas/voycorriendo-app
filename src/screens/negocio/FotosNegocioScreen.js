@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { negocioOnboardingAPI, negociosAPI } from '../../api/client';
+import { negocioOnboardingAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const ASPECT_PORTADA = [16, 9];
@@ -117,15 +117,19 @@ export default function FotosNegocioScreen({ navigation }) {
     if (!asset) return;
     setSubiendo(producto.id);
     try {
-      const fotoUrl = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
-      const { data } = await negociosAPI.actualizarProducto(negocio.id, producto.id, { foto_url: fotoUrl });
-      const updatedFoto = data.data?.producto?.foto_url || fotoUrl;
+      const { data } = await negocioOnboardingAPI.subirFotoProducto(
+        producto.id,
+        asset.base64,
+        asset.mimeType || 'image/jpeg',
+      );
+      const url = data.data?.url || data.data?.producto?.imagen;
       setNegocio((n) => ({
         ...n,
         productos: (n.productos || []).map((p) =>
-          p.id === producto.id ? { ...p, foto_url: updatedFoto } : p,
+          p.id === producto.id ? { ...p, imagen: url || p.imagen } : p,
         ),
       }));
+      Alert.alert('¡Listo!', 'Foto del producto actualizada.');
     } catch (e) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo actualizar la foto.');
     } finally {
@@ -261,10 +265,11 @@ export default function FotosNegocioScreen({ navigation }) {
 
 // ── Tarjeta de producto con foto ──────────────────────────
 function ProductoFotoItem({ producto, subiendo, onSubir }) {
+  const fotoUri = producto.imagen || producto.foto_url;
   return (
     <View style={estilos.productoCard}>
-      {producto.foto_url ? (
-        <Image source={{ uri: producto.foto_url }} style={estilos.productoImg} resizeMode="cover" />
+      {fotoUri ? (
+        <Image source={{ uri: fotoUri }} style={estilos.productoImg} resizeMode="cover" />
       ) : (
         <View style={[estilos.productoImg, estilos.productoImgVacio]}>
           <Text style={{ fontSize: 28 }}>📷</Text>
@@ -285,7 +290,7 @@ function ProductoFotoItem({ producto, subiendo, onSubir }) {
             <ActivityIndicator color={colors.primario} size="small" />
           ) : (
             <Text style={estilos.btnProductoFotoTxt}>
-              {producto.foto_url ? '🔄 Cambiar foto' : '📷 Agregar foto'}
+              {fotoUri ? '🔄 Cambiar foto' : '📷 Agregar foto'}
             </Text>
           )}
         </Pressable>

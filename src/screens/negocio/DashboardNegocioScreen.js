@@ -157,6 +157,16 @@ export default function DashboardNegocioScreen({ navigation }) {
                 <Text style={estilos.botonRefreshTxt}>🔄 Verificar estado</Text>
               </Pressable>
             )}
+
+            {/* Botón de fotos disponible siempre que exista el negocio */}
+            {negocio && (
+              <Pressable
+                style={estilos.botonFotos}
+                onPress={() => navigation.navigate('FotosNegocio')}
+              >
+                <Text style={estilos.botonFotosTxt}>📷 Seleccionar fotos</Text>
+              </Pressable>
+            )}
           </View>
         </ScrollView>
 
@@ -400,6 +410,14 @@ const estilos = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borde,
   },
   botonRefreshTxt: { color: colors.texto, fontSize: 14, fontWeight: '700' },
+  botonFotos: {
+    marginTop: espacio.md,
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#3B82F6',
+  },
+  botonFotosTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
 
   // ── Dashboard normal (aprobado) ──
   saludo: { padding: espacio.lg, backgroundColor: colors.superficie, borderBottomWidth: 1, borderBottomColor: colors.borde },
