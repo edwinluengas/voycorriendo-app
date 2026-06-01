@@ -49,13 +49,19 @@ export default function InicioClienteScreen({ navigation, route }) {
     useCallback(() => {
       if (route?.params?.filtroCategoria) {
         setCategoria(route.params.filtroCategoria);
-        // Limpiamos el param para que no se reaplique si el usuario cambia de filtro a mano
         navigation.setParams({ filtroCategoria: undefined });
       }
     }, [route?.params?.filtroCategoria])
   );
 
-  const cargarNegocios = async () => {
+  // Refresca negocios (con logos actualizados) cada vez que el usuario vuelve a esta pantalla
+  useFocusEffect(
+    useCallback(() => {
+      cargarNegocios();
+    }, [cargarNegocios])
+  );
+
+  const cargarNegocios = useCallback(async () => {
     try {
       const { data } = await negociosAPI.listar();
       setNegocios(data.data?.negocios || []);
@@ -65,9 +71,9 @@ export default function InicioClienteScreen({ navigation, route }) {
       setCargando(false);
       setRefrescar(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { cargarNegocios(); }, []);
+  useEffect(() => { cargarNegocios(); }, [cargarNegocios]);
 
   const destacados   = negocios.filter((n) => n.destacado);
   const filtrados    = categoria === 'todos'
@@ -98,7 +104,7 @@ export default function InicioClienteScreen({ navigation, route }) {
               >
                 <View style={estilos.bannerContenido}>
                   <Image
-                    source={require('../../../assets/icon.png')}
+                    source={tiendaAhivoy.logo ? { uri: tiendaAhivoy.logo } : require('../../../assets/icon.png')}
                     style={estilos.bannerLogoImg}
                   />
                   <View style={{ flex: 1 }}>
@@ -195,7 +201,10 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
       <Image source={{ uri: negocio.foto_portada }} style={estilos.imagenPlaceholder} />
     ) : esAhivoy ? (
       <View style={[estilos.imagenPlaceholder, estilos.imagenAhivoy]}>
-        <Image source={require('../../../assets/icon.png')} style={estilos.miniLogoImg} />
+        <Image
+          source={negocio.logo ? { uri: negocio.logo } : require('../../../assets/icon.png')}
+          style={estilos.miniLogoImg}
+        />
       </View>
     ) : (
       <View style={estilos.imagenPlaceholder}>

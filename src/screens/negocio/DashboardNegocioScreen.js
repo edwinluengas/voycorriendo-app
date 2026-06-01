@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
@@ -92,6 +93,21 @@ export default function DashboardNegocioScreen({ navigation }) {
 
     const onNuevo = () => {
       Vibration.vibrate([0, 400, 200, 400]);
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🆕 ¡Nuevo pedido!',
+          body: 'Tienes un nuevo pedido esperando confirmación.',
+          sound: true,
+          data: { tipo: 'nuevo_pedido' },
+        },
+        trigger: null,
+      }).catch(() => {});
+      Alert.alert(
+        '🆕 ¡Nuevo pedido!',
+        'Tienes un nuevo pedido. ¿Lo ves?',
+        [{ text: 'Ver ahora', onPress: () => setTab('nuevos') }],
+        { cancelable: true },
+      );
       cargar();
     };
     const onEstado = () => { cargar(); };

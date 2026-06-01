@@ -8,15 +8,17 @@
  *   - Apagado: no recibe pedidos, mensaje "Estas fuera de linea".
  *   - Encendido: pide ubicacion y muestra pedidos disponibles.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator,
-  Alert, RefreshControl, Switch,
+  Alert, RefreshControl, Switch, Vibration,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { repartidoresAPI, usuariosAPI } from '../../api/client';
+import { conectarSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -28,6 +30,7 @@ export default function InicioRepartidorScreen({ navigation }) {
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [conectando, setConectando] = useState(false);
+  const pedidosAnterioresRef        = useRef(new Set());
 
   const r = roles?.repartidor;
   const aprobado = r?.estado === 'aprobado';
@@ -59,14 +62,44 @@ export default function InicioRepartidorScreen({ navigation }) {
   const cargarPedidos = async () => {
     try {
       const { data } = await repartidoresAPI.pedidosDisponibles();
-      setPedidos(data.data?.pedidos || []);
+      const nuevos = data.data?.pedidos || [];
+      const nuevosIds = nuevos.map((p) => p.id);
+      const hayNuevos = nuevosIds.some((id) => !pedidosAnterioresRef.current.has(id));
+      if (hayNuevos && pedidosAnterioresRef.current.size > 0) {
+        Vibration.vibrate([0, 300, 200, 300]);
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: '🛵 ¡Nuevo pedido disponible!',
+            body: 'Hay un pedido cerca de ti. ¡Tómalo antes que alguien más!',
+            sound: true,
+            data: { tipo: 'pedido_disponible' },
+          },
+          trigger: null,
+        }).catch(() => {});
+        Alert.alert(
+          '🛵 ¡Nuevo pedido!',
+          'Hay un pedido disponible cerca de ti.',
+          [{ text: '¡Ver ahora!', style: 'default' }],
+          { cancelable: true },
+        );
+      }
+      pedidosAnterioresRef.current = new Set(nuevosIds);
+      setPedidos(nuevos);
     } catch (e) {
-      // 403: no esta conectado / no aprobado / etc. Silenciamos.
       setPedidos([]);
     } finally {
       setRefrescar(false);
     }
   };
+
+  // Socket para notificación inmediata de pedidos disponibles
+  useEffect(() => {
+    if (!conectado || !aprobado) return;
+    const socket = conectarSocket();
+    const onDisponible = () => { cargarPedidos(); };
+    socket.on('pedido_disponible', onDisponible);
+    return () => { socket.off('pedido_disponible', onDisponible); };
+  }, [conectado, aprobado]);
 
   // ─── Conectarse / desconectarse ──────────────────────────
   const togglearConexion = async (nuevoEstado) => {

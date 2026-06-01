@@ -14,12 +14,12 @@ import { colors, espacio, radio } from '../../theme/colors';
 const FEE_ENVIO = { standard: 35, express: 60 };
 const TOKENS_POR_PESO = 10;
 
-const METODOS = [
+const METODOS_BASE = [
   { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el pedido (solo hasta $500)' },
   { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago' },
   { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Desde tu cuenta Mercado Pago' },
-  { id: 'transferencia',nombre: 'Transferencia',emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria' },
 ];
+const METODO_TRANSFERENCIA = { id: 'transferencia', nombre: 'Transferencia', emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria (solo Voy Corriendo Store)' };
 
 const TOKENS_ENVIO_GRATIS = 50;
 
@@ -122,6 +122,8 @@ export default function PagoScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
+  const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
   const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 500));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
