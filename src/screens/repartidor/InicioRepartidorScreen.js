@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import { repartidoresAPI, usuariosAPI } from '../../api/client';
+import { repartidoresAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
 import Boton from '../../components/Boton';
@@ -30,7 +30,9 @@ export default function InicioRepartidorScreen({ navigation }) {
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [conectando, setConectando] = useState(false);
-  const pedidosAnterioresRef        = useRef(new Set());
+  const pedidosAnterioresRef = useRef(new Set());
+  // Ref para que el socket siempre llame la versión más reciente de cargarPedidos
+  const cargarPedidosRef    = useRef(null);
 
   const r = roles?.repartidor;
   const aprobado = r?.estado === 'aprobado';
@@ -59,7 +61,7 @@ export default function InicioRepartidorScreen({ navigation }) {
     return () => clearInterval(intervalo);
   }, [conectado, aprobado]);
 
-  const cargarPedidos = async () => {
+  const cargarPedidos = useCallback(async () => {
     try {
       const { data } = await repartidoresAPI.pedidosDisponibles();
       const nuevos = data.data?.pedidos || [];
@@ -72,6 +74,7 @@ export default function InicioRepartidorScreen({ navigation }) {
             title: '🛵 ¡Nuevo pedido disponible!',
             body: 'Hay un pedido cerca de ti. ¡Tómalo antes que alguien más!',
             sound: true,
+            channelId: 'repartidor',
             data: { tipo: 'pedido_disponible' },
           },
           trigger: null,
@@ -85,18 +88,21 @@ export default function InicioRepartidorScreen({ navigation }) {
       }
       pedidosAnterioresRef.current = new Set(nuevosIds);
       setPedidos(nuevos);
-    } catch (e) {
+    } catch (_) {
       setPedidos([]);
     } finally {
       setRefrescar(false);
     }
-  };
+  }, []);
+
+  // Mantener ref actualizada para el socket (evita stale closure)
+  useEffect(() => { cargarPedidosRef.current = cargarPedidos; }, [cargarPedidos]);
 
   // Socket para notificación inmediata de pedidos disponibles
   useEffect(() => {
     if (!conectado || !aprobado) return;
     const socket = conectarSocket();
-    const onDisponible = () => { cargarPedidos(); };
+    const onDisponible = () => { cargarPedidosRef.current?.(); };
     socket.on('pedido_disponible', onDisponible);
     return () => { socket.off('pedido_disponible', onDisponible); };
   }, [conectado, aprobado]);

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { pedidosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
@@ -26,21 +27,50 @@ const ESTADOS_PAQUETERIA = [
   { id: 'entregado',  label: '¡Llegó tu pedido!',            emoji: '🎉' },
 ];
 
+// Mensajes de notificación para cada cambio de estado
+const NOTIF_ESTADO = {
+  confirmado: { titulo: '✅ ¡Pedido confirmado!',   cuerpo: 'El negocio aceptó tu pedido y lo está preparando.' },
+  preparando: { titulo: '👨‍🍳 Preparando tu pedido', cuerpo: 'Tu pedido está en la cocina. ¡Ya casi!' },
+  listo:      { titulo: '📦 ¡Pedido listo!',        cuerpo: 'Tu pedido está listo. El repartidor va a recogerlo.' },
+  en_camino:  { titulo: '🛵 ¡Tu repartidor viene!', cuerpo: 'Ya va en camino. Prepárate para recibir tu pedido.' },
+  en_envio:   { titulo: '🚚 ¡Tu pedido va en camino!', cuerpo: 'Fue enviado desde México. Te avisamos cuando llegue.' },
+  entregado:  { titulo: '🎉 ¡Pedido entregado!',    cuerpo: '¡Buen provecho! No olvides calificarnos.' },
+  cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
+};
+
+const notificarCambioEstado = (nuevoEstado) => {
+  const n = NOTIF_ESTADO[nuevoEstado];
+  if (!n) return;
+  Vibration.vibrate([0, 200, 100, 200]);
+  Notifications.scheduleNotificationAsync({
+    content: {
+      title: n.titulo,
+      body: n.cuerpo,
+      sound: true,
+      channelId: 'pedidos',
+      data: { tipo: 'estado_pedido' },
+    },
+    trigger: null,
+  }).catch(() => {});
+};
+
 export default function SeguimientoScreen({ route, navigation }) {
   const { pedidoId } = route.params;
-  const [pedido, setPedido]           = useState(null);
-  const [cargando, setCargando]       = useState(true);
-  const [estrellas, setEstrellas]     = useState(0);
+  const [pedido, setPedido]             = useState(null);
+  const [cargando, setCargando]         = useState(true);
+  const [estrellas, setEstrellas]       = useState(0);
   const [estrellasRep, setEstrellasRep] = useState(0);
-  const [calificando, setCalificando] = useState(false);
+  const [calificando, setCalificando]   = useState(false);
+  const estadoAnteriorRef               = useRef(null);
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     try {
       const { data } = await pedidosAPI.detalle(pedidoId);
-      setPedido(data.data?.pedido);
-    } catch (_) {/* ignorar */}
+      const p = data.data?.pedido;
+      if (p) setPedido(p);
+    } catch (_) {}
     finally { setCargando(false); }
-  };
+  }, [pedidoId]);
 
   useEffect(() => {
     cargar();
@@ -57,20 +87,34 @@ export default function SeguimientoScreen({ route, navigation }) {
       });
     }, 5000);
 
-    // Socket.io para updates instantáneos (complementa el polling)
+    // Socket.io para updates instantáneos
     const socket = conectarSocket();
     socket.emit('unirse_pedido', pedidoId);
-    socket.on('estado_pedido', (data) => {
-      if (data.pedido_id === pedidoId) setPedido((p) => ({ ...p, estado: data.estado }));
-    });
-    socket.on('pago_actualizado', () => cargar());
+
+    const onEstado = (data) => {
+      if (data.pedido_id !== pedidoId) return;
+      const nuevoEstado = data.estado;
+      setPedido((p) => {
+        // Notificar solo si el estado realmente cambió
+        if (p && p.estado !== nuevoEstado) {
+          notificarCambioEstado(nuevoEstado);
+        }
+        return p ? { ...p, estado: nuevoEstado } : p;
+      });
+    };
+
+    const onPago = () => cargar();
+
+    socket.on('estado_pedido', onEstado);
+    socket.on('pago_actualizado', onPago);
 
     return () => {
       clearInterval(intervalo);
-      socket.off('estado_pedido');
-      socket.off('pago_actualizado');
+      // Pasar la referencia exacta del handler — evita eliminar listeners de otros componentes
+      socket.off('estado_pedido', onEstado);
+      socket.off('pago_actualizado', onPago);
     };
-  }, [pedidoId]);
+  }, [pedidoId, cargar]);
 
   const calificar = async () => {
     if (!estrellas) return;
@@ -109,7 +153,7 @@ export default function SeguimientoScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* 📦 Vista paquetería — sin mapa, con info de envío */}
+        {/* 📦 Vista paquetería */}
         {esPaqueteria && ['en_envio', 'entregado'].includes(pedido.estado) && (
           <View style={estilos.paqueteriaBloque}>
             <Text style={estilos.paqueteriaTitulo}>
@@ -141,7 +185,7 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Estado actual chip (reemplaza mapa) */}
+        {/* Estado actual chip */}
         {estadoActual >= 0 && pedido.estado !== 'entregado' && pedido.estado !== 'cancelado' && (
           <View style={estilos.chipEstadoCard}>
             <Text style={estilos.chipEstadoEmoji}>{ESTADOS[estadoActual]?.emoji}</Text>
@@ -202,7 +246,7 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Sugerencia cruzada: ¿te falta una bebida? */}
+        {/* Sugerencia cruzada */}
         {mostrarSugerencia && (
           <Pressable
             style={estilos.sugerencia}
@@ -217,13 +261,13 @@ export default function SeguimientoScreen({ route, navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={estilos.sugerenciaTitulo}>¿Te falta una bebida?</Text>
               <Text style={estilos.sugerenciaSub}>
-                Mientras llega tu comida, pide refrescos, cervezas o aguas frescas de Abarrotes La Esquina →
+                Mientras llega tu comida, pide refrescos, cervezas o aguas frescas →
               </Text>
             </View>
           </Pressable>
         )}
 
-        {/* ⭐ Calificación — dos conjuntos de estrellas: negocio + repartidor */}
+        {/* ⭐ Calificación */}
         {pedido.estado === 'entregado' && !yaCalificado && (
           <View style={estilos.calificacionBloque}>
             <Text style={estilos.calificacionTitulo}>¿Cómo estuvo tu pedido?</Text>
@@ -253,11 +297,7 @@ export default function SeguimientoScreen({ route, navigation }) {
             )}
 
             {estrellas > 0 && (
-              <Pressable
-                style={estilos.btnCalificar}
-                onPress={calificar}
-                disabled={calificando}
-              >
+              <Pressable style={estilos.btnCalificar} onPress={calificar} disabled={calificando}>
                 {calificando
                   ? <ActivityIndicator color="#FFF" />
                   : <Text style={estilos.btnCalificarTxt}>Enviar calificación</Text>
@@ -293,19 +333,12 @@ const estilos = StyleSheet.create({
   total: { fontSize: 28, fontWeight: '800', color: colors.primario, marginTop: espacio.xs },
   direccionEntrega: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center', paddingHorizontal: espacio.md },
 
-  // Estado card (reemplaza mapa)
   chipEstadoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    paddingVertical: espacio.md,
-    borderRadius: radio.md,
-    gap: espacio.sm,
-    borderWidth: 1,
-    borderColor: colors.borde,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    paddingVertical: espacio.md, borderRadius: radio.md, gap: espacio.sm,
+    borderWidth: 1, borderColor: colors.borde,
   },
   chipEstadoEmoji: { fontSize: 28 },
   chipEstadoTxt: { fontSize: 16, fontWeight: '700', color: colors.texto },
@@ -314,9 +347,7 @@ const estilos = StyleSheet.create({
   paso: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.md, position: 'relative' },
   circulo: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: colors.borde,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: espacio.md,
+    backgroundColor: colors.borde, alignItems: 'center', justifyContent: 'center', marginRight: espacio.md,
   },
   circuloActivo: { backgroundColor: colors.primario },
   circuloEmoji: { fontSize: 22 },
@@ -324,92 +355,63 @@ const estilos = StyleSheet.create({
   pasoLabelActivo: { fontSize: 16, color: colors.texto, fontWeight: '700' },
   linea: {
     position: 'absolute', left: 23, top: 48,
-    width: 2, height: espacio.md + 8,
-    backgroundColor: colors.borde,
+    width: 2, height: espacio.md + 8, backgroundColor: colors.borde,
   },
   lineaActiva: { backgroundColor: colors.primario },
+
   repartidor: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.superficie,
-    padding: espacio.md,
-    marginHorizontal: espacio.md,
-    borderRadius: radio.md,
+    backgroundColor: colors.superficie, padding: espacio.md,
+    marginHorizontal: espacio.md, borderRadius: radio.md,
   },
   repTxt: { fontSize: 15, fontWeight: '700', color: colors.texto },
   repSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
-  btnLlamar: { backgroundColor: colors.exito, paddingVertical: espacio.sm, paddingHorizontal: espacio.md, borderRadius: radio.full },
+  btnLlamar: {
+    backgroundColor: colors.exito, paddingVertical: espacio.sm,
+    paddingHorizontal: espacio.md, borderRadius: radio.full,
+  },
   btnLlamarTxt: { color: '#FFF', fontWeight: '700' },
 
   sugerencia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E6',
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    padding: espacio.md,
-    borderRadius: radio.md,
-    gap: espacio.md,
-    borderWidth: 1,
-    borderColor: '#FFD6A5',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFF3E6', marginHorizontal: espacio.md, marginTop: espacio.md,
+    padding: espacio.md, borderRadius: radio.md, gap: espacio.md,
+    borderWidth: 1, borderColor: '#FFD6A5',
   },
   sugerenciaEmoji: { fontSize: 32 },
   sugerenciaTitulo: { fontSize: 15, fontWeight: '800', color: colors.texto },
   sugerenciaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2, lineHeight: 16 },
 
-  // Bloque paquetería
   paqueteriaBloque: {
-    backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    borderRadius: radio.md,
-    padding: espacio.md,
-    borderWidth: 1,
-    borderColor: '#FFD6A5',
+    backgroundColor: colors.superficie, marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.md, borderWidth: 1, borderColor: '#FFD6A5',
   },
   paqueteriaTitulo: { fontSize: 16, fontWeight: '800', color: colors.texto, marginBottom: espacio.xs },
   paqueteriaInfo: { fontSize: 13, color: colors.textoSuave, lineHeight: 18 },
-  guiaChip: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: radio.md,
-    padding: espacio.sm,
-    marginTop: espacio.xs,
-  },
+  guiaChip: { backgroundColor: '#FFF7ED', borderRadius: radio.md, padding: espacio.sm, marginTop: espacio.xs },
   guiaLabel: { fontSize: 11, color: colors.textoSuave, fontWeight: '600', textTransform: 'uppercase' },
-  guiaTxt:   { fontSize: 15, fontWeight: '800', color: colors.primario, letterSpacing: 1, marginTop: 2 },
-  // Botón WhatsApp (paquetería en_envio + VoyCorriendo Store)
+  guiaTxt: { fontSize: 15, fontWeight: '800', color: colors.primario, letterSpacing: 1, marginTop: 2 },
   btnWA: {
     flexDirection: 'row', justifyContent: 'center',
-    backgroundColor: '#25D366',
-    borderRadius: radio.md,
-    paddingVertical: espacio.sm,
-    marginTop: espacio.sm,
-    marginHorizontal: espacio.md,
+    backgroundColor: '#25D366', borderRadius: radio.md,
+    paddingVertical: espacio.sm, marginTop: espacio.sm, marginHorizontal: espacio.md,
   },
   btnWATxt: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
-  // Calificación
   calificacionBloque: {
-    backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    borderRadius: radio.md,
-    padding: espacio.lg,
-    alignItems: 'center',
+    backgroundColor: colors.superficie, marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
   },
   calificacionTitulo: { fontSize: 18, fontWeight: '800', color: colors.texto, marginBottom: espacio.sm },
-  calificacionLabel:  { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginTop: espacio.xs },
-  calificacionSub:    { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
+  calificacionLabel: { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginTop: espacio.xs },
+  calificacionSub: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
   estrellasRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.xs },
-  estrella:     { fontSize: 40, color: colors.borde },
+  estrella: { fontSize: 40, color: colors.borde },
   estrellaActiva: { color: '#FBBF24' },
   btnCalificar: {
-    marginTop: espacio.lg,
-    backgroundColor: colors.primario,
-    paddingVertical: espacio.md,
-    paddingHorizontal: espacio.xl,
-    borderRadius: radio.md,
-    minWidth: 200,
-    alignItems: 'center',
+    marginTop: espacio.lg, backgroundColor: colors.primario,
+    paddingVertical: espacio.md, paddingHorizontal: espacio.xl,
+    borderRadius: radio.md, minWidth: 200, alignItems: 'center',
   },
   btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
 });

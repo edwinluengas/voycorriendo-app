@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { repartidoresAPI, pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
@@ -21,12 +22,39 @@ export default function PedidoActivoScreen({ route, navigation }) {
   const [cargando, setCargando]   = useState(false);
   const [montoEfe, setMontoEfe]   = useState('');
 
-  const cargar = async () => {
-    const { data } = await pedidosAPI.detalle(pedidoId);
-    setPedido(data.data?.pedido);
-  };
+  const cargar = useCallback(async () => {
+    try {
+      const { data } = await pedidosAPI.detalle(pedidoId);
+      if (data.data?.pedido) setPedido(data.data.pedido);
+    } catch (_) {}
+  }, [pedidoId]);
 
-  useEffect(() => { cargar(); }, [pedidoId]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  // Escuchar cambios de estado via socket (ej: negocio marca "listo")
+  useEffect(() => {
+    const socket = conectarSocket();
+    socket.emit('unirse_pedido', pedidoId);
+    const onEstado = (data) => {
+      if (data.pedido_id !== pedidoId) return;
+      setPedido((p) => p ? { ...p, estado: data.estado } : p);
+      // Notificar al repartidor si el negocio marcó "listo"
+      if (data.estado === 'listo') {
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: '📦 ¡Pedido listo!',
+            body: 'El negocio ya tiene listo el pedido. Ve a recogerlo.',
+            sound: true,
+            channelId: 'repartidor',
+            data: { tipo: 'estado_pedido', pedidoId },
+          },
+          trigger: null,
+        }).catch(() => {});
+      }
+    };
+    socket.on('estado_pedido', onEstado);
+    return () => { socket.off('estado_pedido', onEstado); };
+  }, [pedidoId]);
 
   // Tracking de ubicación: envía cada 15s
   useEffect(() => {

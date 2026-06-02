@@ -23,7 +23,8 @@ Notifications.setNotificationHandler({
 
 export default function App() {
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    // Tap en notificación (app en segundo plano o cerrada)
+    const subTap = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       if (!navigationRef.isReady() || !data?.tipo) return;
 
@@ -35,7 +36,10 @@ export default function App() {
         navigationRef.navigate('InicioRep');
       }
     });
-    return () => sub.remove();
+
+    return () => {
+      subTap.remove();
+    };
   }, []);
 
   return (

@@ -96,15 +96,16 @@ export default function DashboardNegocioScreen({ navigation }) {
       Notifications.scheduleNotificationAsync({
         content: {
           title: '🆕 ¡Nuevo pedido!',
-          body: 'Tienes un nuevo pedido esperando confirmación.',
+          body: 'Tienes un nuevo pedido esperando confirmación. ¡Ábrelo ahora!',
           sound: true,
+          channelId: 'pedidos',
           data: { tipo: 'nuevo_pedido' },
         },
         trigger: null,
       }).catch(() => {});
       Alert.alert(
         '🆕 ¡Nuevo pedido!',
-        'Tienes un nuevo pedido. ¿Lo ves?',
+        'Tienes un nuevo pedido esperando. ¿Lo aceptas?',
         [{ text: 'Ver ahora', onPress: () => setTab('nuevos') }],
         { cancelable: true },
       );
