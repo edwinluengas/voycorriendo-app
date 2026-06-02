@@ -6,13 +6,27 @@ import { negociosAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
-  { id: 'todos',                nombre: 'Todos',          emoji: '🏪' },
-  { id: 'ahivoy store',         nombre: 'VoyCorriendo',   emoji: '🛍️', esAhivoy: true },
+  { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
+  { id: 'ahivoy store',         nombre: 'Store',          emoji: '🛍️', esAhivoy: true },
   { id: 'restaurante',          nombre: 'Restaurantes',   emoji: '🍽️' },
-  { id: 'tienda_conveniencia',  nombre: 'Tiendita',       emoji: '🏪' },
+  { id: 'tienda_conveniencia',  nombre: 'Tiendita',       emoji: '🛒' },
   { id: 'farmacia',             nombre: 'Farmacia',       emoji: '💊' },
   { id: 'papeleria',            nombre: 'Papelería',      emoji: '✏️' },
   { id: 'panaderia',            nombre: 'Panadería',      emoji: '🥖' },
+];
+
+// Subcategorías de restaurante al estilo Uber Eats / Rappi
+const SUBCATEGORIAS_RESTAURANTE = [
+  { id: 'todas',      nombre: 'Todos',        emoji: '🍽️' },
+  { id: 'tacos',      nombre: 'Tacos',        emoji: '🌮' },
+  { id: 'pizza',      nombre: 'Pizza',        emoji: '🍕' },
+  { id: 'hamburguesa',nombre: 'Hamburguesas', emoji: '🍔' },
+  { id: 'sushi',      nombre: 'Sushi',        emoji: '🍱' },
+  { id: 'mariscos',   nombre: 'Mariscos',     emoji: '🦐' },
+  { id: 'pollo',      nombre: 'Pollo',        emoji: '🍗' },
+  { id: 'desayuno',   nombre: 'Desayunos',    emoji: '🍳' },
+  { id: 'postres',    nombre: 'Postres',      emoji: '🍰' },
+  { id: 'vegano',     nombre: 'Vegano',       emoji: '🥗' },
 ];
 
 const EMOJI_POR_CATEGORIA = {
@@ -37,10 +51,11 @@ const formatoTiempoEntrega = (n) => {
 };
 
 export default function InicioClienteScreen({ navigation, route }) {
-  const [negocios, setNegocios]     = useState([]);
-  const [cargando, setCargando]     = useState(true);
-  const [categoria, setCategoria]   = useState('todos');
-  const [refrescando, setRefrescar] = useState(false);
+  const [negocios, setNegocios]             = useState([]);
+  const [cargando, setCargando]             = useState(true);
+  const [categoria, setCategoria]           = useState('todos');
+  const [subcat, setSubcat]                 = useState('todas');
+  const [refrescando, setRefrescar]         = useState(false);
 
   // Si llegamos con un filtro (p.ej. desde la sugerencia "pide una bebida"),
   // lo aplicamos automáticamente. useFocusEffect dispara cada vez que el tab
@@ -76,9 +91,18 @@ export default function InicioClienteScreen({ navigation, route }) {
   useEffect(() => { cargarNegocios(); }, [cargarNegocios]);
 
   const destacados   = negocios.filter((n) => n.destacado);
-  const filtrados    = categoria === 'todos'
+  const porCategoria = categoria === 'todos'
     ? negocios
     : negocios.filter((n) => n.categoria === categoria);
+
+  // Filtro de subcategorías para restaurantes (client-side por nombre/descripción)
+  const filtrados = (categoria === 'restaurante' && subcat !== 'todas')
+    ? porCategoria.filter((n) => {
+        const haystack = `${n.nombre} ${n.descripcion || ''} ${n.tags || ''}`.toLowerCase();
+        return haystack.includes(subcat);
+      })
+    : porCategoria;
+
   const tiendaAhivoy = negocios.find((n) => n.categoria === 'ahivoy store');
 
   return (
@@ -91,7 +115,8 @@ export default function InicioClienteScreen({ navigation, route }) {
         }
         ListHeaderComponent={
           <>
-            <View style={estilos.saludo}>
+            {/* Header con gradiente oscuro */}
+            <View style={estilos.headerOscuro}>
               <Text style={estilos.hola}>¡Hola! 👋</Text>
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
             </View>
@@ -121,23 +146,47 @@ export default function InicioClienteScreen({ navigation, route }) {
               </Pressable>
             )}
 
-            {/* Categorías */}
+            {/* Categorías principales */}
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
               data={CATEGORIAS}
               keyExtractor={(c) => c.id}
-              contentContainerStyle={{ paddingHorizontal: espacio.md }}
+              contentContainerStyle={{ paddingHorizontal: espacio.md, paddingVertical: espacio.sm }}
               renderItem={({ item }) => (
                 <Pressable
                   style={[estilos.cat, categoria === item.id && estilos.catActiva]}
-                  onPress={() => setCategoria(item.id)}
+                  onPress={() => { setCategoria(item.id); setSubcat('todas'); }}
                 >
                   <Text style={estilos.catEmoji}>{item.emoji}</Text>
                   <Text style={[estilos.catTxt, categoria === item.id && estilos.catTxtActiva]}>{item.nombre}</Text>
                 </Pressable>
               )}
             />
+
+            {/* Subcategorías de restaurante — estilo Uber Eats */}
+            {categoria === 'restaurante' && (
+              <View style={estilos.subcatContenedor}>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={SUBCATEGORIAS_RESTAURANTE}
+                  keyExtractor={(c) => c.id}
+                  contentContainerStyle={{ paddingHorizontal: espacio.md, gap: espacio.sm }}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[estilos.subcat, subcat === item.id && estilos.subcatActiva]}
+                      onPress={() => setSubcat(item.id)}
+                    >
+                      <Text style={estilos.subcatEmoji}>{item.emoji}</Text>
+                      <Text style={[estilos.subcatTxt, subcat === item.id && estilos.subcatTxtActiva]}>
+                        {item.nombre}
+                      </Text>
+                    </Pressable>
+                  )}
+                />
+              </View>
+            )}
 
             {/* Carrusel de destacados (solo en "Todos") */}
             {destacados.length > 0 && categoria === 'todos' && (
@@ -231,9 +280,41 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
 
 const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
-  saludo: { paddingHorizontal: espacio.lg, paddingTop: espacio.md },
-  hola: { fontSize: 16, color: colors.textoSuave },
-  pregunta: { fontSize: 24, fontWeight: '800', color: colors.texto, marginBottom: espacio.md },
+
+  // Header oscuro al estilo Uber Eats
+  headerOscuro: {
+    backgroundColor: colors.oscuro,
+    paddingHorizontal: espacio.lg,
+    paddingTop: espacio.md,
+    paddingBottom: espacio.lg,
+  },
+  hola: { fontSize: 14, color: '#8E8E93', fontWeight: '600' },
+  pregunta: { fontSize: 26, fontWeight: '900', color: colors.textoInverso, marginTop: 2, letterSpacing: -0.3 },
+
+  // Subcategorías restaurante
+  subcatContenedor: {
+    backgroundColor: colors.fondo,
+    paddingVertical: espacio.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borde,
+  },
+  subcat: {
+    alignItems: 'center',
+    paddingHorizontal: espacio.md,
+    paddingVertical: espacio.sm,
+    borderRadius: radio.md,
+    backgroundColor: colors.superficie,
+    borderWidth: 1,
+    borderColor: colors.borde,
+    minWidth: 80,
+  },
+  subcatActiva: {
+    backgroundColor: colors.oscuro,
+    borderColor: colors.oscuro,
+  },
+  subcatEmoji: { fontSize: 22 },
+  subcatTxt: { fontSize: 11, color: colors.texto, marginTop: 3, fontWeight: '600', textAlign: 'center' },
+  subcatTxtActiva: { color: '#FFF' },
 
   // Banner Ahívoy
   bannerAhivoy: {
@@ -292,23 +373,24 @@ const estilos = StyleSheet.create({
   cat: {
     paddingHorizontal: espacio.md,
     paddingVertical: espacio.sm,
-    borderRadius: radio.full,
+    borderRadius: radio.xl,
     backgroundColor: colors.superficie,
     marginRight: espacio.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borde,
     alignItems: 'center',
-    minWidth: 84,
+    minWidth: 80,
   },
   catActiva: { backgroundColor: colors.primario, borderColor: colors.primario },
-  catEmoji: { fontSize: 22 },
-  catTxt: { fontSize: 13, color: colors.texto, marginTop: 2, fontWeight: '600' },
+  catEmoji: { fontSize: 20 },
+  catTxt: { fontSize: 11, color: colors.texto, marginTop: 3, fontWeight: '700' },
   catTxtActiva: { color: '#FFF' },
 
   // Sección
   seccion: {
-    fontSize: 18, fontWeight: '700', color: colors.texto,
+    fontSize: 17, fontWeight: '800', color: colors.texto,
     paddingHorizontal: espacio.lg, paddingTop: espacio.lg, paddingBottom: espacio.sm,
+    letterSpacing: -0.2,
   },
 
   // Destacados (carrusel)
@@ -336,13 +418,13 @@ const estilos = StyleSheet.create({
     backgroundColor: colors.superficie,
     marginHorizontal: espacio.md,
     marginVertical: espacio.xs,
-    borderRadius: radio.md,
+    borderRadius: radio.lg,
     overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    shadowColor: '#000', shadowOpacity: 0.09, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
   },
   imagenPlaceholder: {
-    width: 90, height: 90,
+    width: 96, height: 96,
     backgroundColor: '#FFE6D1',
     alignItems: 'center', justifyContent: 'center',
     resizeMode: 'cover',
@@ -350,10 +432,10 @@ const estilos = StyleSheet.create({
   imagenAhivoy: { backgroundColor: '#FFF3C4' },
   imagenEmoji: { fontSize: 40 },
   filaNombre: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  nombre: { fontSize: 16, fontWeight: '700', color: colors.texto, marginBottom: 2, flexShrink: 1 },
+  nombre: { fontSize: 16, fontWeight: '800', color: colors.texto, marginBottom: 2, flexShrink: 1 },
   badgeDestacado: { fontSize: 14 },
-  meta: { fontSize: 13, color: colors.textoSuave },
-  envio: { fontSize: 13, color: colors.secundario, fontWeight: '600', marginTop: 2 },
+  meta: { fontSize: 12, color: colors.textoSuave },
+  envio: { fontSize: 12, color: colors.secundario, fontWeight: '700', marginTop: 3 },
 
   // Empty state
   vacio: { alignItems: 'center', padding: espacio.xl, marginTop: espacio.xl },

@@ -42,7 +42,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <NavigationContainer ref={navigationRef}>
-          <StatusBar style="light" backgroundColor="#FF6B00" />
+          <StatusBar style="light" backgroundColor="#0F0F0F" />
           <RootNavigator />
         </NavigationContainer>
       </AuthProvider>

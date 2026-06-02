@@ -1,45 +1,175 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Boton from '../../components/Boton';
-import { colors, espacio } from '../../theme/colors';
+import { colors, espacio, radio } from '../../theme/colors';
+
+const { height } = Dimensions.get('window');
 
 export default function BienvenidaScreen({ navigation }) {
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   return (
     <SafeAreaView style={estilos.contenedor}>
-      <View style={estilos.hero}>
-        <Text style={estilos.emoji}>🛵</Text>
-        <Text style={estilos.titulo}>VoyCorriendo</Text>
-        <Text style={estilos.subtitulo}>Puerto Escondido, Oaxaca</Text>
-        <Text style={estilos.descripcion}>
-          Pide comida, medicinas y despensa directo a tu puerta.{'\n'}
-          Rápido, seguro y a un click.
-        </Text>
-      </View>
+      {/* Fondo oscuro con acento naranja */}
+      <View style={estilos.fondoDecoración} />
 
-      <View style={estilos.acciones}>
-        <Boton titulo="Iniciar sesión" onPress={() => navigation.navigate('Login')} />
-        <View style={{ height: espacio.md }} />
-        <Boton
-          titulo="Crear una cuenta"
-          variante="secundario"
+      <Animated.View style={[estilos.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        {/* Logotipo / símbolo */}
+        <View style={estilos.logoCirculo}>
+          <Text style={estilos.logoEmoji}>🛵</Text>
+        </View>
+
+        <Text style={estilos.marca}>VoyCorriendo</Text>
+        <Text style={estilos.ciudad}>Puerto Escondido · Oaxaca</Text>
+
+        <View style={estilos.divisor} />
+
+        <Text style={estilos.tagline}>
+          Comida, medicinas y despensa{'\n'}directo a tu puerta.
+        </Text>
+      </Animated.View>
+
+      <Animated.View style={[estilos.acciones, { opacity: fadeAnim }]}>
+        <Pressable
+          style={estilos.btnPrimario}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={estilos.btnPrimarioTxt}>Iniciar sesión</Text>
+        </Pressable>
+
+        <Pressable
+          style={estilos.btnSecundario}
           onPress={() => navigation.navigate('Registro')}
-        />
-        <Text style={estilos.pieDePagina}>
+        >
+          <Text style={estilos.btnSecundarioTxt}>Crear una cuenta</Text>
+        </Pressable>
+
+        <Text style={estilos.legal}>
           Al continuar aceptas nuestros Términos y el Aviso de Privacidad.
         </Text>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: colors.fondo, paddingHorizontal: espacio.lg },
-  hero: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emoji: { fontSize: 96, marginBottom: espacio.md },
-  titulo: { fontSize: 42, fontWeight: '800', color: colors.primario, letterSpacing: 0.5 },
-  subtitulo: { fontSize: 16, color: colors.secundario, fontWeight: '600', marginTop: espacio.xs },
-  descripcion: { fontSize: 16, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.lg, lineHeight: 24 },
-  acciones: { paddingBottom: espacio.xl },
-  pieDePagina: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.md },
+  contenedor: {
+    flex: 1,
+    backgroundColor: colors.oscuro,
+    paddingHorizontal: espacio.lg,
+  },
+
+  // Mancha de color naranja en la esquina superior
+  fondoDecoración: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: colors.primario,
+    opacity: 0.18,
+  },
+
+  hero: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  logoCirculo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: espacio.lg,
+    shadowColor: colors.primario,
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  logoEmoji: { fontSize: 58 },
+
+  marca: {
+    fontSize: 38,
+    fontWeight: '900',
+    color: colors.textoInverso,
+    letterSpacing: -0.5,
+  },
+  ciudad: {
+    fontSize: 14,
+    color: colors.primario,
+    fontWeight: '700',
+    marginTop: espacio.xs,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  divisor: {
+    width: 48,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.primario,
+    marginVertical: espacio.lg,
+  },
+  tagline: {
+    fontSize: 17,
+    color: '#A1A1AA',
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+
+  acciones: {
+    paddingBottom: espacio.xl,
+  },
+  btnPrimario: {
+    backgroundColor: colors.primario,
+    borderRadius: radio.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primario,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  btnPrimarioTxt: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  btnSecundario: {
+    marginTop: espacio.sm,
+    borderRadius: radio.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#3A3A3C',
+  },
+  btnSecundarioTxt: {
+    color: colors.textoInverso,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  legal: {
+    fontSize: 11,
+    color: '#636366',
+    textAlign: 'center',
+    marginTop: espacio.md,
+    lineHeight: 16,
+  },
 });

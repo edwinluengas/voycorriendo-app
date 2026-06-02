@@ -63,15 +63,21 @@ const ClienteTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: colors.primario,
         tabBarInactiveTintColor: colors.textoSuave,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
+          backgroundColor: colors.superficie,
+          borderTopColor: colors.borde,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
         },
-        headerStyle: { backgroundColor: colors.primario },
+        headerStyle: { backgroundColor: colors.oscuro },
         headerTintColor: '#FFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
       }}
     >
       <Tab.Screen
@@ -126,9 +132,9 @@ const ClienteTabs = () => {
 const ClienteStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.primario },
+      headerStyle: { backgroundColor: colors.oscuro },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
     }}
   >
     <Stack.Screen name="Home"        component={ClienteTabs}       options={{ headerShown: false }} />
@@ -159,15 +165,18 @@ const RepartidorTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: colors.secundario,
         tabBarInactiveTintColor: colors.textoSuave,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
+          backgroundColor: colors.oscuro,
+          borderTopColor: colors.bordeOscuro,
+          elevation: 12,
         },
-        headerStyle: { backgroundColor: colors.secundario },
+        headerStyle: { backgroundColor: colors.oscuro },
         headerTintColor: '#FFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '800' },
       }}
     >
       <Tab.Screen
@@ -200,9 +209,9 @@ const RepartidorTabs = () => {
 const RepartidorStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.secundario },
+      headerStyle: { backgroundColor: colors.oscuro },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
     <Stack.Screen name="InicioRep"    component={RepartidorTabs}        options={{ headerShown: false }} />
@@ -223,9 +232,9 @@ const RepartidorStack = () => (
 const NegocioStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.primario },
+      headerStyle: { backgroundColor: colors.oscuro },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
     <Stack.Screen name="DashboardNegocio"     component={DashboardNegocioScreen}     options={{ title: 'Mis pedidos' }} />
@@ -242,9 +251,9 @@ const NegocioStack = () => (
 const AdminStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.primario },
+      headerStyle: { backgroundColor: colors.oscuro },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
     <Stack.Screen
@@ -261,7 +270,7 @@ export default function RootNavigator() {
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.fondo }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.oscuro }}>
         <ActivityIndicator size="large" color={colors.primario} />
       </View>
     );

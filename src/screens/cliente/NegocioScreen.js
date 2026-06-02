@@ -420,18 +420,18 @@ const estilos = StyleSheet.create({
   // Header (portada + info)
   header: { backgroundColor: colors.superficie, marginBottom: espacio.sm },
   portada: {
-    height: 140,
-    backgroundColor: '#FFE6D1',
+    height: 160,
+    backgroundColor: colors.oscuro,
     alignItems: 'center',
     justifyContent: 'center',
   },
   portadaImagen: {
     width: '100%',
-    height: 180,
+    height: 200,
     resizeMode: 'cover',
   },
   portadaAhivoy: {
-    backgroundColor: '#F97316',
+    backgroundColor: colors.primario,
   },
   portadaLogoAhivoy: {
     width: 110,
@@ -447,9 +447,9 @@ const estilos = StyleSheet.create({
     resizeMode: 'cover',
     backgroundColor: '#FFE6D1',
   },
-  nombre: { fontSize: 24, fontWeight: '800', color: colors.texto },
+  nombre: { fontSize: 24, fontWeight: '900', color: colors.texto, letterSpacing: -0.3 },
   meta: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
-  envio: { fontSize: 13, color: colors.secundario, fontWeight: '600', marginTop: 2 },
+  envio: { fontSize: 13, color: colors.secundario, fontWeight: '700', marginTop: 2 },
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
 
   // Sección
