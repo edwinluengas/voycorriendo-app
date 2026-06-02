@@ -166,7 +166,7 @@ export default function PerfilScreen({ navigation }) {
           <View style={estilos.divider} />
           <MenuItem icono="🔔" titulo="Notificaciones" onPress={() => Alert.alert('Próximamente')} />
           <View style={estilos.divider} />
-          <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => Alert.alert('Próximamente')} ultima />
+          <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => navigation.navigate('PoliticaPrivacidad')} ultima />
         </View>
 
         <Pressable style={estilos.btnSalir} onPress={salir}>

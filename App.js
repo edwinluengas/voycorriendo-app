@@ -3,6 +3,7 @@
  * Puerto Escondido, Oaxaca
  */
 import React, { useEffect } from 'react';
+import { Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -17,27 +18,56 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
+function navegarADestino(data) {
+  if (!navigationRef.isReady() || !data?.tipo) return;
+  if (data.tipo === 'estado_pedido' && data.pedidoId) {
+    navigationRef.navigate('Seguimiento', { pedidoId: data.pedidoId });
+  } else if (data.tipo === 'nuevo_pedido') {
+    navigationRef.navigate('DashboardNegocio');
+  } else if (data.tipo === 'pedido_disponible') {
+    navigationRef.navigate('InicioRep');
+  }
+}
+
 export default function App() {
   useEffect(() => {
-    // Tap en notificación (app en segundo plano o cerrada)
-    const subTap = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (!navigationRef.isReady() || !data?.tipo) return;
+    // 1. Notificación recibida en FOREGROUND → alerta in-app + opción de navegar
+    const subRecibida = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data;
+      if (!data?.tipo) return;
 
-      if (data.tipo === 'estado_pedido' && data.pedidoId) {
-        navigationRef.navigate('Seguimiento', { pedidoId: data.pedidoId });
-      } else if (data.tipo === 'nuevo_pedido') {
-        navigationRef.navigate('DashboardNegocio');
+      if (data.tipo === 'nuevo_pedido') {
+        Alert.alert(
+          '🆕 ¡Nuevo pedido!',
+          'Tienes un nuevo pedido esperando confirmación.',
+          [
+            { text: 'Ver ahora', onPress: () => navegarADestino(data) },
+            { text: 'Luego', style: 'cancel' },
+          ],
+        );
       } else if (data.tipo === 'pedido_disponible') {
-        navigationRef.navigate('InicioRep');
+        Alert.alert(
+          '🛵 ¡Pedido disponible!',
+          'Hay un pedido cerca de ti. ¡Tómalo antes que alguien más!',
+          [
+            { text: 'Ver ahora', onPress: () => navegarADestino(data) },
+            { text: 'Luego', style: 'cancel' },
+          ],
+        );
       }
     });
 
+    // 2. Usuario TOCA la notificación → navegar directamente
+    const subTap = Notifications.addNotificationResponseReceivedListener((response) => {
+      navegarADestino(response.notification.request.content.data);
+    });
+
     return () => {
+      subRecibida.remove();
       subTap.remove();
     };
   }, []);

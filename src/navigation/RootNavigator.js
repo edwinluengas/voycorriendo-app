@@ -22,6 +22,7 @@ import SeguimientoScreen from '../screens/cliente/SeguimientoScreen';
 import MisPedidosScreen from '../screens/cliente/MisPedidosScreen';
 import PerfilScreen from '../screens/cliente/PerfilScreen';
 import SoporteScreen from '../screens/cliente/SoporteScreen';
+import PoliticaPrivacidadScreen from '../screens/cliente/PoliticaPrivacidadScreen';
 
 // Pantallas Repartidor
 import InicioRepartidorScreen    from '../screens/repartidor/InicioRepartidorScreen';
@@ -152,6 +153,11 @@ const ClienteStack = () => (
       component={OnboardingNegocioScreen}
       options={{ title: 'Registra tu negocio' }}
     />
+    <Stack.Screen
+      name="PoliticaPrivacidad"
+      component={PoliticaPrivacidadScreen}
+      options={{ title: 'Privacidad y Términos' }}
+    />
   </Stack.Navigator>
 );
 
@@ -244,6 +250,7 @@ const NegocioStack = () => (
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
+    <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}    options={{ title: 'Privacidad y Términos' }} />
   </Stack.Navigator>
 );
 
