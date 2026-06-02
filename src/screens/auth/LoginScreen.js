@@ -32,8 +32,8 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={estilos.contenedor}>
-      <View style={estilos.decorCirculo} />
-      <View style={estilos.decorCirculo2} />
+      <View style={estilos.decorCirculo} pointerEvents="none" />
+      <View style={estilos.decorCirculo2} pointerEvents="none" />
 
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView

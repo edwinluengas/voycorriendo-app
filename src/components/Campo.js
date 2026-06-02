@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { colors, radio, espacio } from '../theme/colors';
 
-export default function Campo({ etiqueta, error, secureTextEntry, oscuro = false, style, ...textInputProps }) {
+export default function Campo({ etiqueta, error, secureTextEntry, oscuro = false, style, onFocus, onBlur, ...textInputProps }) {
   const [verPassword, setVerPassword] = useState(false);
   const [enfocado, setEnfocado] = useState(false);
+  const inputRef = useRef(null);
   const esPassword = !!secureTextEntry;
+
+  const handleFocus = (e) => {
+    setEnfocado(true);
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e) => {
+    setEnfocado(false);
+    onBlur?.(e);
+  };
+
+  const togglePassword = () => {
+    setVerPassword((v) => !v);
+    // Mantener foco en Android: togglear secureTextEntry provoca blur nativo
+    setTimeout(() => inputRef.current?.focus(), 10);
+  };
 
   return (
     <View style={[estilos.contenedor, style]}>
@@ -21,18 +38,19 @@ export default function Campo({ etiqueta, error, secureTextEntry, oscuro = false
         error && estilos.inputError,
       ]}>
         <TextInput
+          ref={inputRef}
           style={[estilos.textInput, oscuro && estilos.textInputOscuro]}
           placeholderTextColor={oscuro ? 'rgba(255,255,255,0.3)' : '#A0A0A8'}
           secureTextEntry={esPassword && !verPassword}
-          autoCapitalize={esPassword ? 'none' : textInputProps.autoCapitalize}
-          autoCorrect={esPassword ? false : textInputProps.autoCorrect}
-          onFocus={() => setEnfocado(true)}
-          onBlur={() => setEnfocado(false)}
+          autoCapitalize={esPassword ? 'none' : 'none'}
+          autoCorrect={false}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...textInputProps}
         />
         {esPassword && (
           <Pressable
-            onPress={() => setVerPassword(!verPassword)}
+            onPress={togglePassword}
             style={estilos.botonOjo}
             hitSlop={12}
           >

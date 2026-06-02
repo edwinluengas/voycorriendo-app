@@ -51,7 +51,7 @@ export default function RegistroScreen() {
 
   return (
     <View style={estilos.contenedor}>
-      <View style={estilos.decorCirculo} />
+      <View style={estilos.decorCirculo} pointerEvents="none" />
 
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
