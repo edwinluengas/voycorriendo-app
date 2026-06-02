@@ -10,18 +10,8 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const ROLES = [
-  {
-    id: 'cliente',
-    emoji: '🛒',
-    titulo: 'Soy cliente',
-    desc: 'Pido a domicilio',
-  },
-  {
-    id: 'repartidor',
-    emoji: '🛵',
-    titulo: 'Soy repartidor',
-    desc: 'Gano entregando',
-  },
+  { id: 'cliente',    emoji: '🛒', titulo: 'Soy cliente',    desc: 'Pido a domicilio' },
+  { id: 'repartidor', emoji: '🛵', titulo: 'Soy repartidor', desc: 'Gano entregando'  },
 ];
 
 export default function RegistroScreen() {
@@ -110,7 +100,6 @@ export default function RegistroScreen() {
                   placeholder="Juan"
                   value={nombre}
                   onChangeText={setNombre}
-                  oscuro
                   style={{ flex: 1 }}
                 />
                 <View style={{ width: espacio.sm }} />
@@ -119,7 +108,6 @@ export default function RegistroScreen() {
                   placeholder="Pérez"
                   value={apellido}
                   onChangeText={setApellido}
-                  oscuro
                   style={{ flex: 1 }}
                 />
               </View>
@@ -131,7 +119,6 @@ export default function RegistroScreen() {
                 maxLength={10}
                 value={telefono}
                 onChangeText={setTelefono}
-                oscuro
               />
               <Campo
                 etiqueta="Correo (opcional)"
@@ -140,7 +127,6 @@ export default function RegistroScreen() {
                 autoCapitalize="none"
                 value={email}
                 onChangeText={setEmail}
-                oscuro
               />
               <Campo
                 etiqueta="Contraseña"
@@ -148,7 +134,6 @@ export default function RegistroScreen() {
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
-                oscuro
               />
 
               {rol === 'repartidor' && (
@@ -171,7 +156,7 @@ export default function RegistroScreen() {
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: colors.oscuro },
+  contenedor: { flex: 1, backgroundColor: '#FFFFFF' },
   decorCirculo: {
     position: 'absolute',
     top: -60,
@@ -180,52 +165,52 @@ const estilos = StyleSheet.create({
     height: 240,
     borderRadius: 120,
     backgroundColor: colors.primario,
-    opacity: 0.06,
+    opacity: 0.07,
   },
   scroll: { flexGrow: 1, paddingHorizontal: espacio.lg, paddingBottom: espacio.xl },
   encabezado: { paddingTop: espacio.xl, marginBottom: espacio.lg },
   titulo: {
     fontSize: 34,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.texto,
     letterSpacing: -0.6,
   },
   subtitulo: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textoSuave,
     marginTop: espacio.xs,
     fontWeight: '500',
   },
   roles: { flexDirection: 'row', gap: espacio.sm, marginBottom: espacio.lg },
   rolCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.fondo,
     borderRadius: radio.lg,
     padding: espacio.md,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.borde,
     position: 'relative',
     overflow: 'hidden',
   },
   rolCardActivo: {
     borderColor: colors.primario,
-    backgroundColor: 'rgba(255,92,0,0.08)',
+    backgroundColor: '#FFF5F0',
   },
   rolIcono: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.borde,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: espacio.sm,
   },
-  rolIconoActivo: { backgroundColor: 'rgba(255,92,0,0.2)' },
+  rolIconoActivo: { backgroundColor: 'rgba(255,92,0,0.15)' },
   rolEmoji: { fontSize: 28 },
-  rolTitulo: { fontSize: 14, fontWeight: '800', color: 'rgba(255,255,255,0.6)' },
-  rolTituloActivo: { color: '#FFFFFF' },
-  rolDesc: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
+  rolTitulo: { fontSize: 14, fontWeight: '800', color: colors.textoSuave },
+  rolTituloActivo: { color: colors.texto },
+  rolDesc: { fontSize: 11, color: colors.textoSuave, marginTop: 2, opacity: 0.7 },
   checkCircle: {
     position: 'absolute',
     top: 8,
@@ -239,23 +224,28 @@ const estilos = StyleSheet.create({
   },
   checkTxt: { color: '#FFF', fontSize: 11, fontWeight: '900' },
   tarjeta: {
-    backgroundColor: colors.oscuroCard,
+    backgroundColor: colors.superficie,
     borderRadius: radio.xl,
     padding: espacio.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1.5,
+    borderColor: colors.borde,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   fila2: { flexDirection: 'row' },
   aviso: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,159,10,0.1)',
+    backgroundColor: '#FFFBEB',
     borderRadius: radio.md,
     padding: espacio.md,
     marginBottom: espacio.md,
     gap: espacio.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,159,10,0.25)',
+    borderColor: '#FDE68A',
   },
   avisoEmoji: { fontSize: 20 },
-  avisoTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18 },
+  avisoTxt: { flex: 1, fontSize: 12, color: colors.textoSuave, lineHeight: 18 },
 });

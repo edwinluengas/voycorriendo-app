@@ -62,7 +62,6 @@ export default function LoginScreen({ navigation }) {
                 value={telefono}
                 onChangeText={setTelefono}
                 maxLength={10}
-                oscuro
               />
               <Campo
                 etiqueta="Contraseña"
@@ -70,7 +69,6 @@ export default function LoginScreen({ navigation }) {
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
-                oscuro
               />
 
               <View style={{ height: espacio.xs }} />
@@ -95,7 +93,7 @@ export default function LoginScreen({ navigation }) {
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: colors.oscuro },
+  contenedor: { flex: 1, backgroundColor: '#FFFFFF' },
   decorCirculo: {
     position: 'absolute',
     top: -100,
@@ -128,36 +126,41 @@ const estilos = StyleSheet.create({
     marginBottom: espacio.lg,
     shadowColor: colors.primario,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
-    elevation: 8,
+    elevation: 6,
   },
   logoMiniTxt: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
   titulo: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.texto,
     lineHeight: 42,
     letterSpacing: -0.8,
   },
   subtitulo: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textoSuave,
     marginTop: espacio.sm,
     fontWeight: '500',
   },
   tarjeta: {
-    backgroundColor: colors.oscuroCard,
+    backgroundColor: colors.superficie,
     borderRadius: radio.xl,
     padding: espacio.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1.5,
+    borderColor: colors.borde,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   linkRegistro: {
     marginTop: espacio.xl,
     alignItems: 'center',
     paddingVertical: espacio.sm,
   },
-  linkTxt: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
+  linkTxt: { fontSize: 14, color: colors.textoSuave, fontWeight: '500' },
   linkAcento: { color: colors.primario, fontWeight: '800' },
 });

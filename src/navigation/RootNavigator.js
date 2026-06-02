@@ -69,14 +69,14 @@ const ClienteTabs = () => {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
-          backgroundColor: colors.superficie,
+          backgroundColor: '#FFFFFF',
           borderTopColor: colors.borde,
           elevation: 12,
           shadowColor: '#000',
           shadowOpacity: 0.08,
           shadowRadius: 8,
         },
-        headerStyle: { backgroundColor: colors.oscuro },
+        headerStyle: { backgroundColor: colors.primario },
         headerTintColor: '#FFF',
         headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
       }}
@@ -133,7 +133,7 @@ const ClienteTabs = () => {
 const ClienteStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.oscuro },
+      headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
       headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
     }}
@@ -169,18 +169,18 @@ const RepartidorTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.secundario,
+        tabBarActiveTintColor: colors.primario,
         tabBarInactiveTintColor: colors.textoSuave,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
-          backgroundColor: colors.oscuro,
-          borderTopColor: colors.bordeOscuro,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: colors.borde,
           elevation: 12,
         },
-        headerStyle: { backgroundColor: colors.oscuro },
+        headerStyle: { backgroundColor: colors.primario },
         headerTintColor: '#FFF',
         headerTitleStyle: { fontWeight: '800' },
       }}
@@ -215,7 +215,7 @@ const RepartidorTabs = () => {
 const RepartidorStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.oscuro },
+      headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
       headerTitleStyle: { fontWeight: '800' },
     }}
@@ -238,7 +238,7 @@ const RepartidorStack = () => (
 const NegocioStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.oscuro },
+      headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
       headerTitleStyle: { fontWeight: '800' },
     }}
@@ -258,7 +258,7 @@ const NegocioStack = () => (
 const AdminStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.oscuro },
+      headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
       headerTitleStyle: { fontWeight: '800' },
     }}
@@ -277,7 +277,7 @@ export default function RootNavigator() {
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.oscuro }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
         <ActivityIndicator size="large" color={colors.primario} />
       </View>
     );
