@@ -15,11 +15,17 @@ const FEE_ENVIO = { standard: 35, express: 60 };
 const TOKENS_POR_PESO = 10;
 
 const METODOS_BASE = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el pedido (solo hasta $500)' },
-  { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago' },
-  { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Desde tu cuenta Mercado Pago' },
+  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el repartidor (máximo $500 MXN)' },
+  { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago — seguro y rápido' },
+  { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Pago desde tu cuenta o saldo de Mercado Pago' },
 ];
-const METODO_TRANSFERENCIA = { id: 'transferencia', nombre: 'Transferencia', emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria (solo Voy Corriendo Store)' };
+const METODO_TRANSFERENCIA = {
+  id: 'transferencia',
+  nombre: 'Transferencia SPEI',
+  emoji: '🏦',
+  desc: 'Exclusivo VoyCorriendo Store · Transferencia bancaria SPEI',
+  esExclusivo: true,
+};
 
 const TOKENS_ENVIO_GRATIS = 50;
 
@@ -392,17 +398,38 @@ export default function PagoScreen({ route, navigation }) {
         {metodosDisponibles.map((m) => (
           <Pressable
             key={m.id}
-            style={[estilos.metodo, metodo === m.id && estilos.metodoActivo]}
+            style={[estilos.metodo, metodo === m.id && estilos.metodoActivo, m.esExclusivo && estilos.metodoStore]}
             onPress={() => setMetodo(m.id)}
           >
             <Text style={estilos.metodoEmoji}>{m.emoji}</Text>
             <View style={{ flex: 1, marginLeft: espacio.md }}>
-              <Text style={estilos.metodoNombre}>{m.nombre}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacio.xs, flexWrap: 'wrap' }}>
+                <Text style={estilos.metodoNombre}>{m.nombre}</Text>
+                {m.esExclusivo && (
+                  <View style={estilos.metodoBadgeStore}>
+                    <Text style={estilos.metodoBadgeStoreTxt}>🛒 STORE</Text>
+                  </View>
+                )}
+              </View>
               <Text style={estilos.metodoDesc}>{m.desc}</Text>
             </View>
             <View style={[estilos.radio, metodo === m.id && estilos.radioActivo]} />
           </Pressable>
         ))}
+
+        {/* Aviso explicativo: SPEI solo en la tienda */}
+        {!esAhivoyStore && (
+          <View style={estilos.avisoStore}>
+            <Text style={estilos.avisoStoreEmoji}>🏦</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.avisoStoreTitulo}>Transferencia SPEI no disponible</Text>
+              <Text style={estilos.avisoStoreDesc}>
+                La transferencia bancaria solo está habilitada para compras en la{' '}
+                <Text style={{ fontWeight: '800', color: colors.primario }}>VoyCorriendo Store</Text>.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {total > 500 && (
           <Text style={estilos.avisoLimite}>
@@ -555,9 +582,27 @@ const estilos = StyleSheet.create({
     marginBottom: espacio.sm,
   },
   metodoActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  metodoStore: { borderStyle: 'dashed', borderColor: colors.acento },
   metodoEmoji: { fontSize: 28 },
   metodoNombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
   metodoDesc: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  metodoBadgeStore: {
+    backgroundColor: colors.oscuro, paddingHorizontal: 8,
+    paddingVertical: 2, borderRadius: radio.full,
+  },
+  metodoBadgeStoreTxt: { color: colors.acento, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+
+  // Aviso SPEI no disponible (restaurantes/tienditas)
+  avisoStore: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: espacio.sm,
+    backgroundColor: '#1A1A1A',
+    borderRadius: radio.md, padding: espacio.md,
+    marginBottom: espacio.md,
+    borderWidth: 1, borderColor: '#2C2C2E',
+  },
+  avisoStoreEmoji: { fontSize: 22 },
+  avisoStoreTitulo: { fontSize: 13, fontWeight: '800', color: '#E0E0E0', marginBottom: 3 },
+  avisoStoreDesc: { fontSize: 12, color: '#9E9E9E', lineHeight: 16 },
   radio: {
     width: 22, height: 22, borderRadius: 11,
     borderWidth: 2, borderColor: colors.borde,

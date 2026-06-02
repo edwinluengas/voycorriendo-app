@@ -242,7 +242,16 @@ export default function NegocioScreen({ route, navigation }) {
               <Image source={{ uri: negocio.foto_portada }} style={estilos.portadaImagen} />
             ) : negocio.categoria === 'ahivoy store' ? (
               <View style={[estilos.portada, estilos.portadaAhivoy]}>
-                <Image source={require('../../../assets/icon.png')} style={estilos.portadaLogoAhivoy} />
+                <View style={estilos.portadaDecor1} />
+                <View style={estilos.portadaDecor2} />
+                <View style={estilos.portadaStoreIcono}>
+                  <Text style={estilos.portadaStoreEmoji}>🛒</Text>
+                </View>
+                <View style={estilos.portadaStoreBadgeRow}>
+                  <View style={estilos.portadaStoreBadge}>
+                    <Text style={estilos.portadaStoreBadgeTxt}>TIENDA EN LÍNEA</Text>
+                  </View>
+                </View>
               </View>
             ) : (
               <View style={estilos.portada}>
@@ -431,12 +440,39 @@ const estilos = StyleSheet.create({
     resizeMode: 'cover',
   },
   portadaAhivoy: {
-    backgroundColor: colors.primario,
+    backgroundColor: colors.oscuro,
+    height: 180,
+    overflow: 'hidden',
   },
-  portadaLogoAhivoy: {
-    width: 110,
-    height: 110,
-    borderRadius: 22,
+  portadaDecor1: {
+    position: 'absolute', top: -30, right: -30,
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: colors.primario, opacity: 0.3,
+  },
+  portadaDecor2: {
+    position: 'absolute', bottom: -20, left: 40,
+    width: 90, height: 90, borderRadius: 45,
+    backgroundColor: colors.acento, opacity: 0.15,
+  },
+  portadaStoreIcono: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.primario,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.primario, shadowOpacity: 0.7,
+    shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  portadaStoreEmoji: { fontSize: 40 },
+  portadaStoreBadgeRow: {
+    alignItems: 'center', marginTop: espacio.sm,
+  },
+  portadaStoreBadge: {
+    backgroundColor: colors.acento,
+    paddingHorizontal: 14, paddingVertical: 4,
+    borderRadius: radio.full,
+  },
+  portadaStoreBadgeTxt: {
+    color: '#1A1A00', fontSize: 11, fontWeight: '900', letterSpacing: 1.5,
   },
   portadaEmoji: { fontSize: 72 },
   productoFoto: {

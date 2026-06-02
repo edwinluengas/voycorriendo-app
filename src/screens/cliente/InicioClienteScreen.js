@@ -17,16 +17,32 @@ const CATEGORIAS = [
 
 // Subcategorías de restaurante al estilo Uber Eats / Rappi
 const SUBCATEGORIAS_RESTAURANTE = [
-  { id: 'todas',      nombre: 'Todos',        emoji: '🍽️' },
-  { id: 'tacos',      nombre: 'Tacos',        emoji: '🌮' },
-  { id: 'pizza',      nombre: 'Pizza',        emoji: '🍕' },
-  { id: 'hamburguesa',nombre: 'Hamburguesas', emoji: '🍔' },
-  { id: 'sushi',      nombre: 'Sushi',        emoji: '🍱' },
-  { id: 'mariscos',   nombre: 'Mariscos',     emoji: '🦐' },
-  { id: 'pollo',      nombre: 'Pollo',        emoji: '🍗' },
-  { id: 'desayuno',   nombre: 'Desayunos',    emoji: '🍳' },
-  { id: 'postres',    nombre: 'Postres',      emoji: '🍰' },
-  { id: 'vegano',     nombre: 'Vegano',       emoji: '🥗' },
+  { id: 'todas',       nombre: 'Todos',        emoji: '🍽️' },
+  { id: 'tacos',       nombre: 'Tacos',        emoji: '🌮' },
+  { id: 'pizza',       nombre: 'Pizza',        emoji: '🍕' },
+  { id: 'hamburguesa', nombre: 'Hamburguesas', emoji: '🍔' },
+  { id: 'sushi',       nombre: 'Sushi',        emoji: '🍱' },
+  { id: 'mariscos',    nombre: 'Mariscos',     emoji: '🦐' },
+  { id: 'pollo',       nombre: 'Pollo',        emoji: '🍗' },
+  { id: 'desayuno',    nombre: 'Desayunos',    emoji: '🍳' },
+  { id: 'postres',     nombre: 'Postres',      emoji: '🍰' },
+  { id: 'vegano',      nombre: 'Vegano',       emoji: '🥗' },
+];
+
+// Categorías de la Tienda en Línea VoyCorriendo Store
+const CATEGORIAS_STORE = [
+  { id: 'todas',         nombre: 'Todo',          emoji: '🛍️' },
+  { id: 'refaccionaria', nombre: 'Refaccionaria', emoji: '🔧' },
+  { id: 'construccion',  nombre: 'Construcción',  emoji: '🏗️' },
+  { id: 'moda',          nombre: 'Moda',          emoji: '👗' },
+  { id: 'electronica',   nombre: 'Electrónica',   emoji: '📱' },
+  { id: 'hogar',         nombre: 'Hogar',         emoji: '🏡' },
+  { id: 'belleza',       nombre: 'Belleza',       emoji: '💄' },
+  { id: 'herramientas',  nombre: 'Herramientas',  emoji: '🛠️' },
+  { id: 'autos',         nombre: 'Autos',         emoji: '🚗' },
+  { id: 'juguetes',      nombre: 'Juguetes',      emoji: '🎮' },
+  { id: 'mascotas',      nombre: 'Mascotas',      emoji: '🐾' },
+  { id: 'regalos',       nombre: 'Regalos',       emoji: '🎁' },
 ];
 
 const EMOJI_POR_CATEGORIA = {
@@ -95,10 +111,10 @@ export default function InicioClienteScreen({ navigation, route }) {
     ? negocios
     : negocios.filter((n) => n.categoria === categoria);
 
-  // Filtro de subcategorías para restaurantes (client-side por nombre/descripción)
-  const filtrados = (categoria === 'restaurante' && subcat !== 'todas')
+  // Filtro de subcategorías para restaurantes y store (client-side)
+  const filtrados = ((categoria === 'restaurante' || categoria === 'ahivoy store') && subcat !== 'todas')
     ? porCategoria.filter((n) => {
-        const haystack = `${n.nombre} ${n.descripcion || ''} ${n.tags || ''}`.toLowerCase();
+        const haystack = `${n.nombre} ${n.descripcion || ''} ${n.tags || ''} ${n.subcategoria || ''}`.toLowerCase();
         return haystack.includes(subcat);
       })
     : porCategoria;
@@ -121,17 +137,22 @@ export default function InicioClienteScreen({ navigation, route }) {
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
             </View>
 
-            {/* Banner Tienda VoyCorriendo — tienda oficial, envíos desde México */}
+            {/* Banner Tienda VoyCorriendo — alto impacto */}
             {tiendaAhivoy && categoria === 'todos' && (
               <Pressable
                 style={estilos.bannerAhivoy}
-                onPress={() => navigation.navigate('Negocio', { id: tiendaAhivoy.id })}
+                onPress={() => { setCategoria('ahivoy store'); setSubcat('todas'); }}
               >
+                {/* Decoración de fondo */}
+                <View style={estilos.bannerDecor1} />
+                <View style={estilos.bannerDecor2} />
+
                 <View style={estilos.bannerContenido}>
-                  <Image
-                    source={tiendaAhivoy.logo ? { uri: tiendaAhivoy.logo } : require('../../../assets/icon.png')}
-                    style={estilos.bannerLogoImg}
-                  />
+                  {/* Icono del store */}
+                  <View style={estilos.bannerIconoCirculo}>
+                    <Text style={estilos.bannerIconoEmoji}>🛒</Text>
+                  </View>
+
                   <View style={{ flex: 1 }}>
                     <View style={estilos.bannerFila}>
                       <Text style={estilos.bannerTitulo}>VoyCorriendo</Text>
@@ -139,9 +160,23 @@ export default function InicioClienteScreen({ navigation, route }) {
                         <Text style={estilos.bannerBadgeTxt}>STORE</Text>
                       </View>
                     </View>
-                    <Text style={estilos.bannerSubtitulo}>Productos de México a tu puerta 📦</Text>
-                    <Text style={estilos.bannerCta}>Tocar para explorar →</Text>
+                    <Text style={estilos.bannerSubtitulo}>
+                      Ropa · Electrónica · Herramientas · Hogar
+                    </Text>
+                    <View style={estilos.bannerCtaFila}>
+                      <Text style={estilos.bannerCta}>Explorar tienda</Text>
+                      <Text style={estilos.bannerCtaArrow}> →</Text>
+                    </View>
                   </View>
+                </View>
+
+                {/* Chips de categorías preview */}
+                <View style={estilos.bannerChips}>
+                  {['🔧 Refaccionaria', '👗 Moda', '📱 Electrónica', '🏗️ Construcción'].map((c) => (
+                    <View key={c} style={estilos.bannerChip}>
+                      <Text style={estilos.bannerChipTxt}>{c}</Text>
+                    </View>
+                  ))}
                 </View>
               </Pressable>
             )}
@@ -164,13 +199,13 @@ export default function InicioClienteScreen({ navigation, route }) {
               )}
             />
 
-            {/* Subcategorías de restaurante — estilo Uber Eats */}
-            {categoria === 'restaurante' && (
+            {/* Subcategorías — restaurante o store */}
+            {(categoria === 'restaurante' || categoria === 'ahivoy store') && (
               <View style={estilos.subcatContenedor}>
                 <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  data={SUBCATEGORIAS_RESTAURANTE}
+                  data={categoria === 'ahivoy store' ? CATEGORIAS_STORE : SUBCATEGORIAS_RESTAURANTE}
                   keyExtractor={(c) => c.id}
                   contentContainerStyle={{ paddingHorizontal: espacio.md, gap: espacio.sm }}
                   renderItem={({ item }) => (
@@ -221,7 +256,13 @@ export default function InicioClienteScreen({ navigation, route }) {
             )}
 
             <Text style={estilos.seccion}>
-              {categoria === 'todos' ? 'Todos los negocios' : `Negocios — ${CATEGORIAS.find(c => c.id === categoria)?.nombre}`}
+              {categoria === 'todos'
+                ? 'Todos los negocios'
+                : categoria === 'ahivoy store'
+                  ? subcat === 'todas'
+                    ? '🛒 Tienda en Línea'
+                    : `🛒 ${CATEGORIAS_STORE.find(c => c.id === subcat)?.emoji} ${CATEGORIAS_STORE.find(c => c.id === subcat)?.nombre}`
+                  : `${CATEGORIAS.find(c => c.id === categoria)?.nombre}`}
             </Text>
           </>
         }
@@ -316,13 +357,23 @@ const estilos = StyleSheet.create({
   subcatTxt: { fontSize: 11, color: colors.texto, marginTop: 3, fontWeight: '600', textAlign: 'center' },
   subcatTxtActiva: { color: '#FFF' },
 
-  // Banner Ahívoy
+  // Banner Store — alto impacto, fondo oscuro
   bannerAhivoy: {
     marginHorizontal: espacio.md,
     marginBottom: espacio.md,
-    borderRadius: radio.md,
-    backgroundColor: colors.primario,
+    borderRadius: radio.xl,
+    backgroundColor: colors.oscuro,
     overflow: 'hidden',
+  },
+  bannerDecor1: {
+    position: 'absolute', top: -40, right: -40,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: colors.primario, opacity: 0.25,
+  },
+  bannerDecor2: {
+    position: 'absolute', bottom: -20, left: 60,
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: colors.acento, opacity: 0.12,
   },
   bannerContenido: {
     flexDirection: 'row',
@@ -330,44 +381,44 @@ const estilos = StyleSheet.create({
     padding: espacio.md,
     gap: espacio.md,
   },
-  bannerEmoji: { fontSize: 48 },
-  bannerTitulo: { color: '#FFF', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
-  bannerSubtitulo: { color: '#FFF', fontSize: 13, opacity: 0.95, marginTop: 2 },
-  bannerCta: { color: '#FFF', fontSize: 12, fontWeight: '700', marginTop: espacio.xs, opacity: 0.9 },
-
-  // Logo VoyCorriendo en el banner
-  bannerLogoImg: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: '#FFD700',
-    backgroundColor: '#FFF',
+  bannerIconoCirculo: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: colors.primario,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.primario, shadowOpacity: 0.6,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  bannerFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: espacio.xs,
+  bannerIconoEmoji: { fontSize: 36 },
+  bannerTitulo: { color: '#FFF', fontSize: 20, fontWeight: '900', letterSpacing: 0.3 },
+  bannerSubtitulo: { color: '#9E9E9E', fontSize: 12, marginTop: 3, lineHeight: 16 },
+  bannerCtaFila: { flexDirection: 'row', alignItems: 'center', marginTop: espacio.sm },
+  bannerCta: {
+    color: colors.primario, fontSize: 13, fontWeight: '800',
   },
+  bannerCtaArrow: { color: colors.primario, fontSize: 14, fontWeight: '900' },
+  bannerFila: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs },
   bannerBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radio.full,
+    backgroundColor: colors.acento, paddingHorizontal: 8,
+    paddingVertical: 2, borderRadius: radio.full,
   },
-  bannerBadgeTxt: {
-    color: '#6B4200',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
+  bannerBadgeTxt: { color: '#1A1A00', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
 
-  // Mini logo VoyCorriendo en tarjetas
-  miniLogoImg: {
-    width: 62,
-    height: 62,
-    borderRadius: 10,
+  // Chips de categorías en el banner
+  bannerChips: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: espacio.xs,
+    paddingHorizontal: espacio.md, paddingBottom: espacio.md,
   },
+  bannerChip: {
+    backgroundColor: '#2C2C2E',
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: radio.full,
+    borderWidth: 1, borderColor: '#3A3A3C',
+  },
+  bannerChipTxt: { color: '#E0E0E0', fontSize: 11, fontWeight: '600' },
+
+  // Mini logo VoyCorriendo en tarjetas (fallback)
+  miniLogoImg: { width: 62, height: 62, borderRadius: 10 },
 
   // Tabs de categoría
   cat: {
