@@ -187,13 +187,35 @@ export default function FotosNegocioScreen({ navigation }) {
             </Pressable>
             <Pressable
               style={estilos.previewBtnConfirmar}
-              onPress={() => {
+              onPress={async () => {
                 const { asset, onConfirm } = preview;
                 setPreview(null);
-                onConfirm(asset);
+                // Ofrecer recorte opcional antes de subir
+                Alert.alert(
+                  '¿Cómo quieres subir la foto?',
+                  '',
+                  [
+                    {
+                      text: '✂️ Recortar antes',
+                      onPress: async () => {
+                        const res = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          quality: 0.85,
+                          base64: true,
+                        });
+                        if (!res.canceled && res.assets?.[0]) {
+                          onConfirm(res.assets[0]);
+                        }
+                      },
+                    },
+                    { text: '📤 Subir completa', onPress: () => onConfirm(asset) },
+                    { text: 'Cancelar', style: 'cancel' },
+                  ]
+                );
               }}
             >
-              <Text style={estilos.previewBtnConfirmarTxt}>✅ Subir esta foto</Text>
+              <Text style={estilos.previewBtnConfirmarTxt}>✅ Usar esta foto</Text>
             </Pressable>
           </View>
         </View>

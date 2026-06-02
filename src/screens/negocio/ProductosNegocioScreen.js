@@ -16,12 +16,18 @@ import Campo from '../../components/Campo';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 
+const CATEGORIAS = [
+  'Entradas', 'Tacos', 'Hamburguesas', 'Pizzas', 'Mariscos', 'Sopas y caldos',
+  'Ensaladas', 'Desayunos', 'Parrilla', 'Bebidas', 'Postres', 'Comida corrida',
+  'Especiales', 'Para compartir', 'Vegetariano', 'Otros',
+];
+
 export default function ProductosNegocioScreen() {
   const [productos, setProductos] = useState([]);
   const [cargando, setCargando]   = useState(true);
-  const [modal, setModal]         = useState(null); // null | 'nuevo' | producto
+  const [modal, setModal]         = useState(null); // null | 'nuevo' | 'editar'
   const [guardando, setGuardando] = useState(false);
-  const [form, setForm]           = useState({ nombre: '', descripcion: '', precio: '', categoria: 'general' });
+  const [form, setForm]           = useState({ nombre: '', descripcion: '', precio: '', categoria: 'Entradas' });
 
   const cargar = useCallback(async () => {
     try {
@@ -37,7 +43,7 @@ export default function ProductosNegocioScreen() {
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
   const abrirNuevo = () => {
-    setForm({ nombre: '', descripcion: '', precio: '', categoria: 'general' });
+    setForm({ nombre: '', descripcion: '', precio: '', categoria: 'Entradas' });
     setModal('nuevo');
   };
 
@@ -47,7 +53,7 @@ export default function ProductosNegocioScreen() {
       nombre: prod.nombre || '',
       descripcion: prod.descripcion || '',
       precio: String(prod.precio ?? ''),
-      categoria: prod.categoria || 'general',
+      categoria: prod.categoria || 'Entradas',
     });
     setModal('editar');
   };
@@ -206,31 +212,44 @@ export default function ProductosNegocioScreen() {
               </Text>
 
               <Campo
-                label="Nombre *"
+                etiqueta="Nombre *"
                 value={form.nombre}
                 onChangeText={(v) => setForm((f) => ({ ...f, nombre: v }))}
                 placeholder="Ej. Tacos de camarón"
               />
               <Campo
-                label="Descripción"
+                etiqueta="Descripción"
                 value={form.descripcion}
                 onChangeText={(v) => setForm((f) => ({ ...f, descripcion: v }))}
                 placeholder="Ingredientes, porciones, etc."
                 multiline
               />
               <Campo
-                label="Precio *"
+                etiqueta="Precio *"
                 value={form.precio}
                 onChangeText={(v) => setForm((f) => ({ ...f, precio: v }))}
                 placeholder="0.00"
                 keyboardType="decimal-pad"
               />
-              <Campo
-                label="Categoría"
-                value={form.categoria}
-                onChangeText={(v) => setForm((f) => ({ ...f, categoria: v }))}
-                placeholder="Ej. entradas, bebidas, postres"
-              />
+
+              {/* Selector de categoría con chips */}
+              <Text style={estilos.categoriaLabel}>Categoría</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                {CATEGORIAS.map((cat) => {
+                  const activa = form.categoria === cat;
+                  return (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setForm((f) => ({ ...f, categoria: cat }))}
+                      style={[estilos.categoriaChip, activa && estilos.categoriaChipActivo]}
+                    >
+                      <Text style={[estilos.categoriaChipTxt, activa && estilos.categoriaChipTxtActivo]}>
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
               <View style={{ flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md }}>
                 <Pressable
@@ -320,4 +339,27 @@ const estilos = StyleSheet.create({
     paddingVertical: 14, borderRadius: radio.md,
     alignItems: 'center',
   },
+
+  categoriaLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textoSuave,
+    marginBottom: 7,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  categoriaChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radio.full,
+    backgroundColor: colors.fondo,
+    borderWidth: 1.5,
+    borderColor: colors.borde,
+  },
+  categoriaChipActivo: {
+    backgroundColor: colors.primario,
+    borderColor: colors.primario,
+  },
+  categoriaChipTxt: { fontSize: 13, fontWeight: '700', color: colors.textoSuave },
+  categoriaChipTxtActivo: { color: '#FFF' },
 });

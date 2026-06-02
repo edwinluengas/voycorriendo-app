@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -115,10 +115,12 @@ const agruparPorCategoria = (productos) => {
 
 export default function NegocioScreen({ route, navigation }) {
   const { id } = route.params;
-  const [negocio, setNegocio]       = useState(null);
-  const [productos, setProductos]   = useState([]);
-  const [cargando, setCargando]     = useState(true);
+  const [negocio, setNegocio]           = useState(null);
+  const [productos, setProductos]       = useState([]);
+  const [cargando, setCargando]         = useState(true);
   const [itemsCarrito, setItemsCarrito] = useState(0);
+  const [categoriaActiva, setCategoriaActiva] = useState(null);
+  const sectionListRef = useRef(null);
 
   // Modal de opciones / notas
   const [modalProducto, setModalProducto] = useState(null);
@@ -147,6 +149,13 @@ export default function NegocioScreen({ route, navigation }) {
   }, [id]);
 
   const secciones = useMemo(() => agruparPorCategoria(productos), [productos]);
+
+  const irACategoria = (titulo, idx) => {
+    setCategoriaActiva(titulo);
+    try {
+      sectionListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, animated: true, viewOffset: 48 });
+    } catch (_) {}
+  };
 
   // Abre el modal (o agrega directo si el producto no tiene opciones)
   const agregar = (p) => {
@@ -233,9 +242,11 @@ export default function NegocioScreen({ route, navigation }) {
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
       <SectionList
+        ref={sectionListRef}
         sections={secciones}
         keyExtractor={(p) => p.id}
         stickySectionHeadersEnabled
+        onScrollToIndexFailed={() => {}}
         ListHeaderComponent={
           <View style={estilos.header}>
             {negocio.foto_portada ? (
@@ -266,6 +277,31 @@ export default function NegocioScreen({ route, navigation }) {
               <Text style={estilos.envio}>🛵 {envioTxt}</Text>
               {!!negocio.descripcion && <Text style={estilos.descripcion}>{negocio.descripcion}</Text>}
             </View>
+
+            {/* ── Tabs de categoría estilo UberEats ── */}
+            {secciones.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={estilos.categoriasBar}
+                contentContainerStyle={estilos.categoriasBarContent}
+              >
+                {secciones.map((sec, idx) => {
+                  const activa = categoriaActiva === sec.title || (!categoriaActiva && idx === 0);
+                  return (
+                    <Pressable
+                      key={sec.title}
+                      style={[estilos.categoriaTab, activa && estilos.categoriaTabActiva]}
+                      onPress={() => irACategoria(sec.title, idx)}
+                    >
+                      <Text style={[estilos.categoriaTabTxt, activa && estilos.categoriaTabTxtActiva]}>
+                        {sec.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
@@ -487,6 +523,37 @@ const estilos = StyleSheet.create({
   meta: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
   envio: { fontSize: 13, color: colors.secundario, fontWeight: '700', marginTop: 2 },
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
+
+  // Tabs categorías UberEats
+  categoriasBar: {
+    backgroundColor: colors.superficie,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borde,
+  },
+  categoriasBarContent: {
+    paddingHorizontal: espacio.md,
+    paddingVertical: espacio.sm,
+    gap: espacio.xs,
+  },
+  categoriaTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radio.full,
+    backgroundColor: colors.fondo,
+    borderWidth: 1.5,
+    borderColor: colors.borde,
+  },
+  categoriaTabActiva: {
+    backgroundColor: colors.primario,
+    borderColor: colors.primario,
+  },
+  categoriaTabTxt: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textoSuave,
+    textTransform: 'capitalize',
+  },
+  categoriaTabTxtActiva: { color: '#FFF' },
 
   // Sección
   seccionHeader: {

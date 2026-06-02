@@ -236,7 +236,7 @@ export default function PagoScreen({ route, navigation }) {
       } else if (metodo === 'transferencia') {
         Alert.alert(
           'Datos bancarios',
-          'Transfiere a:\n\nBanco: BBVA\nCLABE: 012XXXXXXXXXXXXX\nBeneficiario: VoyCorriendo SA de CV\n\nDespués sube tu comprobante en "Mis pedidos".'
+          'Transfiere a:\n\nBanco: Banamex (Citibanamex)\nCLABE: 002180902500967465\nBeneficiario: Edwin Melton Rojas Luengas\n\nDespués sube tu comprobante en "Mis pedidos".'
         );
       }
 
