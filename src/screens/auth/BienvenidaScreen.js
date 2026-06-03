@@ -19,8 +19,8 @@ export default function BienvenidaScreen({ navigation }) {
   return (
     <SafeAreaView style={estilos.contenedor}>
       {/* Mancha de color naranja decorativa */}
-      <View style={estilos.fondoDecoración} />
-      <View style={estilos.fondoDecoración2} />
+      <View style={estilos.fondoDecoración} pointerEvents="none" />
+      <View style={estilos.fondoDecoración2} pointerEvents="none" />
 
       <Animated.View style={[estilos.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={estilos.logoCirculo}>
