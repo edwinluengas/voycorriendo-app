@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Alert, ScrollView,
-  KeyboardAvoidingView, Platform, Pressable,
+  View, Text, TextInput, TouchableOpacity, Pressable,
+  StyleSheet, Alert, ScrollView, StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Campo from '../../components/Campo';
-import Boton from '../../components/Boton';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -16,13 +13,14 @@ const ROLES = [
 
 export default function RegistroScreen() {
   const { registrarse } = useAuth();
-  const [rol, setRol]           = useState('cliente');
-  const [nombre, setNombre]     = useState('');
-  const [apellido, setApellido] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [cargando, setCargando] = useState(false);
+  const [rol, setRol]             = useState('cliente');
+  const [nombre, setNombre]       = useState('');
+  const [apellido, setApellido]   = useState('');
+  const [telefono, setTelefono]   = useState('');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [verPassword, setVerPassword] = useState(false);
+  const [cargando, setCargando]   = useState(false);
 
   const submit = async () => {
     if (!nombre || !apellido || !telefono || !password) {
@@ -50,132 +48,155 @@ export default function RegistroScreen() {
   };
 
   return (
-    <SafeAreaView style={estilos.raiz} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={estilos.kav}
+    <View style={estilos.raiz}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <ScrollView
+        contentContainerStyle={estilos.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          <View style={estilos.encabezado}>
-            <Text style={estilos.titulo}>Crea tu cuenta</Text>
-            <Text style={estilos.subtitulo}>¿Cómo vas a usar VoyCorriendo?</Text>
-          </View>
+        <Text style={estilos.titulo}>Crea tu cuenta</Text>
+        <Text style={estilos.subtitulo}>¿Cómo vas a usar VoyCorriendo?</Text>
 
-          {/* Selector de rol */}
-          <View style={estilos.roles}>
-            {ROLES.map((r) => {
-              const activo = rol === r.id;
-              return (
-                <Pressable
-                  key={r.id}
-                  style={[estilos.rolCard, activo && estilos.rolCardActivo]}
-                  onPress={() => setRol(r.id)}
-                >
-                  <View style={[estilos.rolIcono, activo && estilos.rolIconoActivo]}>
-                    <Text style={estilos.rolEmoji}>{r.emoji}</Text>
+        {/* Selector de rol */}
+        <View style={estilos.roles}>
+          {ROLES.map((r) => {
+            const activo = rol === r.id;
+            return (
+              <Pressable
+                key={r.id}
+                style={[estilos.rolCard, activo && estilos.rolCardActivo]}
+                onPress={() => setRol(r.id)}
+              >
+                <Text style={estilos.rolEmoji}>{r.emoji}</Text>
+                <Text style={[estilos.rolTitulo, activo && estilos.rolTituloActivo]}>
+                  {r.titulo}
+                </Text>
+                <Text style={estilos.rolDesc}>{r.desc}</Text>
+                {activo && (
+                  <View style={estilos.checkCircle}>
+                    <Text style={estilos.checkTxt}>✓</Text>
                   </View>
-                  <Text style={[estilos.rolTitulo, activo && estilos.rolTituloActivo]}>
-                    {r.titulo}
-                  </Text>
-                  <Text style={estilos.rolDesc}>{r.desc}</Text>
-                  {activo && (
-                    <View style={estilos.checkCircle}>
-                      <Text style={estilos.checkTxt}>✓</Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
 
-          {/* Formulario */}
-          <View style={estilos.tarjeta}>
-            <View style={estilos.fila2}>
-              <Campo
-                etiqueta="Nombre(s)"
+        {/* Formulario */}
+        <View style={estilos.tarjeta}>
+          {/* Nombre y Apellido en fila */}
+          <View style={estilos.fila}>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.label}>NOMBRE(S)</Text>
+              <TextInput
+                style={estilos.input}
                 placeholder="Juan"
+                placeholderTextColor="#A0A0A8"
                 value={nombre}
                 onChangeText={setNombre}
-                style={{ flex: 1 }}
-              />
-              <View style={{ width: espacio.sm }} />
-              <Campo
-                etiqueta="Apellido(s)"
-                placeholder="Pérez"
-                value={apellido}
-                onChangeText={setApellido}
-                style={{ flex: 1 }}
+                autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
+            <View style={{ width: espacio.sm }} />
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.label}>APELLIDO(S)</Text>
+              <TextInput
+                style={estilos.input}
+                placeholder="Pérez"
+                placeholderTextColor="#A0A0A8"
+                value={apellido}
+                onChangeText={setApellido}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
 
-            <Campo
-              etiqueta="Celular (10 dígitos)"
-              placeholder="9531234567"
-              keyboardType="phone-pad"
-              maxLength={10}
-              value={telefono}
-              onChangeText={setTelefono}
-            />
-            <Campo
-              etiqueta="Correo (opcional)"
-              placeholder="tu@correo.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Campo
-              etiqueta="Contraseña"
+          <Text style={estilos.label}>CELULAR (10 DÍGITOS)</Text>
+          <TextInput
+            style={estilos.input}
+            placeholder="9531234567"
+            placeholderTextColor="#A0A0A8"
+            keyboardType="phone-pad"
+            maxLength={10}
+            value={telefono}
+            onChangeText={setTelefono}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <Text style={estilos.label}>CORREO (OPCIONAL)</Text>
+          <TextInput
+            style={estilos.input}
+            placeholder="tu@correo.com"
+            placeholderTextColor="#A0A0A8"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text style={estilos.label}>CONTRASEÑA</Text>
+          <View style={estilos.inputRow}>
+            <TextInput
+              style={[estilos.input, estilos.inputPassword]}
               placeholder="Mínimo 6 caracteres"
-              secureTextEntry
+              placeholderTextColor="#A0A0A8"
+              secureTextEntry={!verPassword}
               value={password}
               onChangeText={setPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-
-            {rol === 'repartidor' && (
-              <View style={estilos.aviso}>
-                <Text style={estilos.avisoEmoji}>📋</Text>
-                <Text style={estilos.avisoTxt}>
-                  Necesitarás INE, licencia de moto, tarjeta de circulación y cuenta bancaria a tu nombre. Verificaremos tus datos en 24-48 h.
-                </Text>
-              </View>
-            )}
-
-            <View style={{ height: espacio.xs }} />
-            <Boton titulo="Crear mi cuenta" onPress={submit} cargando={cargando} />
+            <TouchableOpacity
+              style={estilos.ojoBtn}
+              onPress={() => setVerPassword(v => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={estilos.ojoTxt}>{verPassword ? 'Ocultar' : 'Ver'}</Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          {rol === 'repartidor' && (
+            <View style={estilos.aviso}>
+              <Text style={estilos.avisoEmoji}>📋</Text>
+              <Text style={estilos.avisoTxt}>
+                Necesitarás INE, licencia de moto, tarjeta de circulación y cuenta bancaria a tu nombre. Verificaremos tus datos en 24-48 h.
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[estilos.boton, cargando && estilos.botonDesactivado]}
+            onPress={submit}
+            disabled={cargando}
+            activeOpacity={0.85}
+          >
+            <Text style={estilos.botonTxt}>{cargando ? 'Creando cuenta...' : 'Crear mi cuenta'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: '#FFFFFF' },
-  kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: espacio.lg,
+    paddingTop: 60,
     paddingBottom: espacio.xl,
   },
-  encabezado: { paddingTop: espacio.xl, marginBottom: espacio.lg },
   titulo: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.texto,
-    letterSpacing: -0.5,
+    fontSize: 32, fontWeight: '900',
+    color: '#111827', letterSpacing: -0.5,
+    marginBottom: espacio.xs,
   },
-  subtitulo: {
-    fontSize: 15,
-    color: colors.textoSuave,
-    marginTop: espacio.xs,
-    fontWeight: '500',
-  },
+  subtitulo: { fontSize: 15, color: '#6B7280', marginBottom: espacio.lg },
   roles: { flexDirection: 'row', gap: espacio.sm, marginBottom: espacio.lg },
   rolCard: {
     flex: 1,
@@ -184,38 +205,20 @@ const estilos = StyleSheet.create({
     padding: espacio.md,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.borde,
+    borderColor: '#E5E7EB',
     position: 'relative',
     overflow: 'hidden',
   },
-  rolCardActivo: {
-    borderColor: colors.primario,
-    backgroundColor: '#FFF5F0',
-  },
-  rolIcono: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.borde,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: espacio.sm,
-  },
-  rolIconoActivo: { backgroundColor: 'rgba(255,92,0,0.15)' },
-  rolEmoji: { fontSize: 28 },
-  rolTitulo: { fontSize: 14, fontWeight: '800', color: colors.textoSuave },
-  rolTituloActivo: { color: colors.texto },
-  rolDesc: { fontSize: 11, color: colors.textoSuave, marginTop: 2, opacity: 0.7 },
+  rolCardActivo: { borderColor: colors.primario, backgroundColor: '#FFF5F0' },
+  rolEmoji: { fontSize: 28, marginBottom: espacio.sm },
+  rolTitulo: { fontSize: 13, fontWeight: '800', color: '#6B7280' },
+  rolTituloActivo: { color: '#111827' },
+  rolDesc: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   checkCircle: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    position: 'absolute', top: 8, right: 8,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: colors.primario,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   checkTxt: { color: '#FFF', fontSize: 12, fontWeight: '900' },
   tarjeta: {
@@ -223,9 +226,32 @@ const estilos = StyleSheet.create({
     borderRadius: radio.xl,
     padding: espacio.lg,
     borderWidth: 1,
-    borderColor: colors.borde,
+    borderColor: '#E5E7EB',
   },
-  fila2: { flexDirection: 'row' },
+  fila: { flexDirection: 'row' },
+  label: {
+    fontSize: 11, fontWeight: '800',
+    color: '#6B7280', marginBottom: 7,
+    letterSpacing: 0.8,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radio.md,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: espacio.md,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#111827',
+    marginBottom: espacio.md,
+  },
+  inputRow: { position: 'relative', marginBottom: espacio.md },
+  inputPassword: { marginBottom: 0, paddingRight: 80 },
+  ojoBtn: {
+    position: 'absolute', right: espacio.md,
+    top: 0, bottom: 0, justifyContent: 'center',
+  },
+  ojoTxt: { color: colors.primario, fontWeight: '700', fontSize: 14 },
   aviso: {
     flexDirection: 'row',
     backgroundColor: '#FFFBEB',
@@ -237,5 +263,18 @@ const estilos = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   avisoEmoji: { fontSize: 20 },
-  avisoTxt: { flex: 1, fontSize: 12, color: colors.textoSuave, lineHeight: 18 },
+  avisoTxt: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  boton: {
+    backgroundColor: colors.primario,
+    borderRadius: radio.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: espacio.xs,
+    elevation: 4,
+    shadowColor: colors.primario,
+    shadowOpacity: 0.3, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  botonDesactivado: { opacity: 0.7 },
+  botonTxt: { color: '#FFF', fontSize: 17, fontWeight: '800' },
 });
