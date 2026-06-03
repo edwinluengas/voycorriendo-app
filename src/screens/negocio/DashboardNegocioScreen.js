@@ -77,7 +77,11 @@ export default function DashboardNegocioScreen({ navigation }) {
     if (!negocio?.id || negocio?.verificacion_estado !== 'aprobado') return;
     const socket = conectarSocket();
     socketRef.current = socket;
-    socket.emit('unirse_negocio', negocio.id);
+
+    // Entra al room del negocio — y vuelve a entrar si la conexión cae y reconecta
+    const unirse = () => socket.emit('unirse_negocio', negocio.id);
+    if (socket.connected) unirse();
+    socket.on('connect', unirse);
 
     const onNuevo = () => {
       Vibration.vibrate([0, 400, 200, 400]);
@@ -100,6 +104,7 @@ export default function DashboardNegocioScreen({ navigation }) {
     socket.on('nuevo_pedido', onNuevo);
     socket.on('estado_pedido', onEstado);
     return () => {
+      socket.off('connect', unirse);
       socket.off('nuevo_pedido', onNuevo);
       socket.off('estado_pedido', onEstado);
     };
@@ -386,7 +391,7 @@ const estilos = StyleSheet.create({
   salirTxt: { color: colors.error, fontSize: 13, fontWeight: '600' },
 
   // Header
-  header: { backgroundColor: colors.oscuro, paddingHorizontal: espacio.lg, paddingTop: espacio.md, paddingBottom: espacio.sm },
+  header: { backgroundColor: colors.primario, paddingHorizontal: espacio.lg, paddingTop: espacio.md, paddingBottom: espacio.sm },
   headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm },
   headerNombre: { fontSize: 20, fontWeight: '900', color: '#FFFFFF' },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },

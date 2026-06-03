@@ -230,9 +230,17 @@ export default function PagoScreen({ route, navigation }) {
 
       // 2. Si no es efectivo, abrir pasarela de Mercado Pago
       if (metodo === 'tarjeta' || metodo === 'mercado_pago') {
-        const resPref = await pagosAPI.preferencia(pedido.id);
-        const url = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
-        await WebBrowser.openBrowserAsync(url);
+        try {
+          const resPref = await pagosAPI.preferencia(pedido.id);
+          const url = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
+          if (!url) throw new Error('Sin URL de pago');
+          await WebBrowser.openBrowserAsync(url);
+        } catch (payErr) {
+          Alert.alert(
+            '⚠️ Pedido creado',
+            'Tu pedido fue registrado pero no pudimos abrir el link de pago. Puedes pagar desde "Mis pedidos" cuando quieras.'
+          );
+        }
       } else if (metodo === 'transferencia') {
         Alert.alert(
           'Datos bancarios',
@@ -245,7 +253,7 @@ export default function PagoScreen({ route, navigation }) {
       if (usaTokens) refrescarUsuario();
       navigation.replace('Seguimiento', { pedidoId: pedido.id });
     } catch (e) {
-      Alert.alert('No pudimos crear tu pedido', e.mensajeAmigable || 'Intenta de nuevo.');
+      Alert.alert('Error al crear pedido', e?.mensajeAmigable || 'No pudimos registrar tu pedido. Intenta de nuevo.');
     } finally {
       setEnviando(false);
     }

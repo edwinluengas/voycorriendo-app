@@ -98,33 +98,41 @@ export default function ProductosNegocioScreen() {
     }
   };
 
-  const subirFotoDesdeGaleria = async (prod) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, quality: 0.7, base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return;
-    const asset = result.assets[0];
+  const cacheBust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
+
+  const procesarSubidaFoto = async (prod, asset) => {
     try {
-      await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, asset.mimeType || 'image/jpeg');
-      await cargar();
+      const { data } = await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, asset.mimeType || 'image/jpeg');
+      const newUrl = data.data?.url || data.data?.producto?.imagen || data.data?.foto_url;
+      if (newUrl) {
+        // Actualización inmediata con cache-bust — no espera recarga de API
+        setProductos(ps => ps.map(p =>
+          p.id === prod.id ? { ...p, foto_url: cacheBust(newUrl) } : p
+        ));
+      } else {
+        await cargar();
+      }
+      Alert.alert('✅ ¡Listo!', 'Foto actualizada.');
     } catch (e) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir la foto.');
     }
   };
 
-  const subirFotoDesdeCamara = async (prod) => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, quality: 0.7, base64: true,
+  const subirFotoDesdeGaleria = async (prod) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false, quality: 0.85, base64: true,
     });
     if (result.canceled || !result.assets?.length) return;
-    const asset = result.assets[0];
-    try {
-      await negocioOnboardingAPI.subirFotoProducto(prod.id, asset.base64, asset.mimeType || 'image/jpeg');
-      await cargar();
-    } catch (e) {
-      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir la foto.');
-    }
+    await procesarSubidaFoto(prod, result.assets[0]);
+  };
+
+  const subirFotoDesdeCamara = async (prod) => {
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false, quality: 0.85, base64: true,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    await procesarSubidaFoto(prod, result.assets[0]);
   };
 
   const subirFoto = (prod) => {

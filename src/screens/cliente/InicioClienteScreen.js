@@ -149,8 +149,12 @@ export default function InicioClienteScreen({ navigation, route }) {
 
                 <View style={estilos.bannerContenido}>
                   {/* Icono del store */}
-                  <View style={estilos.bannerIconoCirculo}>
-                    <Text style={estilos.bannerIconoEmoji}>🛒</Text>
+                  <View style={[estilos.bannerIconoCirculo, { backgroundColor: '#1C1C1E' }]}>
+                    <Image
+                      source={require('../../../assets/icon.png')}
+                      style={{ width: 54, height: 54, borderRadius: 27 }}
+                      resizeMode="cover"
+                    />
                   </View>
 
                   <View style={{ flex: 1 }}>
