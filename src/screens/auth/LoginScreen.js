@@ -31,95 +31,79 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={estilos.contenedor}>
-      <View style={estilos.decorCirculo} pointerEvents="none" />
-      <View style={estilos.decorCirculo2} pointerEvents="none" />
-
-      <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    <SafeAreaView style={estilos.raiz} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={estilos.kav}
+      >
+        <ScrollView
+          contentContainerStyle={estilos.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <ScrollView
-            contentContainerStyle={estilos.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+          {/* Encabezado */}
+          <View style={estilos.encabezado}>
+            <View style={estilos.logoMini}>
+              <Text style={estilos.logoMiniTxt}>VC</Text>
+            </View>
+            <Text style={estilos.titulo}>{'Bienvenido\nde regreso'}</Text>
+            <Text style={estilos.subtitulo}>Inicia sesión para seguir pidiendo</Text>
+          </View>
+
+          {/* Formulario */}
+          <View style={estilos.tarjeta}>
+            <Campo
+              etiqueta="Celular"
+              placeholder="10 dígitos"
+              keyboardType="phone-pad"
+              value={telefono}
+              onChangeText={setTelefono}
+              maxLength={10}
+            />
+            <Campo
+              etiqueta="Contraseña"
+              placeholder="Tu contraseña"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            <View style={{ height: espacio.xs }} />
+            <Boton titulo="Entrar" onPress={submit} cargando={cargando} />
+          </View>
+
+          <TouchableOpacity
+            style={estilos.linkRegistro}
+            onPress={() => navigation.navigate('Registro')}
+            activeOpacity={0.7}
           >
-            <View style={estilos.encabezado}>
-              <View style={estilos.logoMini}>
-                <Text style={estilos.logoMiniTxt}>VC</Text>
-              </View>
-              <Text style={estilos.titulo}>{'Bienvenido\nde regreso'}</Text>
-              <Text style={estilos.subtitulo}>Inicia sesión para seguir pidiendo</Text>
-            </View>
-
-            <View style={estilos.tarjeta}>
-              <Campo
-                etiqueta="Celular"
-                placeholder="10 dígitos"
-                keyboardType="phone-pad"
-                value={telefono}
-                onChangeText={setTelefono}
-                maxLength={10}
-              />
-              <Campo
-                etiqueta="Contraseña"
-                placeholder="Tu contraseña"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              />
-
-              <View style={{ height: espacio.xs }} />
-              <Boton titulo="Entrar" onPress={submit} cargando={cargando} />
-            </View>
-
-            <TouchableOpacity
-              style={estilos.linkRegistro}
-              onPress={() => navigation.navigate('Registro')}
-              activeOpacity={0.7}
-            >
-              <Text style={estilos.linkTxt}>
-                {'¿No tienes cuenta?  '}
-                <Text style={estilos.linkAcento}>Regístrate gratis</Text>
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+            <Text style={estilos.linkTxt}>
+              {'¿No tienes cuenta?  '}
+              <Text style={estilos.linkAcento}>Regístrate gratis</Text>
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#FFFFFF' },
-  decorCirculo: {
-    position: 'absolute',
-    top: -100,
-    right: -80,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: colors.primario,
-    opacity: 0.07,
+  raiz: { flex: 1, backgroundColor: '#FFFFFF' },
+  kav: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: espacio.lg,
+    paddingBottom: espacio.xl,
   },
-  decorCirculo2: {
-    position: 'absolute',
-    bottom: 60,
-    left: -100,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: colors.primario,
-    opacity: 0.04,
+  encabezado: {
+    paddingTop: espacio.xl,
+    marginBottom: espacio.xl,
   },
-  scroll: { flexGrow: 1, paddingHorizontal: espacio.lg, paddingBottom: espacio.xl },
-  encabezado: { paddingTop: espacio.xl, marginBottom: espacio.xl },
   logoMini: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: colors.primario,
     alignItems: 'center',
     justifyContent: 'center',
@@ -130,13 +114,13 @@ const estilos = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  logoMiniTxt: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
+  logoMiniTxt: { color: '#FFF', fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   titulo: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
     color: colors.texto,
-    lineHeight: 42,
-    letterSpacing: -0.8,
+    lineHeight: 40,
+    letterSpacing: -0.5,
   },
   subtitulo: {
     fontSize: 15,
@@ -145,16 +129,11 @@ const estilos = StyleSheet.create({
     fontWeight: '500',
   },
   tarjeta: {
-    backgroundColor: colors.superficie,
+    backgroundColor: '#F8F9FA',
     borderRadius: radio.xl,
     padding: espacio.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borde,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
   },
   linkRegistro: {
     marginTop: espacio.xl,
