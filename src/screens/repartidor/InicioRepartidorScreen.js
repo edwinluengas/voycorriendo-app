@@ -100,12 +100,22 @@ export default function InicioRepartidorScreen({ navigation }) {
 
   // Socket para notificación inmediata de pedidos disponibles
   useEffect(() => {
-    if (!conectado || !aprobado) return;
+    if (!conectado || !aprobado || !usuario?.id) return;
     const socket = conectarSocket();
+
+    // Entrar al room del repartidor — y volver a entrar si el socket reconecta
+    const unirse = () => socket.emit('unirse_repartidor', usuario.id);
+    if (socket.connected) unirse();
+    socket.on('connect', unirse);
+
     const onDisponible = () => { cargarPedidosRef.current?.(); };
     socket.on('pedido_disponible', onDisponible);
-    return () => { socket.off('pedido_disponible', onDisponible); };
-  }, [conectado, aprobado]);
+
+    return () => {
+      socket.off('connect', unirse);
+      socket.off('pedido_disponible', onDisponible);
+    };
+  }, [conectado, aprobado, usuario?.id]);
 
   // ─── Conectarse / desconectarse ──────────────────────────
   const togglearConexion = async (nuevoEstado) => {

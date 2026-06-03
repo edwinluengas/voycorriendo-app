@@ -38,7 +38,7 @@ const NOTIF_ESTADO = {
   cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
 };
 
-const notificarCambioEstado = (nuevoEstado) => {
+const notificarCambioEstado = (nuevoEstado, pedidoId) => {
   const n = NOTIF_ESTADO[nuevoEstado];
   if (!n) return;
   Vibration.vibrate([0, 200, 100, 200]);
@@ -48,7 +48,7 @@ const notificarCambioEstado = (nuevoEstado) => {
       body: n.cuerpo,
       sound: true,
       channelId: 'pedidos',
-      data: { tipo: 'estado_pedido' },
+      data: { tipo: 'estado_pedido', pedidoId },
     },
     trigger: null,
   }).catch(() => {});
@@ -95,9 +95,8 @@ export default function SeguimientoScreen({ route, navigation }) {
       if (data.pedido_id !== pedidoId) return;
       const nuevoEstado = data.estado;
       setPedido((p) => {
-        // Notificar solo si el estado realmente cambió
         if (p && p.estado !== nuevoEstado) {
-          notificarCambioEstado(nuevoEstado);
+          notificarCambioEstado(nuevoEstado, pedidoId);
         }
         return p ? { ...p, estado: nuevoEstado } : p;
       });
