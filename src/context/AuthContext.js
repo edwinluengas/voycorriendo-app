@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { authAPI, usuariosAPI } from '../api/client';
+import { authAPI, usuariosAPI, setUnauthorizedCallback } from '../api/client';
 import { conectarSocket, desconectarSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
@@ -63,6 +63,17 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Registra el callback de 401 para cierre de sesión automático cuando el JWT expira
+  useEffect(() => {
+    setUnauthorizedCallback(async () => {
+      desconectarSocket();
+      await SecureStore.deleteItemAsync('jwt').catch(() => {});
+      setUsuario(null);
+      setRoles(null);
+    });
+    return () => setUnauthorizedCallback(null);
+  }, []);
+
   // Carga inicial — verifica JWT guardado
   useEffect(() => {
     (async () => {
@@ -78,8 +89,12 @@ export const AuthProvider = ({ children }) => {
             conectarSocket(token);
           }
         }
-      } catch (_) {
-        await SecureStore.deleteItemAsync('jwt');
+      } catch (e) {
+        // Solo borramos el token si el servidor rechazó el JWT (401/403)
+        // Errores de red (timeout, sin conexión) mantienen la sesión guardada
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          await SecureStore.deleteItemAsync('jwt').catch(() => {});
+        }
       } finally {
         setCargando(false);
       }

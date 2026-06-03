@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,15 +32,21 @@ export default function MisPedidosScreen({ navigation }) {
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
 
-  const cargar = async () => {
+  const cargar = async (esRefresco = false) => {
     try {
       const { data } = await pedidosAPI.misPedidos();
       setPedidos(data.data?.pedidos || []);
-    } catch (_) {}
-    finally { setCargando(false); setRefrescar(false); }
+    } catch (e) {
+      if (esRefresco) {
+        Alert.alert('Sin conexión', 'No pudimos actualizar tus pedidos. Revisa tu internet.');
+      }
+    } finally {
+      setCargando(false);
+      setRefrescar(false);
+    }
   };
 
-  useFocusEffect(useCallback(() => { cargar(); }, []));
+  useFocusEffect(useCallback(() => { cargar(false); }, []));
 
   if (cargando) {
     return (
@@ -58,7 +64,7 @@ export default function MisPedidosScreen({ navigation }) {
         refreshControl={
           <RefreshControl
             refreshing={refrescando}
-            onRefresh={() => { setRefrescar(true); cargar(); }}
+            onRefresh={() => { setRefrescar(true); cargar(true); }}
             tintColor={colors.primario}
             colors={[colors.primario]}
           />

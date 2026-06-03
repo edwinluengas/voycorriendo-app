@@ -166,8 +166,8 @@ export default function ProductosNegocioScreen() {
         }
         renderItem={({ item }) => (
           <View style={[estilos.tarjeta, !item.disponible && estilos.tarjetaInactiva]}>
-            {item.foto_url ? (
-              <Image source={{ uri: item.foto_url }} style={estilos.foto} />
+            {(item.foto_url || item.imagen) ? (
+              <Image source={{ uri: item.foto_url || item.imagen }} style={estilos.foto} />
             ) : (
               <Pressable style={estilos.fotoPlaceholder} onPress={() => subirFoto(item)}>
                 <Text style={estilos.fotoPlaceholderTxt}>📷</Text>
@@ -183,15 +183,11 @@ export default function ProductosNegocioScreen() {
                 <Pressable style={estilos.btnEditar} onPress={() => abrirEditar(item)}>
                   <Text style={estilos.btnEditarTxt}>✏️ Editar</Text>
                 </Pressable>
-                {item.foto_url ? (
-                  <Pressable style={estilos.btnFoto} onPress={() => subirFoto(item)}>
-                    <Text style={estilos.btnFotoTxt}>🔄 Foto</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable style={estilos.btnFoto} onPress={() => subirFoto(item)}>
-                    <Text style={estilos.btnFotoTxt}>📷 Foto</Text>
-                  </Pressable>
-                )}
+                <Pressable style={estilos.btnFoto} onPress={() => subirFoto(item)}>
+                  <Text style={estilos.btnFotoTxt}>
+                    {(item.foto_url || item.imagen) ? '🔄 Foto' : '📷 Foto'}
+                  </Text>
+                </Pressable>
                 <Switch
                   value={!!item.disponible}
                   onValueChange={() => toggleDisponible(item)}

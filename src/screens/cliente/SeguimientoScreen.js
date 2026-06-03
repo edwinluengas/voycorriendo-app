@@ -192,6 +192,21 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* Pedido cancelado o rechazado */}
+        {(pedido.estado === 'cancelado' || pedido.estado === 'rechazado') && (
+          <View style={estilos.chipCanceladoCard}>
+            <Text style={estilos.chipCanceladoEmoji}>❌</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.chipCanceladoTxt}>
+                {pedido.estado === 'rechazado' ? 'Pedido rechazado por el negocio' : 'Pedido cancelado'}
+              </Text>
+              {!!pedido.nota_estado && (
+                <Text style={estilos.chipCanceladoSub}>{pedido.nota_estado}</Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Botón WhatsApp VoyCorriendo Store */}
         {esAhivoy && !['entregado', 'cancelado'].includes(pedido.estado) && (
           <Pressable
@@ -341,6 +356,17 @@ const estilos = StyleSheet.create({
   },
   chipEstadoEmoji: { fontSize: 28 },
   chipEstadoTxt: { fontSize: 16, fontWeight: '700', color: colors.texto },
+
+  chipCanceladoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.md,
+    backgroundColor: '#FEF2F2',
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    padding: espacio.md, borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  chipCanceladoEmoji: { fontSize: 28 },
+  chipCanceladoTxt: { fontSize: 15, fontWeight: '700', color: '#7F1D1D' },
+  chipCanceladoSub: { fontSize: 13, color: '#9B1C1C', marginTop: 2 },
 
   timeline: { padding: espacio.lg },
   paso: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.md, position: 'relative' },

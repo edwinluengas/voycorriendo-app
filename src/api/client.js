@@ -36,6 +36,10 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Callback registrado por AuthContext para manejar cierre de sesión automático en 401
+let _onUnauthorized = null;
+export const setUnauthorizedCallback = (fn) => { _onUnauthorized = fn; };
+
 // Interceptor: manejo de errores en español (con logs detallados)
 api.interceptors.response.use(
   (resp) => {
@@ -50,6 +54,11 @@ api.interceptors.response.use(
     console.log('   status:', error.response?.status);
     console.log('   data:', JSON.stringify(error.response?.data));
     console.log('   url:', error.config?.url);
+
+    // JWT expirado o inválido → cerrar sesión automáticamente
+    if (error.response?.status === 401 && _onUnauthorized) {
+      _onUnauthorized();
+    }
 
     const mensaje =
       error.response?.data?.mensaje ||
