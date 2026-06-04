@@ -95,7 +95,14 @@ export default function InicioClienteScreen({ navigation, route }) {
   const cargarNegocios = useCallback(async () => {
     try {
       const { data } = await negociosAPI.listar();
-      setNegocios(data.data?.negocios || []);
+      const ts = Date.now();
+      const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
+      const negs = (data.data?.negocios || []).map((n) => ({
+        ...n,
+        logo: bust(n.logo),
+        foto_portada: bust(n.foto_portada),
+      }));
+      setNegocios(negs);
     } catch (_) {
       setNegocios([]);
     } finally {

@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { authAPI, usuariosAPI, setUnauthorizedCallback } from '../api/client';
+import { authAPI, usuariosAPI, negocioOnboardingAPI, setUnauthorizedCallback } from '../api/client';
 import { conectarSocket, desconectarSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
   const [roles, setRoles]     = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [negocioId, setNegocioId] = useState(null);
 
   const registrarPushToken = useCallback(async () => {
     try {
@@ -73,6 +74,53 @@ export const AuthProvider = ({ children }) => {
     });
     return () => setUnauthorizedCallback(null);
   }, []);
+
+  // Carga el ID del negocio cuando el usuario está en modo negocio
+  useEffect(() => {
+    if (!usuario?.id || usuario?.modo_activo !== 'negocio') {
+      setNegocioId(null);
+      return;
+    }
+    negocioOnboardingAPI.miNegocio()
+      .then(({ data }) => {
+        const neg = data?.data?.negocio;
+        if (neg?.id && neg?.verificacion_estado === 'aprobado') {
+          setNegocioId(neg.id);
+        } else {
+          setNegocioId(null);
+        }
+      })
+      .catch(() => setNegocioId(null));
+  }, [usuario?.id, usuario?.modo_activo]);
+
+  // Listener global persistente: notifica nuevo_pedido al negocio aunque navegue entre pantallas
+  useEffect(() => {
+    if (!negocioId) return;
+    const socket = conectarSocket();
+    const unirse = () => socket.emit('unirse_negocio', negocioId);
+    if (socket.connected) unirse();
+    socket.on('connect', unirse);
+
+    const onNuevo = () => {
+      Vibration.vibrate([0, 400, 200, 400]);
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🆕 ¡Nuevo pedido!',
+          body: 'Tienes un pedido esperando confirmación. Ábrelo ahora.',
+          sound: true,
+          channelId: 'pedidos',
+          data: { tipo: 'nuevo_pedido' },
+        },
+        trigger: null,
+      }).catch(() => {});
+    };
+
+    socket.on('nuevo_pedido', onNuevo);
+    return () => {
+      socket.off('connect', unirse);
+      socket.off('nuevo_pedido', onNuevo);
+    };
+  }, [negocioId]);
 
   // Carga inicial — verifica JWT guardado
   useEffect(() => {

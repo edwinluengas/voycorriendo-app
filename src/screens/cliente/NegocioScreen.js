@@ -132,8 +132,14 @@ export default function NegocioScreen({ route, navigation }) {
       try {
         const { data } = await negociosAPI.detalle(id);
         const neg = data.data?.negocio;
+        const ts = Date.now();
+        const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
+        if (neg) {
+          neg.foto_portada = bust(neg.foto_portada);
+          neg.logo = bust(neg.logo);
+        }
         setNegocio(neg);
-        setProductos(neg?.productos || []);
+        setProductos((neg?.productos || []).map((p) => ({ ...p, imagen: bust(p.imagen) })));
 
         // Si el carrito actual pertenece a este negocio, mostrar su badge
         const c = getCarrito();

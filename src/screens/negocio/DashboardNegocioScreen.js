@@ -6,11 +6,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator,
-  RefreshControl, Vibration, Alert, Switch, ScrollView,
+  RefreshControl, Alert, Switch, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
@@ -84,16 +83,7 @@ export default function DashboardNegocioScreen({ navigation }) {
     socket.on('connect', unirse);
 
     const onNuevo = () => {
-      Vibration.vibrate([0, 400, 200, 400]);
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🆕 ¡Nuevo pedido!',
-          body: 'Tienes un nuevo pedido esperando confirmación.',
-          sound: true, channelId: 'pedidos',
-          data: { tipo: 'nuevo_pedido' },
-        },
-        trigger: null,
-      }).catch(() => {});
+      // Vibración y notificación push: AuthContext las dispara globalmente
       Alert.alert('🆕 ¡Nuevo pedido!', '¿Lo aceptas ahora?',
         [{ text: 'Ver ahora', onPress: () => setTab('nuevos') }],
         { cancelable: true },
