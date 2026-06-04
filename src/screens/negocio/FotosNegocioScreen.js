@@ -19,8 +19,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { negocioOnboardingAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const cacheBust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
-
 export default function FotosNegocioScreen({ navigation }) {
   const [negocio, setNegocio]     = useState(null);
   const [cargando, setCargando]   = useState(true);
@@ -30,7 +28,15 @@ export default function FotosNegocioScreen({ navigation }) {
   const cargar = useCallback(async () => {
     try {
       const { data } = await negocioOnboardingAPI.miNegocio();
-      setNegocio(data.data?.negocio || null);
+      const neg = data.data?.negocio || null;
+      if (neg) {
+        const ts = Date.now();
+        const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
+        neg.logo = bust(neg.logo);
+        neg.foto_portada = bust(neg.foto_portada);
+        neg.productos = (neg.productos || []).map((p) => ({ ...p, imagen: bust(p.imagen) }));
+      }
+      setNegocio(neg);
     } catch (e) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo cargar.');
     } finally {
@@ -90,9 +96,8 @@ export default function FotosNegocioScreen({ navigation }) {
     elegirOTomarFoto(async (asset) => {
       setSubiendo('portada');
       try {
-        const { data } = await negocioOnboardingAPI.subirDocumento('foto_portada', asset.base64, asset.mimeType || 'image/jpeg');
-        const url = data.data?.url;
-        if (url) setNegocio((n) => ({ ...n, foto_portada: cacheBust(url) }));
+        await negocioOnboardingAPI.subirDocumento('foto_portada', asset.base64, asset.mimeType || 'image/jpeg');
+        await cargar();
         Alert.alert('¡Listo!', 'Foto de portada actualizada. Los clientes ya la verán.');
       } catch (e) {
         Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
@@ -107,9 +112,8 @@ export default function FotosNegocioScreen({ navigation }) {
     elegirOTomarFoto(async (asset) => {
       setSubiendo('logo');
       try {
-        const { data } = await negocioOnboardingAPI.subirDocumento('logo', asset.base64, asset.mimeType || 'image/jpeg');
-        const url = data.data?.url;
-        if (url) setNegocio((n) => ({ ...n, logo: cacheBust(url) }));
+        await negocioOnboardingAPI.subirDocumento('logo', asset.base64, asset.mimeType || 'image/jpeg');
+        await cargar();
         Alert.alert('¡Listo!', 'Logo actualizado.');
       } catch (e) {
         Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
@@ -124,18 +128,12 @@ export default function FotosNegocioScreen({ navigation }) {
     elegirOTomarFoto(async (asset) => {
       setSubiendo(producto.id);
       try {
-        const { data } = await negocioOnboardingAPI.subirFotoProducto(
+        await negocioOnboardingAPI.subirFotoProducto(
           producto.id,
           asset.base64,
           asset.mimeType || 'image/jpeg',
         );
-        const url = data.data?.url || data.data?.producto?.imagen;
-        setNegocio((n) => ({
-          ...n,
-          productos: (n.productos || []).map((p) =>
-            p.id === producto.id ? { ...p, imagen: url ? cacheBust(url) : p.imagen } : p,
-          ),
-        }));
+        await cargar();
         Alert.alert('¡Listo!', 'Foto del producto actualizada.');
       } catch (e) {
         Alert.alert('Error', e?.mensajeAmigable || 'No se pudo actualizar la foto.');
