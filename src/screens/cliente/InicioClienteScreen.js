@@ -7,7 +7,7 @@ import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
-  { id: 'ahivoy store',         nombre: 'Store',          emoji: '🛍️', esAhivoy: true },
+  { id: 'ahivoy store',         nombre: 'VoyStore',       emoji: '🛍️', esAhivoy: true },
   { id: 'restaurante',          nombre: 'Restaurantes',   emoji: '🍽️' },
   { id: 'tienda_conveniencia',  nombre: 'Tiendita',       emoji: '🛒' },
   { id: 'farmacia',             nombre: 'Farmacia',       emoji: '💊' },
@@ -166,9 +166,9 @@ export default function InicioClienteScreen({ navigation, route }) {
 
                   <View style={{ flex: 1 }}>
                     <View style={estilos.bannerFila}>
-                      <Text style={estilos.bannerTitulo}>VoyCorriendo</Text>
+                      <Text style={estilos.bannerTitulo}>VoyStore</Text>
                       <View style={estilos.bannerBadge}>
-                        <Text style={estilos.bannerBadgeTxt}>STORE</Text>
+                        <Text style={estilos.bannerBadgeTxt}>TIENDA</Text>
                       </View>
                     </View>
                     <Text style={estilos.bannerSubtitulo}>
@@ -271,8 +271,8 @@ export default function InicioClienteScreen({ navigation, route }) {
                 ? 'Todos los negocios'
                 : categoria === 'ahivoy store'
                   ? subcat === 'todas'
-                    ? '🛒 Tienda en Línea'
-                    : `🛒 ${CATEGORIAS_STORE.find(c => c.id === subcat)?.emoji} ${CATEGORIAS_STORE.find(c => c.id === subcat)?.nombre}`
+                    ? '🛍️ VoyStore Tienda'
+                    : `🛍️ ${CATEGORIAS_STORE.find(c => c.id === subcat)?.emoji} ${CATEGORIAS_STORE.find(c => c.id === subcat)?.nombre}`
                   : `${CATEGORIAS.find(c => c.id === categoria)?.nombre}`}
             </Text>
           </>

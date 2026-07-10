@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -23,8 +23,10 @@ export default function BienvenidaScreen({ navigation }) {
       <View style={estilos.fondoDecoración2} pointerEvents="none" />
 
       <Animated.View style={[estilos.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        {/* Logo VoyCorriendo — V blanca + punto naranja */}
         <View style={estilos.logoCirculo}>
-          <Text style={estilos.logoEmoji}>🛵</Text>
+          <Text style={estilos.logoV}>V</Text>
+          <View style={estilos.logoDot} />
         </View>
 
         <Text style={estilos.marca}>VoyCorriendo</Text>
@@ -35,6 +37,13 @@ export default function BienvenidaScreen({ navigation }) {
         <Text style={estilos.tagline}>
           Comida, medicinas y despensa{'\n'}directo a tu puerta.
         </Text>
+
+        {/* Badges de confianza */}
+        <View style={estilos.badges}>
+          <View style={estilos.badge}><Text style={estilos.badgeTxt}>⚡ Rápido</Text></View>
+          <View style={estilos.badge}><Text style={estilos.badgeTxt}>🔒 Seguro</Text></View>
+          <View style={estilos.badge}><Text style={estilos.badgeTxt}>💳 Varios pagos</Text></View>
+        </View>
       </Animated.View>
 
       <Animated.View style={[estilos.acciones, { opacity: fadeAnim }]}>
@@ -52,9 +61,14 @@ export default function BienvenidaScreen({ navigation }) {
           <Text style={estilos.btnSecundarioTxt}>Crear una cuenta</Text>
         </Pressable>
 
-        <Text style={estilos.legal}>
-          Al continuar aceptas nuestros Términos y el Aviso de Privacidad.
-        </Text>
+        <Pressable onPress={() => navigation.navigate('PoliticaPrivacidad')}>
+          <Text style={estilos.legal}>
+            Al continuar aceptas nuestros{' '}
+            <Text style={{ color: colors.primario, fontWeight: '700' }}>
+              Términos y Aviso de Privacidad
+            </Text>
+          </Text>
+        </Pressable>
       </Animated.View>
     </SafeAreaView>
   );
@@ -103,12 +117,48 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: espacio.lg,
     shadowColor: colors.primario,
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
   },
-  logoEmoji: { fontSize: 58 },
+  logoV: {
+    fontSize: 66,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    lineHeight: 72,
+    marginRight: 10,
+  },
+  logoDot: {
+    position: 'absolute',
+    right: 20,
+    bottom: 22,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FFFFFF',
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: espacio.sm,
+    marginTop: espacio.lg,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  badge: {
+    backgroundColor: '#FFF5EE',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radio.full,
+    borderWidth: 1,
+    borderColor: '#FFD4A8',
+  },
+  badgeTxt: {
+    fontSize: 12,
+    color: colors.primario,
+    fontWeight: '700',
+  },
 
   marca: {
     fontSize: 38,

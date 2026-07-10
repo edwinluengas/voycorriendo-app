@@ -51,6 +51,11 @@ const AuthStack = () => (
     <Stack.Screen name="Bienvenida" component={BienvenidaScreen} />
     <Stack.Screen name="Login"      component={LoginScreen} />
     <Stack.Screen name="Registro"   component={RegistroScreen} />
+    <Stack.Screen
+      name="PoliticaPrivacidad"
+      component={PoliticaPrivacidadScreen}
+      options={{ headerShown: true, title: 'Privacidad y Términos', headerStyle: { backgroundColor: colors.primario }, headerTintColor: '#FFF', headerTitleStyle: { fontWeight: '800' } }}
+    />
   </Stack.Navigator>
 );
 
