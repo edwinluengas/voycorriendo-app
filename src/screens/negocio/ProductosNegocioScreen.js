@@ -211,13 +211,15 @@ export default function ProductosNegocioScreen() {
       <Modal visible={!!modal} animationType="slide" transparent statusBarTranslucent>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
+          keyboardVerticalOffset={0}
         >
           <View style={estilos.modalOverlay}>
             <View style={estilos.modalContenido}>
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="always"
+                keyboardDismissMode="none"
               >
               <Text style={estilos.modalTitulo}>
                 {modal === 'nuevo' ? '➕ Nuevo producto' : '✏️ Editar producto'}
