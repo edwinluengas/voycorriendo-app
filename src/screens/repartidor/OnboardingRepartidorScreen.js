@@ -203,16 +203,15 @@ export default function OnboardingRepartidorScreen({ navigation }) {
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
       >
         <BarraProgreso paso={paso} total={TOTAL_PASOS} />
 
         <ScrollView
           contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={true}
-          automaticallyAdjustKeyboardInsets={true}
         >
           {paso === 1 && <PasoVehiculo datos={datos} setDatos={setDatos} />}
           {paso === 2 && (

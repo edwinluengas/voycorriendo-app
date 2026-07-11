@@ -6,6 +6,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Image,
   ActivityIndicator, Alert, Switch, Modal, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -207,10 +208,17 @@ export default function ProductosNegocioScreen() {
       </Pressable>
 
       {/* Modal nuevo / editar */}
-      <Modal visible={!!modal} animationType="slide" transparent>
-        <View style={estilos.modalOverlay}>
-          <View style={estilos.modalContenido}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+      <Modal visible={!!modal} animationType="slide" transparent statusBarTranslucent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={estilos.modalContenido}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+              >
               <Text style={estilos.modalTitulo}>
                 {modal === 'nuevo' ? '➕ Nuevo producto' : '✏️ Editar producto'}
               </Text>
@@ -277,7 +285,8 @@ export default function ProductosNegocioScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -271,8 +271,19 @@ const AdminStack = () => (
     <Stack.Screen
       name="Aprobaciones"
       component={AprobacionesScreen}
-      options={{ title: 'Panel de administración' }}
+      options={({ navigation }) => ({
+        title: 'Panel de administración',
+        headerRight: () => (
+          <Pressable onPress={() => navigation.navigate('Perfil')} style={{ marginRight: 4, padding: 4 }}>
+            <Ionicons name="person-circle-outline" size={26} color="#FFF" />
+          </Pressable>
+        ),
+      })}
     />
+    <Stack.Screen name="Perfil"               component={PerfilScreen}               options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="OnboardingRepartidor" component={OnboardingRepartidorScreen} options={{ title: 'Quiero ser repartidor' }} />
+    <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}    options={{ title: 'Registra tu negocio' }} />
+    <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}   options={{ title: 'Privacidad y Términos' }} />
   </Stack.Navigator>
 );
 
