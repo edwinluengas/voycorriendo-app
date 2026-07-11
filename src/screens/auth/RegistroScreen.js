@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Pressable,
-  StyleSheet, Alert, ScrollView, StatusBar,
+  StyleSheet, Alert, ScrollView, StatusBar, Linking,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
+
+const API_BASE = 'https://voycorriendo-backend-production.up.railway.app';
+const URL_TERMINOS   = `${API_BASE}/terminos`;
+const URL_PRIVACIDAD = `${API_BASE}/privacidad`;
 
 const ROLES = [
   { id: 'cliente',    emoji: '🛒', titulo: 'Soy cliente',    desc: 'Pido a domicilio' },
@@ -13,27 +17,40 @@ const ROLES = [
 
 export default function RegistroScreen() {
   const { registrarse } = useAuth();
-  const [rol, setRol]             = useState('cliente');
-  const [nombre, setNombre]       = useState('');
-  const [apellido, setApellido]   = useState('');
-  const [telefono, setTelefono]   = useState('');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [verPassword, setVerPassword] = useState(false);
-  const [cargando, setCargando]   = useState(false);
+  const [rol, setRol]                     = useState('cliente');
+  const [nombre, setNombre]               = useState('');
+  const [apellido, setApellido]           = useState('');
+  const [telefono, setTelefono]           = useState('');
+  const [email, setEmail]                 = useState('');
+  const [password, setPassword]           = useState('');
+  const [verPassword, setVerPassword]     = useState(false);
+  const [aceptoTerminos, setAceptoTerminos]   = useState(false);
+  const [aceptaMarketing, setAceptaMarketing] = useState(false);
+  const [cargando, setCargando]           = useState(false);
 
   const submit = async () => {
     if (!nombre || !apellido || !telefono || !password) {
       Alert.alert('Faltan datos', 'Completa nombre, apellido, celular y contraseña.');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Contraseña corta', 'Usa al menos 6 caracteres.');
+    if (password.length < 8) {
+      Alert.alert('Contraseña corta', 'Usa al menos 8 caracteres.');
+      return;
+    }
+    if (!aceptoTerminos) {
+      Alert.alert(
+        'Acepta los términos',
+        'Para crear tu cuenta debes aceptar los Términos de Uso y el Aviso de Privacidad.'
+      );
       return;
     }
     try {
       setCargando(true);
-      await registrarse({ nombre, apellido, telefono, email, password, rol });
+      await registrarse({
+        nombre, apellido, telefono, email, password, rol,
+        acepto_terminos: true,
+        acepta_marketing: aceptaMarketing,
+      });
       if (rol === 'repartidor') {
         Alert.alert(
           '¡Cuenta creada!',
@@ -143,7 +160,7 @@ export default function RegistroScreen() {
           <View style={estilos.inputRow}>
             <TextInput
               style={[estilos.input, estilos.inputPassword]}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               placeholderTextColor="#A0A0A8"
               secureTextEntry={!verPassword}
               value={password}
@@ -169,14 +186,54 @@ export default function RegistroScreen() {
             </View>
           )}
 
+          {/* ── Consentimiento legal ── */}
+          <View style={estilos.separador} />
+
+          {/* Obligatorio: términos + privacidad */}
+          <Pressable style={estilos.checkRow} onPress={() => setAceptoTerminos(v => !v)}>
+            <View style={[estilos.checkbox, aceptoTerminos && estilos.checkboxActivo]}>
+              {aceptoTerminos && <Text style={estilos.checkboxMarca}>✓</Text>}
+            </View>
+            <Text style={estilos.checkTxtLegal}>
+              He leído y acepto los{' '}
+              <Text style={estilos.link} onPress={() => Linking.openURL(URL_TERMINOS)}>
+                Términos de Uso
+              </Text>
+              {' '}y el{' '}
+              <Text style={estilos.link} onPress={() => Linking.openURL(URL_PRIVACIDAD)}>
+                Aviso de Privacidad
+              </Text>
+              {' '}de VoyCorriendo, incluyendo el tratamiento de mis datos personales conforme a la LFPDPPP.{' '}
+              <Text style={estilos.obligatorio}>*Obligatorio</Text>
+            </Text>
+          </Pressable>
+
+          {/* Opcional: marketing */}
+          <Pressable style={[estilos.checkRow, { marginTop: espacio.sm }]} onPress={() => setAceptaMarketing(v => !v)}>
+            <View style={[estilos.checkbox, aceptaMarketing && estilos.checkboxMarketing]}>
+              {aceptaMarketing && <Text style={estilos.checkboxMarca}>✓</Text>}
+            </View>
+            <Text style={estilos.checkTxtLegal}>
+              Acepto recibir promociones, descuentos y novedades de VoyCorriendo por SMS o notificación push.{' '}
+              <Text style={{ color: '#9CA3AF' }}>Opcional. Puedes revocar en cualquier momento.</Text>
+            </Text>
+          </Pressable>
+
           <TouchableOpacity
-            style={[estilos.boton, cargando && estilos.botonDesactivado]}
+            style={[estilos.boton, (!aceptoTerminos || cargando) && estilos.botonDesactivado]}
             onPress={submit}
-            disabled={cargando}
+            disabled={!aceptoTerminos || cargando}
             activeOpacity={0.85}
           >
             <Text style={estilos.botonTxt}>{cargando ? 'Creando cuenta...' : 'Crear mi cuenta'}</Text>
           </TouchableOpacity>
+
+          <Text style={estilos.footerLegal}>
+            Tus datos se tratan conforme a la Ley Federal de Protección de Datos Personales (LFPDPPP). Para ejercer tus derechos ARCO escríbenos a{' '}
+            <Text style={estilos.link} onPress={() => Linking.openURL('mailto:voycorriendoadmin@gmail.com')}>
+              voycorriendoadmin@gmail.com
+            </Text>
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -264,17 +321,69 @@ const estilos = StyleSheet.create({
   },
   avisoEmoji: { fontSize: 20 },
   avisoTxt: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
+
+  // ── Consentimiento ──
+  separador: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: espacio.md,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espacio.sm,
+  },
+  checkbox: {
+    width: 22, height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxActivo: {
+    borderColor: colors.primario,
+    backgroundColor: colors.primario,
+  },
+  checkboxMarketing: {
+    borderColor: '#6B7280',
+    backgroundColor: '#6B7280',
+  },
+  checkboxMarca: { color: '#FFF', fontSize: 13, fontWeight: '900' },
+  checkTxtLegal: {
+    flex: 1,
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  link: {
+    color: colors.primario,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  obligatorio: { color: '#EF4444', fontWeight: '700' },
+  footerLegal: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: espacio.md,
+    lineHeight: 16,
+  },
+
   boton: {
     backgroundColor: colors.primario,
     borderRadius: radio.lg,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: espacio.xs,
+    marginTop: espacio.md,
     elevation: 4,
     shadowColor: colors.primario,
     shadowOpacity: 0.3, shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  botonDesactivado: { opacity: 0.7 },
+  botonDesactivado: { opacity: 0.45 },
   botonTxt: { color: '#FFF', fontSize: 17, fontWeight: '800' },
 });
