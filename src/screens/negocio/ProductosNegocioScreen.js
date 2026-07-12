@@ -301,7 +301,7 @@ export default function ProductosNegocioScreen() {
 
               {/* Selector de categoría con chips */}
               <Text style={estilos.categoriaLabel}>Categoría</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
                 {CATEGORIAS.map((cat) => {
                   const activa = form.categoria === cat;
                   return (
@@ -333,8 +333,12 @@ export default function ProductosNegocioScreen() {
                 />
               </View>
 
-              {opciones.activo && (
-                <View style={estilos.espCuerpo}>
+              {/* Specs body — siempre montado, ocultado con CSS para evitar bug de
+                  touch responder en Android New Architecture al condicional mount */}
+              <View
+                style={[estilos.espCuerpo, !opciones.activo && { height: 0, overflow: 'hidden', marginTop: 0 }]}
+                pointerEvents={opciones.activo ? 'auto' : 'none'}
+              >
                   <Campo
                     etiqueta="Título del grupo *"
                     value={opciones.titulo}
@@ -361,18 +365,16 @@ export default function ProductosNegocioScreen() {
                     ))}
                   </View>
 
-                  {opciones.tipo === 'radio' && (
-                    <View style={estilos.espRequeridaFila}>
-                      <Text style={estilos.espLabel}>Selección obligatoria</Text>
-                      <Switch
-                        value={opciones.requerida}
-                        onValueChange={(v) => setOpciones((o) => ({ ...o, requerida: v }))}
-                        trackColor={{ false: '#CCC', true: colors.primario }}
-                        thumbColor="#FFF"
-                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                      />
-                    </View>
-                  )}
+                  <View style={[estilos.espRequeridaFila, opciones.tipo !== 'radio' && { display: 'none' }]}>
+                    <Text style={estilos.espLabel}>Selección obligatoria</Text>
+                    <Switch
+                      value={opciones.requerida}
+                      onValueChange={(v) => setOpciones((o) => ({ ...o, requerida: v }))}
+                      trackColor={{ false: '#CCC', true: colors.primario }}
+                      thumbColor="#FFF"
+                      style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                    />
+                  </View>
 
                   {/* Lista de valores */}
                   {opciones.valores.length > 0 && (
@@ -398,9 +400,10 @@ export default function ProductosNegocioScreen() {
                       onChangeText={setNuevoValor}
                       placeholder={opciones.tipo === 'radio' ? 'Ej. Jamaica' : 'Ej. Con queso'}
                       returnKeyType="done"
+                      blurOnSubmit={false}
                       onSubmitEditing={agregarValor}
                     />
-                    {opciones.tipo === 'extras' && (
+                    <View style={[{ width: 80 }, opciones.tipo !== 'extras' && { display: 'none' }]}>
                       <TextInput
                         style={[estilos.espInput, { width: 80 }]}
                         value={nuevoExtra}
@@ -408,15 +411,15 @@ export default function ProductosNegocioScreen() {
                         placeholder="+$0"
                         keyboardType="numeric"
                         returnKeyType="done"
+                        blurOnSubmit={false}
                         onSubmitEditing={agregarValor}
                       />
-                    )}
+                    </View>
                     <Pressable style={estilos.espBtnAgregar} onPress={agregarValor}>
                       <Text style={{ color: '#FFF', fontWeight: '800' }}>+</Text>
                     </Pressable>
                   </View>
-                </View>
-              )}
+              </View>
 
               <View style={{ flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md }}>
                 <Pressable

@@ -51,7 +51,7 @@ export default function PagoScreen({ route, navigation }) {
   const costoEnvio     = usaTokens ? 0 : costoEnvioBase;
   const total          = subtotal + costoEnvio;
 
-  const [metodo, setMetodo]     = useState(total > 500 ? 'tarjeta' : 'efectivo');
+  const [metodo, setMetodo]     = useState(subtotal > 500 ? 'tarjeta' : 'efectivo');
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -131,7 +131,7 @@ export default function PagoScreen({ route, navigation }) {
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
-  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 500));
+  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && subtotal > 500));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
   // ── Tomar / elegir foto del INE ──
@@ -457,10 +457,9 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
-        {total > 500 && (
+        {subtotal > 500 && (
           <Text style={estilos.avisoLimite}>
-            💡 Tu pedido es de ${total.toFixed(2)} MXN. El efectivo solo está disponible para pedidos
-            de $500 o menos.
+            💡 Tu subtotal es de ${subtotal.toFixed(2)} MXN. El efectivo solo está disponible cuando los productos suman $500 o menos.
           </Text>
         )}
 
