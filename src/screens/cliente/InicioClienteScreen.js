@@ -323,7 +323,7 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
         ⭐ {negocio.calificacion_promedio || '4.5'} · {formatoTiempoEntrega(negocio)}
       </Text>
       <Text style={estilos.envio}>
-        {negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $25 MXN'}
+        {negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $35 MXN'}
       </Text>
     </View>
   </Pressable>

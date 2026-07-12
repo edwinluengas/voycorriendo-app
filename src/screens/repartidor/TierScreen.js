@@ -109,7 +109,7 @@ export default function TierScreen({ navigation }) {
 
         <Text style={estilos.titulo}>Cuándo cobrar</Text>
         <Text style={estilos.sub}>
-          Tarifa flat $35 por entrega · $50 por entrega express. Elige cuándo quieres recibir tu dinero.
+          Tarifa flat $35 por entrega · $60 por entrega express. Elige cuándo quieres recibir tu dinero.
         </Text>
 
         {TIERS.map((t) => {
@@ -149,7 +149,7 @@ export default function TierScreen({ navigation }) {
           </View>
           <View style={estilos.comparativaFila}>
             <Text style={estilos.comparativaLabel}>⚡ Express (si aplica)</Text>
-            <Text style={estilos.comparativaValor}>$50 por entrega</Text>
+            <Text style={estilos.comparativaValor}>$60 por entrega</Text>
           </View>
           <View style={estilos.comparativaFila}>
             <Text style={estilos.comparativaLabel}>📦 Bono por 10 pedidos/día</Text>
