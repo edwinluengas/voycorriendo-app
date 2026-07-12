@@ -9,39 +9,12 @@ import { tokensAPI } from '../../api/client';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const PACKS = [
-  {
-    id: 'starter',
-    label: 'Starter',
-    tokens: 50,
-    precio: 1050,
-    vigencia: '60 días',
-    costoPorToken: 21,
-    color: '#6B7280',
-    bg: '#F9FAFB',
-  },
-  {
-    id: 'pro',
-    label: 'Pro',
-    tokens: 200,
-    precio: 4000,
-    vigencia: '90 días',
-    costoPorToken: 20,
-    color: colors.primario,
-    bg: '#FFF3E8',
-    destacado: true,
-  },
-  {
-    id: 'elite',
-    label: 'Elite',
-    tokens: 500,
-    precio: 9500,
-    vigencia: '120 días',
-    costoPorToken: 19,
-    color: '#7C3AED',
-    bg: '#F5F3FF',
-  },
-];
+// Colores por tier (por nombre, no por posición)
+const TIER_COLORS = {
+  silver:  { color: '#6B7280', bg: '#F9FAFB' },
+  golden:  { color: colors.primario, bg: '#FFF3E8', destacado: true },
+  diamond: { color: '#7C3AED', bg: '#F5F3FF' },
+};
 
 const formatFecha = (f) => {
   if (!f) return '';
@@ -50,45 +23,47 @@ const formatFecha = (f) => {
   } catch (_) { return ''; }
 };
 
-export default function TokenesScreen({ navigation }) {
+export default function TokenesScreen() {
   const [saldo, setSaldo]       = useState(null);
-  const [packs, setPacks]       = useState([]);
+  const [lotes, setLotes]       = useState([]);
+  const [catalogo, setCatalogo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [comprando, setComprando] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
-      const { data } = await tokensAPI.saldo();
-      setSaldo(data.data?.total_tokens ?? 0);
-      setPacks(data.data?.packs || []);
+      const [resSaldo, resCatalogo] = await Promise.all([
+        tokensAPI.saldo(),
+        tokensAPI.packs(),
+      ]);
+      setSaldo(resSaldo.data.data?.total_tokens ?? 0);
+      setLotes(resSaldo.data.data?.packs || []);
+      setCatalogo(resCatalogo.data.data?.packs || []);
     } catch (_) {}
     finally { setCargando(false); }
   }, []);
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
-  const comprar = async (packId) => {
-    const label = packId.charAt(0).toUpperCase() + packId.slice(1);
+  const comprar = async (pack) => {
     Alert.alert(
       'Confirmar compra',
-      `¿Comprar pack ${label}?`,
+      `¿Comprar pack ${pack.label} — ${pack.tokens} tokens por $${pack.precio.toLocaleString('es-MX')} MXN?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Comprar',
           onPress: async () => {
-            setComprando(packId);
+            setComprando(pack.id);
             try {
-              const { data } = await tokensAPI.comprar(packId);
+              const { data } = await tokensAPI.comprar(pack.id);
 
-              // Sandbox: acreditado directo
               if (data.sandbox) {
                 Alert.alert('¡Tokens acreditados! (Sandbox)', `+${data.data.tokens_acreditados} tokens`);
                 cargar();
                 return;
               }
 
-              // Producción: abrir checkout de Mercado Pago
               const url = data.data?.sandbox_init_point || data.data?.init_point;
               if (url) {
                 await Linking.openURL(url);
@@ -124,61 +99,70 @@ export default function TokenesScreen({ navigation }) {
           <Text style={estilos.saldoLabel}>tokens disponibles</Text>
           {sinTokens && (
             <Text style={estilos.saldoAviso}>
-              Sin tokens se cobra $30 MXN por pedido entregado.
+              Sin tokens se cobra comisión por pedido entregado.
             </Text>
           )}
         </View>
 
-        {/* Packs activos */}
-        {packs.length > 0 && (
+        {/* Lotes activos */}
+        {lotes.length > 0 && (
           <View style={estilos.seccion}>
             <Text style={estilos.seccionTitulo}>Tus packs activos</Text>
-            {packs.map((p) => (
-              <View key={p.id} style={estilos.packActivo}>
-                <Text style={estilos.packActivoNombre}>
-                  {p.pack_type.charAt(0).toUpperCase() + p.pack_type.slice(1)}
-                </Text>
-                <Text style={estilos.packActivoTokens}>{p.tokens_remaining} tokens</Text>
-                <Text style={estilos.packActivoVence}>Vence {formatFecha(p.expires_at)}</Text>
-              </View>
-            ))}
+            {lotes.map((p) => {
+              const tierName = p.pack_type;
+              const tierColors = TIER_COLORS[tierName] || TIER_COLORS.silver;
+              return (
+                <View key={p.id} style={[estilos.packActivo, { borderLeftColor: tierColors.color }]}>
+                  <Text style={[estilos.packActivoNombre, { color: tierColors.color }]}>
+                    {tierName.charAt(0).toUpperCase() + tierName.slice(1)}
+                  </Text>
+                  <Text style={estilos.packActivoTokens}>{p.tokens_remaining} tokens</Text>
+                  <Text style={estilos.packActivoVence}>Vence {formatFecha(p.expires_at)}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
 
         {/* Catálogo de packs */}
         <Text style={estilos.seccionTitulo}>Comprar tokens</Text>
         <Text style={estilos.seccionSub}>
-          Cada pedido entregado descuenta 1 token. Los tokens son prepagados.
+          Cada pedido confirmado descuenta 1 token. Los tokens son prepagados y no expiran antes de su vigencia.
         </Text>
 
-        {PACKS.map((p) => (
-          <View key={p.id} style={[estilos.packCard, { borderColor: p.color, backgroundColor: p.bg }]}>
-            {p.destacado && (
-              <View style={[estilos.badgeRecomendado, { backgroundColor: p.color }]}>
-                <Text style={estilos.badgeRecomendadoTxt}>Más popular</Text>
+        {catalogo.map((pack) => {
+          const tierColors = TIER_COLORS[pack.id] || TIER_COLORS.silver;
+          return (
+            <View key={pack.id} style={[estilos.packCard, { borderColor: tierColors.color, backgroundColor: tierColors.bg }]}>
+              {tierColors.destacado && (
+                <View style={[estilos.badgeRecomendado, { backgroundColor: tierColors.color }]}>
+                  <Text style={estilos.badgeRecomendadoTxt}>Más popular</Text>
+                </View>
+              )}
+              <View style={estilos.packEncab}>
+                <Text style={[estilos.packNombre, { color: tierColors.color }]}>{pack.label}</Text>
+                <Text style={[estilos.packPrecio, { color: tierColors.color }]}>
+                  ${pack.precio.toLocaleString('es-MX')} MXN
+                </Text>
               </View>
-            )}
-            <View style={estilos.packEncab}>
-              <Text style={[estilos.packNombre, { color: p.color }]}>{p.label}</Text>
-              <Text style={[estilos.packPrecio, { color: p.color }]}>${p.precio.toLocaleString('es-MX')} MXN</Text>
+              <View style={estilos.packDetalle}>
+                <Chip label={`${pack.tokens} tokens`} />
+                <Chip label={`$${Number(pack.costo_token).toFixed(0)}/token`} />
+                <Chip label={`${pack.vigencia_dias} días`} />
+              </View>
+              <Boton
+                titulo={comprando === pack.id ? 'Procesando…' : `Comprar ${pack.label}`}
+                onPress={() => comprar(pack)}
+                cargando={comprando === pack.id}
+                estilo={{ marginTop: espacio.sm, backgroundColor: tierColors.color }}
+              />
             </View>
-            <View style={estilos.packDetalle}>
-              <Chip label={`${p.tokens} tokens`} />
-              <Chip label={`$${p.costoPorToken}/token`} />
-              <Chip label={p.vigencia} />
-            </View>
-            <Boton
-              titulo={comprando === p.id ? 'Procesando…' : `Comprar ${p.label}`}
-              onPress={() => comprar(p.id)}
-              cargando={comprando === p.id}
-              estilo={{ marginTop: espacio.sm, backgroundColor: p.color }}
-            />
-          </View>
-        ))}
+          );
+        })}
 
         <View style={estilos.nota}>
           <Text style={estilos.notaTxt}>
-            🔒 El pago real se procesa vía Mercado Pago. Actualmente en modo sandbox.
+            El pago se procesa vía Mercado Pago. Los tokens se acreditan automáticamente al confirmar el pago.
           </Text>
         </View>
       </ScrollView>
@@ -211,10 +195,7 @@ const estilos = StyleSheet.create({
   saldoLabel: { fontSize: 14, color: colors.textoSuave, marginTop: 2 },
   saldoAviso: {
     marginTop: espacio.sm,
-    fontSize: 13,
-    color: '#B91C1C',
-    textAlign: 'center',
-    fontWeight: '600',
+    fontSize: 13, color: '#B91C1C', textAlign: 'center', fontWeight: '600',
   },
 
   seccion: { marginBottom: espacio.lg },
@@ -230,9 +211,10 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.borde,
+    borderLeftWidth: 4,
     gap: espacio.sm,
   },
-  packActivoNombre: { fontSize: 14, fontWeight: '700', color: colors.texto, flex: 1 },
+  packActivoNombre: { fontSize: 14, fontWeight: '800', flex: 1 },
   packActivoTokens: { fontSize: 14, fontWeight: '800', color: colors.primario },
   packActivoVence: { fontSize: 11, color: colors.textoSuave },
 
@@ -245,8 +227,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
   },
   badgeRecomendado: {
-    position: 'absolute',
-    top: 0, right: 0,
+    position: 'absolute', top: 0, right: 0,
     paddingHorizontal: 12, paddingVertical: 4,
     borderBottomLeftRadius: radio.sm,
   },

@@ -45,6 +45,7 @@ export default function PagoScreen({ route, navigation }) {
   const [costoEnvioReal, setCostoEnvio] = useState(null);
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
   const [usaTokens, setUsaTokens]       = useState(false);
+  const [pagaCon, setPagaCon]           = useState('');
 
   const costoEnvioBase = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
   const costoEnvio     = usaTokens ? 0 : costoEnvioBase;
@@ -71,7 +72,7 @@ export default function PagoScreen({ route, navigation }) {
         if (partes.length > 0) setDir(partes.join(' '));
       }
       if (carrito.negocio?.id) {
-        const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng);
+        const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng, tipoEnvio);
         if (data?.data) {
           if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
           setCobertura({
@@ -105,7 +106,7 @@ export default function PagoScreen({ route, navigation }) {
             if (partes.length > 0) setDir(partes.join(' '));
           }
           if (carrito.negocio?.id) {
-            const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng);
+            const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng, tipoEnvio);
             if (data?.data) {
               if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
               setCobertura({
@@ -116,7 +117,7 @@ export default function PagoScreen({ route, navigation }) {
             }
           }
         } else if (carrito.negocio?.id) {
-          const { data } = await pedidosAPI.cotizar(carrito.negocio.id, null, null);
+          const { data } = await pedidosAPI.cotizar(carrito.negocio.id, null, null, tipoEnvio);
           if (data?.data?.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
         }
       } catch (e) {
@@ -225,6 +226,7 @@ export default function PagoScreen({ route, navigation }) {
         tipo_envio: tipoEnvio,
         ine_foto_url,
         usa_tokens: usaTokens,
+        paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
       });
       const pedido = data.data?.pedido;
 
@@ -425,6 +427,22 @@ export default function PagoScreen({ route, navigation }) {
           </Pressable>
         ))}
 
+        {/* Campo "¿Con cuánto pagas?" — solo para efectivo */}
+        {metodo === 'efectivo' && (
+          <View style={estilos.pagaConBox}>
+            <Text style={estilos.pagaConLabel}>¿Con cuánto vas a pagar?</Text>
+            <Text style={estilos.pagaConSub}>
+              El repartidor sabrá cuánto cambio preparar. Opcional.
+            </Text>
+            <Campo
+              placeholder={`Ej. $${Math.ceil(total / 50) * 50} MXN`}
+              keyboardType="numeric"
+              value={pagaCon}
+              onChangeText={setPagaCon}
+            />
+          </View>
+        )}
+
         {/* Aviso explicativo: SPEI solo en la tienda */}
         {!esAhivoyStore && (
           <View style={estilos.avisoStore}>
@@ -611,6 +629,17 @@ const estilos = StyleSheet.create({
   avisoStoreEmoji: { fontSize: 22 },
   avisoStoreTitulo: { fontSize: 13, fontWeight: '800', color: '#E0E0E0', marginBottom: 3 },
   avisoStoreDesc: { fontSize: 12, color: '#9E9E9E', lineHeight: 16 },
+  pagaConBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: radio.md,
+    padding: espacio.md,
+    marginBottom: espacio.sm,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  pagaConLabel: { fontSize: 14, fontWeight: '700', color: '#14532D', marginBottom: 2 },
+  pagaConSub:   { fontSize: 12, color: '#166534', marginBottom: espacio.sm },
+
   radio: {
     width: 22, height: 22, borderRadius: 11,
     borderWidth: 2, borderColor: colors.borde,

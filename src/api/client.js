@@ -95,8 +95,8 @@ export const pedidosAPI = {
   misPedidos:  ()            => api.get('/pedidos'),
   detalle:     (id)          => api.get(`/pedidos/${id}`),
   // Cotiza costo de envío y zona antes de crear el pedido
-  cotizar:     (negocio_id, lat, lng) =>
-    api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng } }),
+  cotizar:     (negocio_id, lat, lng, tipo_envio = 'standard') =>
+    api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng, tipo_envio } }),
   // Cancelar = transición de estado a 'cancelado' (solo el cliente puede hacerla mientras el pedido esté pendiente)
   cancelar:    (id, motivo)  => api.patch(`/pedidos/${id}/estado`, { estado: 'cancelado', nota: motivo }),
   calificar:   (id, data)    => api.post(`/pedidos/${id}/calificar`, data),
