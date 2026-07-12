@@ -383,7 +383,7 @@ export default function SeguimientoScreen({ route, navigation }) {
           <Boton
             titulo="Ayuda con este pedido"
             variante="secundario"
-            onPress={() => Alert.alert('Soporte', 'Llama al 800-VOYCORRIENDO o abre un ticket desde la pestaña Ayuda.')}
+            onPress={() => Alert.alert('Soporte', 'Escríbenos por WhatsApp o visita la pestaña Ayuda para abrir un ticket.')}
           />
         </View>
       </ScrollView>

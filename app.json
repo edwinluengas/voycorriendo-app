@@ -2,7 +2,7 @@
   "expo": {
     "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.2.10",
+    "version": "1.2.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -34,8 +34,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "NOTIFICATIONS"
       ],
       "config": {
         "googleMaps": {
@@ -60,7 +59,8 @@
         "expo-image-picker",
         {
           "photosPermission": "VoyCorriendo necesita tu galería para subir fotos de documentos.",
-          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos."
+          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos.",
+          "microphonePermission": false
         }
       ],
       [
@@ -74,7 +74,9 @@
     "extra": {
       "eas": {
         "projectId": "1b3b85c7-7e86-4acc-8825-a4d1e0f92285"
-      }
+      },
+      "apiUrl": "https://voycorriendo-backend-production.up.railway.app",
+      "socketUrl": "https://voycorriendo-backend-production.up.railway.app"
     },
     "owner": "edwinluengas"
   }

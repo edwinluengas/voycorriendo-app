@@ -120,7 +120,7 @@ export default function CarritoScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={estilos.sugerenciaTitulo}>¿Le agregas una bebida?</Text>
                 <Text style={estilos.sugerenciaSub}>
-                  Refrescos, cervezas o aguas frescas de Abarrotes La Esquina →
+                  Refrescos, cervezas o aguas frescas de una tienda cercana →
                 </Text>
               </View>
             </Pressable>

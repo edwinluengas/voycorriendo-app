@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { authAPI, usuariosAPI, negocioOnboardingAPI, setUnauthorizedCallback } from '../api/client';
 import { conectarSocket, desconectarSocket } from '../api/socket';
+import { vaciarCarrito } from '../screens/cliente/NegocioScreen';
 
 const AuthContext = createContext(null);
 
@@ -186,6 +187,7 @@ export const AuthProvider = ({ children }) => {
 
   const cerrarSesion = async () => {
     desconectarSocket();
+    vaciarCarrito();
     await SecureStore.deleteItemAsync('jwt');
     setUsuario(null);
     setRoles(null);

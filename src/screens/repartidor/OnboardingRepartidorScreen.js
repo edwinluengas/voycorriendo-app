@@ -119,7 +119,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
         text: '🖼️ Elegir de galería',
         onPress: async () => {
           const r = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.6, allowsEditing: false,
+            mediaTypes: ['images'], base64: true, quality: 0.6, allowsEditing: false,
           });
           if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
         },

@@ -23,7 +23,7 @@ const METODO_TRANSFERENCIA = {
   id: 'transferencia',
   nombre: 'Transferencia SPEI',
   emoji: '🏦',
-  desc: 'Exclusivo VoyCorriendo Store · Transferencia bancaria SPEI',
+  desc: 'Exclusivo Voy Store® · Transferencia bancaria SPEI',
   esExclusivo: true,
 };
 
@@ -451,7 +451,7 @@ export default function PagoScreen({ route, navigation }) {
               <Text style={estilos.avisoStoreTitulo}>Transferencia SPEI no disponible</Text>
               <Text style={estilos.avisoStoreDesc}>
                 La transferencia bancaria solo está habilitada para compras en la{' '}
-                <Text style={{ fontWeight: '800', color: colors.primario }}>VoyCorriendo Store</Text>.
+                <Text style={{ fontWeight: '800', color: colors.primario }}>Voy Store®</Text>.
               </Text>
             </View>
           </View>

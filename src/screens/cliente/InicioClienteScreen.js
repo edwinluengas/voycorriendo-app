@@ -7,7 +7,7 @@ import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
-  { id: 'ahivoy store',         nombre: 'VoyStore',       emoji: '🛍️', esAhivoy: true },
+  { id: 'ahivoy store',         nombre: 'Voy Store',      emoji: '🛍️', esAhivoy: true },
   { id: 'restaurante',          nombre: 'Restaurantes',   emoji: '🍽️' },
   { id: 'tienda_conveniencia',  nombre: 'Tiendita',       emoji: '🛒' },
   { id: 'farmacia',             nombre: 'Farmacia',       emoji: '💊' },
@@ -166,7 +166,7 @@ export default function InicioClienteScreen({ navigation, route }) {
 
                   <View style={{ flex: 1 }}>
                     <View style={estilos.bannerFila}>
-                      <Text style={estilos.bannerTitulo}>VoyStore</Text>
+                      <Text style={estilos.bannerTitulo}>Voy Store®</Text>
                       <View style={estilos.bannerBadge}>
                         <Text style={estilos.bannerBadgeTxt}>TIENDA</Text>
                       </View>
@@ -271,7 +271,7 @@ export default function InicioClienteScreen({ navigation, route }) {
                 ? 'Todos los negocios'
                 : categoria === 'ahivoy store'
                   ? subcat === 'todas'
-                    ? '🛍️ VoyStore Tienda'
+                    ? '🛍️ Voy Store®'
                     : `🛍️ ${CATEGORIAS_STORE.find(c => c.id === subcat)?.emoji} ${CATEGORIAS_STORE.find(c => c.id === subcat)?.nombre}`
                   : `${CATEGORIAS.find(c => c.id === categoria)?.nombre}`}
             </Text>
