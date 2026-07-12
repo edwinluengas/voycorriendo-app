@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, RefreshControl, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { negocioOnboardingAPI } from '../../api/client';
+import { negocioOnboardingAPI, telegramAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,6 +29,7 @@ export default function GananciasNegocioScreen({ navigation }) {
   const [datos, setDatos]           = useState(null);
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
+  const [vinculando, setVinculando] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -136,6 +137,35 @@ export default function GananciasNegocioScreen({ navigation }) {
           </View>
         )}
 
+        {/* Vincular Telegram */}
+        <View style={estilos.telegramBox}>
+          <Text style={estilos.telegramTitulo}>🔔 Alertas en Telegram</Text>
+          <Text style={estilos.telegramDesc}>
+            Recibe notificaciones de nuevos pedidos y tokens bajos directamente en Telegram.
+          </Text>
+          <Pressable
+            style={[estilos.telegramBtn, vinculando && { opacity: 0.7 }]}
+            disabled={vinculando}
+            onPress={async () => {
+              setVinculando(true);
+              try {
+                const { data } = await telegramAPI.vincularLink();
+                const link = data.data?.link;
+                if (link) await Linking.openURL(link);
+              } catch (e) {
+                Alert.alert('Error', e?.mensajeAmigable || 'No se pudo generar el enlace de Telegram.');
+              } finally {
+                setVinculando(false);
+              }
+            }}
+          >
+            {vinculando
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={estilos.telegramBtnTxt}>Vincular mi Telegram</Text>
+            }
+          </Pressable>
+        </View>
+
         {/* Nota */}
         <View style={estilos.notaBox}>
           <Text style={estilos.notaTxt}>
@@ -194,6 +224,19 @@ const estilos = StyleSheet.create({
   vacio: { alignItems: 'center', padding: espacio.xl },
   vacioTxt: { fontSize: 16, fontWeight: '700', color: colors.texto, marginTop: espacio.md },
   vacioSub: { fontSize: 13, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.xs },
+
+  telegramBox: {
+    margin: espacio.md, backgroundColor: '#EFF6FF',
+    borderRadius: radio.md, padding: espacio.lg,
+    borderLeftWidth: 4, borderLeftColor: '#2563EB',
+  },
+  telegramTitulo: { fontSize: 15, fontWeight: '800', color: '#1E40AF', marginBottom: espacio.xs },
+  telegramDesc:   { fontSize: 13, color: '#374151', lineHeight: 18, marginBottom: espacio.md },
+  telegramBtn: {
+    backgroundColor: '#2563EB', borderRadius: radio.md,
+    paddingVertical: espacio.sm, alignItems: 'center',
+  },
+  telegramBtnTxt: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
   notaBox: {
     margin: espacio.md, backgroundColor: '#F3F4F6',

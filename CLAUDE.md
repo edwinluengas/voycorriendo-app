@@ -63,8 +63,9 @@ El stack raíz cambia según `usuario.modo_activo`:
 2. **La tarifa de envío la paga el CLIENTE** y es ingreso del REPARTIDOR, sujeto a comisión de plataforma.
 3. **EXPRESS siempre viaja solo** — exclusivo, sin batch con otros pedidos.
 4. **Propina** va 100% al repartidor, sin comisión de plataforma.
-5. **Pedido mínimo:** $500 MXN en productos (sin incluir envío).
-6. **Efectivo:** máximo $500 MXN total (productos + envío).
+5. **Pedido mínimo:** $100 MXN en productos (sin incluir envío).
+6. **Efectivo:** máximo $500 MXN de **subtotal** (productos, sin envío).
+7. **Voy Store®** — marca registrada en el IMPI de México. Escribir siempre con espacio y mayúscula. ID interno en DB: `'ahivoy store'`.
 
 ---
 

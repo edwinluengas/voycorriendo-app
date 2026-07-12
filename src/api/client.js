@@ -182,4 +182,8 @@ export const tokensAPI = {
   comprar: (pack_type) => api.post('/tokens/comprar', { pack_type }),
 };
 
+export const telegramAPI = {
+  vincularLink: () => api.get('/telegram/vincular-link'),
+};
+
 export default api;
