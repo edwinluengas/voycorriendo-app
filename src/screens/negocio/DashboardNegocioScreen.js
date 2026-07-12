@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
@@ -257,26 +258,26 @@ export default function DashboardNegocioScreen({ navigation }) {
       {/* Footer de navegación */}
       <View style={estilos.footer}>
         <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('ProductosNegocio')}>
-          <Text style={estilos.footerTabEmoji}>🍽️</Text>
+          <Ionicons name="restaurant-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Productos</Text>
         </Pressable>
         <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('GananciasNegocio')}>
-          <Text style={estilos.footerTabEmoji}>💰</Text>
+          <Ionicons name="bar-chart-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Ganancias</Text>
         </Pressable>
         <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Tokens')}>
-          <Text style={estilos.footerTabEmoji}>🪙</Text>
+          <Ionicons name="ticket-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Tokens</Text>
         </Pressable>
         <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Perfil')}>
-          <Text style={estilos.footerTabEmoji}>👤</Text>
+          <Ionicons name="person-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Perfil</Text>
         </Pressable>
         <Pressable style={estilos.footerTab} onPress={() => Alert.alert('Cerrar sesión', '¿Seguro?', [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
         ])}>
-          <Text style={[estilos.footerTabEmoji, { fontSize: 14 }]}>🚪</Text>
+          <Ionicons name="log-out-outline" size={22} color={colors.error} />
           <Text style={[estilos.footerTabTxt, { color: colors.error }]}>Salir</Text>
         </Pressable>
       </View>
@@ -465,6 +466,5 @@ const estilos = StyleSheet.create({
     borderTopColor: colors.borde,
   },
   footerTab: { flex: 1, alignItems: 'center', paddingVertical: espacio.xs },
-  footerTabEmoji: { fontSize: 22 },
   footerTabTxt: { fontSize: 11, fontWeight: '700', color: colors.textoSuave, marginTop: 2 },
 });

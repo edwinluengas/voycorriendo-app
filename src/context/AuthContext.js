@@ -16,7 +16,7 @@ const CANALES_ANDROID = [
     name: 'Pedidos',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 300, 200, 300],
-    lightColor: '#FF5C00',
+    lightColor: '#4F46E5',
     sound: 'default',
   },
   {
@@ -24,7 +24,7 @@ const CANALES_ANDROID = [
     name: 'Repartidor',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 400, 200, 400],
-    lightColor: '#00B341',
+    lightColor: '#10B981',
     sound: 'default',
   },
   {
@@ -32,7 +32,7 @@ const CANALES_ANDROID = [
     name: 'VoyCorriendo',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#FF5C00',
+    lightColor: '#4F46E5',
     sound: 'default',
   },
 ];

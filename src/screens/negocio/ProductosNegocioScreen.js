@@ -150,6 +150,28 @@ export default function ProductosNegocioScreen() {
     }
   };
 
+  const eliminar = (prod) => {
+    Alert.alert(
+      'Eliminar producto',
+      `¿Eliminar "${prod.nombre}"? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await negocioOnboardingAPI.eliminarProducto(prod.id);
+              setProductos((ps) => ps.filter((p) => p.id !== prod.id));
+            } catch (e) {
+              Alert.alert('Error', e?.mensajeAmigable || 'No se pudo eliminar el producto.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const cacheBust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
 
   const procesarSubidaFoto = async (prod, asset) => {
@@ -239,6 +261,9 @@ export default function ProductosNegocioScreen() {
                   <Text style={estilos.btnFotoTxt}>
                     {(item.foto_url || item.imagen) ? '🔄 Foto' : '📷 Foto'}
                   </Text>
+                </Pressable>
+                <Pressable style={estilos.btnEliminar} onPress={() => eliminar(item)}>
+                  <Text style={estilos.btnEliminarTxt}>🗑️</Text>
                 </Pressable>
                 <Switch
                   value={!!item.disponible}
@@ -458,7 +483,7 @@ const estilos = StyleSheet.create({
   foto: { width: 90, height: 90, resizeMode: 'cover' },
   fotoPlaceholder: {
     width: 90, height: 90,
-    backgroundColor: '#FFE6D1',
+    backgroundColor: '#EEF2FF',
     alignItems: 'center', justifyContent: 'center',
   },
   fotoPlaceholderTxt: { fontSize: 28 },
@@ -473,6 +498,8 @@ const estilos = StyleSheet.create({
   btnEditarTxt: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
   btnFoto: { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#F0FDF4', borderRadius: radio.full },
   btnFotoTxt: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  btnEliminar: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#FEF2F2', borderRadius: radio.full },
+  btnEliminarTxt: { fontSize: 12 },
 
   vacio: { alignItems: 'center', marginTop: 60, paddingHorizontal: espacio.lg },
   vacioTxt: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md },
@@ -524,7 +551,7 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md, borderWidth: 1.5, borderColor: colors.borde,
     alignItems: 'center',
   },
-  espTipoChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  espTipoChipActivo: { borderColor: colors.primario, backgroundColor: '#EEF2FF' },
   espTipoTxt:        { fontSize: 12, fontWeight: '700', color: colors.textoSuave, textAlign: 'center' },
   espTipoTxtActivo:  { color: colors.primario },
   espRequeridaFila:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: espacio.sm },

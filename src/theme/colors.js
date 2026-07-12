@@ -1,22 +1,22 @@
-// Paleta VoyCorriendo — amigable, intuitiva, fondo blanco
+// Paleta VoyCorriendo — índigo moderno, amigable, fondo blanco
 export const colors = {
-  primario:      '#FF5C00',   // naranja VoyCorriendo
-  primarioOsc:   '#CC4900',
-  primarioClaro: '#FF8533',
-  oscuro:        '#1C1C1E',   // texto/íconos oscuros (no fondos)
-  oscuroCard:    '#F3F4F6',   // tarjeta gris muy claro
-  secundario:    '#00B341',   // verde activo
-  secundarioOsc: '#00872F',
-  acento:        '#FFD60A',   // amarillo highlights
-  fondo:         '#F8F9FA',   // fondo gris muy suave (casi blanco)
-  superficie:    '#FFFFFF',   // blanco puro para tarjetas
-  texto:         '#111827',   // texto principal casi negro
-  textoSuave:    '#6B7280',   // texto secundario gris
-  textoInverso:  '#FFFFFF',   // texto sobre fondos de color
-  borde:         '#E5E7EB',   // borde claro
-  bordeOscuro:   '#D1D5DB',   // borde ligeramente más oscuro
+  primario:      '#4F46E5',   // índigo — moderno, confiable, energético
+  primarioOsc:   '#3730A3',
+  primarioClaro: '#818CF8',
+  oscuro:        '#1C1C1E',
+  oscuroCard:    '#F3F4F6',
+  secundario:    '#10B981',   // esmeralda — éxito, activo
+  secundarioOsc: '#059669',
+  acento:        '#F59E0B',   // ámbar — destacados
+  fondo:         '#F8F9FA',
+  superficie:    '#FFFFFF',
+  texto:         '#111827',
+  textoSuave:    '#6B7280',
+  textoInverso:  '#FFFFFF',
+  borde:         '#E5E7EB',
+  bordeOscuro:   '#D1D5DB',
   error:         '#EF4444',
-  exito:         '#22C55E',
+  exito:         '#10B981',
   advertencia:   '#F59E0B',
   overlay:       'rgba(0,0,0,0.5)',
   overlayClaro:  'rgba(0,0,0,0.12)',

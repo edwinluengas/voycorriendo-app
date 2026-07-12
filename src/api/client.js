@@ -127,6 +127,7 @@ export const negocioOnboardingAPI = {
   misProductos:      ()                    => api.get('/negocios/mi-negocio/productos'),
   crearProducto:     (data)                => api.post('/negocios/mi-negocio/productos', data),
   actualizarProducto: (id, data)           => api.patch(`/negocios/mi-negocio/productos/${id}`, data),
+  eliminarProducto:  (id)                  => api.delete(`/negocios/mi-negocio/productos/${id}`),
   subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
   ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
 };

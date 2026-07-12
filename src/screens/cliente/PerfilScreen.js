@@ -92,7 +92,7 @@ export default function PerfilScreen({ navigation }) {
 
         <ModoCard
           icono="🛒"
-          iconoColor="#FF5C00"
+          iconoColor="#4F46E5"
           titulo="Cliente"
           subtitulo="Pide comida y productos"
           activo={modoActivo === 'cliente'}

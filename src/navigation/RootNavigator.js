@@ -95,7 +95,7 @@ const ClienteTabs = () => {
           title: '¿Qué se te antoja?',
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'storefront' : 'storefront-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -106,7 +106,7 @@ const ClienteTabs = () => {
           title: 'Mis pedidos',
           tabBarLabel: 'Pedidos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -117,7 +117,7 @@ const ClienteTabs = () => {
           title: 'Ayuda 24/7',
           tabBarLabel: 'Ayuda',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'help-buoy' : 'help-buoy-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -128,7 +128,7 @@ const ClienteTabs = () => {
           title: 'Mi perfil',
           tabBarLabel: 'Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -199,7 +199,7 @@ const RepartidorTabs = () => {
           title: 'Pedidos disponibles',
           tabBarLabel: 'Pedidos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'bicycle' : 'bicycle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'flash' : 'flash-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -208,9 +208,9 @@ const RepartidorTabs = () => {
         component={MisEntregasScreen}
         options={{
           title: 'Mis entregas',
-          tabBarLabel: 'Entregas',
+          tabBarLabel: 'Ganancias',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'cash' : 'cash-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={size} color={color} />
           ),
         }}
       />
