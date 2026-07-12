@@ -96,12 +96,9 @@ const estilos = StyleSheet.create({
   },
   inputFoco: {
     borderColor: colors.primario,
-    // borderWidth NO cambia — cambiar borderWidth en focus dispara layout recalc
-    // en Android New Architecture (Fabric) que invalida touch responder de hermanos
-    shadowColor: colors.primario,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    // NO cambiar borderWidth NI shadow/elevation en focus: ambos disparan layout recalc
+    // en Android New Architecture (Fabric) que invalida touch responders de todos los
+    // TextInputs hermanos → todos reciben onFocus simultáneo y el teclado no aparece
   },
   inputError: { borderColor: colors.error, borderWidth: 2 },
   textInput: {

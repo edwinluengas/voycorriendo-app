@@ -483,7 +483,7 @@ const estilos = StyleSheet.create({
   foto: { width: 90, height: 90, resizeMode: 'cover' },
   fotoPlaceholder: {
     width: 90, height: 90,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FFE6D1',
     alignItems: 'center', justifyContent: 'center',
   },
   fotoPlaceholderTxt: { fontSize: 28 },
@@ -551,7 +551,7 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md, borderWidth: 1.5, borderColor: colors.borde,
     alignItems: 'center',
   },
-  espTipoChipActivo: { borderColor: colors.primario, backgroundColor: '#EEF2FF' },
+  espTipoChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
   espTipoTxt:        { fontSize: 12, fontWeight: '700', color: colors.textoSuave, textAlign: 'center' },
   espTipoTxtActivo:  { color: colors.primario },
   espRequeridaFila:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: espacio.sm },

@@ -377,7 +377,7 @@ export default function NegocioScreen({ route, navigation }) {
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
               <ScrollView
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
                 showsVerticalScrollIndicator={false}
               >
                 {/* Handle visual */}

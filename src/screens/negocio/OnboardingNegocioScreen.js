@@ -240,9 +240,8 @@ export default function OnboardingNegocioScreen({ navigation }) {
         <BarraProgreso paso={paso} total={TOTAL_PASOS} />
         <ScrollView
           contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={true}
-          automaticallyAdjustKeyboardInsets={true}
         >
           {paso === 1 && <PasoBasico       datos={datos} setDatos={setDatos} />}
           {paso === 2 && <PasoDireccion    datos={datos} setDatos={setDatos} />}

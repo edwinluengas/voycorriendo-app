@@ -1,13 +1,13 @@
-// Paleta VoyCorriendo — índigo moderno, amigable, fondo blanco
+// Paleta VoyCorriendo — naranja marca, fondo blanco
 export const colors = {
-  primario:      '#4F46E5',   // índigo — moderno, confiable, energético
-  primarioOsc:   '#3730A3',
-  primarioClaro: '#818CF8',
+  primario:      '#FF5C00',   // naranja VoyCorriendo
+  primarioOsc:   '#CC4900',
+  primarioClaro: '#FF8533',
   oscuro:        '#1C1C1E',
   oscuroCard:    '#F3F4F6',
-  secundario:    '#10B981',   // esmeralda — éxito, activo
-  secundarioOsc: '#059669',
-  acento:        '#F59E0B',   // ámbar — destacados
+  secundario:    '#00B341',   // verde activo
+  secundarioOsc: '#00872F',
+  acento:        '#FFD60A',   // amarillo highlights
   fondo:         '#F8F9FA',
   superficie:    '#FFFFFF',
   texto:         '#111827',
