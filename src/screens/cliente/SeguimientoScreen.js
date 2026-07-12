@@ -118,14 +118,19 @@ export default function SeguimientoScreen({ route, navigation }) {
 
   const calificar = async () => {
     if (!estrellas) return;
+    const propinaNum = parseFloat(propina) || 0;
+    if (propinaNum > 1000) {
+      Alert.alert('Propina inválida', 'La propina máxima es $1,000 MXN.');
+      return;
+    }
     setCalificando(true);
     try {
-      const propinaNum = parseFloat(propina) || 0;
       await pedidosAPI.calificar(pedidoId, {
         calificacion_negocio: estrellas,
         calificacion_repartidor: (pedido.repartidor_id && estrellasRep) ? estrellasRep : undefined,
         propina: propinaNum > 0 ? propinaNum : undefined,
       });
+
       await cargar();
     } catch (_) {} finally {
       setCalificando(false);
