@@ -6,7 +6,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Image,
   ActivityIndicator, Alert, Switch, Modal, ScrollView,
-  KeyboardAvoidingView, TextInput,
+  KeyboardAvoidingView, TextInput, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -263,7 +263,7 @@ export default function ProductosNegocioScreen() {
       <Modal visible={!!modal} animationType="slide" transparent statusBarTranslucent>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior="padding"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
           <View style={estilos.modalOverlay}>
@@ -272,6 +272,7 @@ export default function ProductosNegocioScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="always"
                 keyboardDismissMode="none"
+                automaticallyAdjustKeyboardInsets={true}
               >
               <Text style={estilos.modalTitulo}>
                 {modal === 'nuevo' ? '➕ Nuevo producto' : '✏️ Editar producto'}

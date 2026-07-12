@@ -283,9 +283,12 @@ export default function InicioRepartidorScreen({ navigation }) {
       )}
 
       <View style={estilos.footer}>
-        <View style={{ flexDirection: 'row', gap: espacio.md, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: espacio.md, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Pressable onPress={volverACliente}>
             <Text style={estilos.cambiarModo}>← Modo cliente</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('GananciasRepartidor')}>
+            <Text style={estilos.cambiarModo}>💰 Mis ganancias</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('Perfil')}>
             <Text style={estilos.cambiarModo}>👤 Mi perfil</Text>

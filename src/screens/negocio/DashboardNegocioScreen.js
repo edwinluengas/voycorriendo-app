@@ -260,9 +260,13 @@ export default function DashboardNegocioScreen({ navigation }) {
           <Text style={estilos.footerTabEmoji}>🍽️</Text>
           <Text style={estilos.footerTabTxt}>Productos</Text>
         </Pressable>
-        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('FotosNegocio')}>
-          <Text style={estilos.footerTabEmoji}>📷</Text>
-          <Text style={estilos.footerTabTxt}>Fotos</Text>
+        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('GananciasNegocio')}>
+          <Text style={estilos.footerTabEmoji}>💰</Text>
+          <Text style={estilos.footerTabTxt}>Ganancias</Text>
+        </Pressable>
+        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Tokens')}>
+          <Text style={estilos.footerTabEmoji}>🪙</Text>
+          <Text style={estilos.footerTabTxt}>Tokens</Text>
         </Pressable>
         <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Perfil')}>
           <Text style={estilos.footerTabEmoji}>👤</Text>

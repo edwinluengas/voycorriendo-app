@@ -6,7 +6,7 @@ import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const FEES = { standard: 35, express: 60 };
-const PEDIDO_MINIMO = 100;
+const PEDIDO_MINIMO = 500;
 const TOKENS_POR_PESO = 10;
 
 const TIPOS_ENVIO = [
@@ -181,7 +181,7 @@ export default function CarritoScreen({ navigation }) {
         {debajo && (
           <View style={estilos.aviso}>
             <Text style={estilos.avisoTxt}>
-              ⚠️  Pedido mínimo $100 en productos. Te faltan ${(PEDIDO_MINIMO - subtotal).toFixed(2)} MXN.
+              ⚠️  Pedido mínimo $500 en productos. Te faltan ${(PEDIDO_MINIMO - subtotal).toFixed(2)} MXN.
             </Text>
           </View>
         )}

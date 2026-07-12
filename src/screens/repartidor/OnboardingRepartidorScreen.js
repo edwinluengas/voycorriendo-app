@@ -203,8 +203,8 @@ export default function OnboardingRepartidorScreen({ navigation }) {
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <BarraProgreso paso={paso} total={TOTAL_PASOS} />
 

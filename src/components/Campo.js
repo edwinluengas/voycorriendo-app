@@ -97,11 +97,12 @@ const estilos = StyleSheet.create({
   inputFoco: {
     borderColor: colors.primario,
     borderWidth: 2,
+    // Shadow only on iOS — on Android changing elevation triggers layout
+    // recalculation that flashes the keyboard (New Architecture regression)
     shadowColor: colors.primario,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 4,
   },
   inputError: { borderColor: colors.error, borderWidth: 2 },
   textInput: {

@@ -128,6 +128,7 @@ export const negocioOnboardingAPI = {
   crearProducto:     (data)                => api.post('/negocios/mi-negocio/productos', data),
   actualizarProducto: (id, data)           => api.patch(`/negocios/mi-negocio/productos/${id}`, data),
   subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
+  ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
 };
 
 export const pagosAPI = {
@@ -161,6 +162,8 @@ export const repartidoresAPI = {
   misEntregas:        ()                   => api.get('/repartidores/mis-entregas'),
   miRuta:             ()                   => api.get('/repartidores/mi-ruta'),
   crearPerfil:        (data)               => api.post('/repartidores/perfil', data),
+  ganancias:          ()                   => api.get('/repartidores/ganancias'),
+  solicitarDeposito:  ()                   => api.post('/repartidores/solicitar-deposito'),
 };
 
 export const adminAPI = {

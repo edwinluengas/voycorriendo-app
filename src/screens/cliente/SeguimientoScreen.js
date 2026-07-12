@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { pedidosAPI } from '../../api/client';
@@ -60,6 +60,7 @@ export default function SeguimientoScreen({ route, navigation }) {
   const [cargando, setCargando]         = useState(true);
   const [estrellas, setEstrellas]       = useState(0);
   const [estrellasRep, setEstrellasRep] = useState(0);
+  const [propina, setPropina]           = useState('');
   const [calificando, setCalificando]   = useState(false);
   const estadoAnteriorRef               = useRef(null);
 
@@ -119,9 +120,11 @@ export default function SeguimientoScreen({ route, navigation }) {
     if (!estrellas) return;
     setCalificando(true);
     try {
+      const propinaNum = parseFloat(propina) || 0;
       await pedidosAPI.calificar(pedidoId, {
         calificacion_negocio: estrellas,
         calificacion_repartidor: (pedido.repartidor_id && estrellasRep) ? estrellasRep : undefined,
+        propina: propinaNum > 0 ? propinaNum : undefined,
       });
       await cargar();
     } catch (_) {} finally {
@@ -189,6 +192,17 @@ export default function SeguimientoScreen({ route, navigation }) {
           <View style={estilos.chipEstadoCard}>
             <Text style={estilos.chipEstadoEmoji}>{ESTADOS[estadoActual]?.emoji}</Text>
             <Text style={estilos.chipEstadoTxt}>{ESTADOS[estadoActual]?.label}</Text>
+          </View>
+        )}
+
+        {/* Código de entrega — visible solo cuando el repartidor va en camino */}
+        {pedido.estado === 'en_camino' && pedido.codigo_entrega && (
+          <View style={estilos.codigoCard}>
+            <Text style={estilos.codigoLabel}>Código de entrega</Text>
+            <Text style={estilos.codigoNum}>{pedido.codigo_entrega}</Text>
+            <Text style={estilos.codigoSub}>
+              Muestra este código al repartidor cuando llegue para confirmar la entrega.
+            </Text>
           </View>
         )}
 
@@ -307,6 +321,34 @@ export default function SeguimientoScreen({ route, navigation }) {
                     </Pressable>
                   ))}
                 </View>
+
+                {/* Propina opcional al repartidor */}
+                <Text style={[estilos.calificacionLabel, { marginTop: espacio.md }]}>
+                  Propina para el repartidor{' '}
+                  <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional)</Text>
+                </Text>
+                <View style={estilos.propinaRow}>
+                  {[20, 30, 50].map((amt) => (
+                    <Pressable
+                      key={amt}
+                      style={[estilos.propinaChip, propina === String(amt) && estilos.propinaChipActivo]}
+                      onPress={() => setPropina(propina === String(amt) ? '' : String(amt))}
+                    >
+                      <Text style={[estilos.propinaChipTxt, propina === String(amt) && estilos.propinaChipTxtActivo]}>
+                        ${amt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <TextInput
+                    style={estilos.propinaInput}
+                    placeholder="Otro"
+                    placeholderTextColor={colors.textoSuave}
+                    keyboardType="numeric"
+                    value={[20, 30, 50].map(String).includes(propina) ? '' : propina}
+                    onChangeText={(v) => setPropina(v)}
+                    maxLength={5}
+                  />
+                </View>
               </>
             )}
 
@@ -314,7 +356,11 @@ export default function SeguimientoScreen({ route, navigation }) {
               <Pressable style={estilos.btnCalificar} onPress={calificar} disabled={calificando}>
                 {calificando
                   ? <ActivityIndicator color="#FFF" />
-                  : <Text style={estilos.btnCalificarTxt}>Enviar calificación</Text>
+                  : <Text style={estilos.btnCalificarTxt}>
+                      {parseFloat(propina) > 0
+                        ? `Enviar + propina $${parseFloat(propina).toFixed(0)}`
+                        : 'Enviar calificación'}
+                    </Text>
                 }
               </Pressable>
             )}
@@ -439,4 +485,30 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md, minWidth: 200, alignItems: 'center',
   },
   btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+
+  codigoCard: {
+    backgroundColor: '#FFF3E8',
+    borderWidth: 2, borderColor: colors.primario,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.md, alignItems: 'center',
+  },
+  codigoLabel: { fontSize: 11, fontWeight: '800', color: colors.primario, letterSpacing: 1, textTransform: 'uppercase' },
+  codigoNum: { fontSize: 48, fontWeight: '900', color: colors.primario, letterSpacing: 8, marginVertical: espacio.xs },
+  codigoSub: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', lineHeight: 16 },
+
+  propinaRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs, marginTop: espacio.xs, flexWrap: 'wrap' },
+  propinaChip: {
+    paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    borderRadius: radio.full, borderWidth: 1.5, borderColor: colors.borde,
+    backgroundColor: colors.superficie,
+  },
+  propinaChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  propinaChipTxt: { fontSize: 14, fontWeight: '700', color: colors.textoSuave },
+  propinaChipTxtActivo: { color: colors.primario },
+  propinaInput: {
+    borderWidth: 1.5, borderColor: colors.borde,
+    borderRadius: radio.md, paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    fontSize: 14, color: colors.texto, minWidth: 72, textAlign: 'center',
+    backgroundColor: colors.superficie,
+  },
 });

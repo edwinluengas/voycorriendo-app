@@ -30,6 +30,7 @@ import PedidoActivoScreen        from '../screens/repartidor/PedidoActivoScreen'
 import MisEntregasScreen         from '../screens/repartidor/MisEntregasScreen';
 import OnboardingRepartidorScreen from '../screens/repartidor/OnboardingRepartidorScreen';
 import TierScreen                from '../screens/repartidor/TierScreen';
+import GananciasRepartidorScreen from '../screens/repartidor/GananciasRepartidorScreen';
 
 // Pantallas Negocio (dueño de la tienda/restaurante)
 import DashboardNegocioScreen      from '../screens/negocio/DashboardNegocioScreen';
@@ -38,6 +39,7 @@ import OnboardingNegocioScreen     from '../screens/negocio/OnboardingNegocioScr
 import TokenesScreen               from '../screens/negocio/TokenesScreen';
 import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
 import ProductosNegocioScreen      from '../screens/negocio/ProductosNegocioScreen';
+import GananciasNegocioScreen      from '../screens/negocio/GananciasNegocioScreen';
 
 // Pantallas Admin
 import AprobacionesScreen from '../screens/admin/AprobacionesScreen';
@@ -225,17 +227,18 @@ const RepartidorStack = () => (
       headerTitleStyle: { fontWeight: '800' },
     }}
   >
-    <Stack.Screen name="InicioRep"    component={RepartidorTabs}        options={{ headerShown: false }} />
-    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}    options={{ title: 'Pedido en curso' }} />
-    <Stack.Screen name="Tier"         component={TierScreen}            options={{ title: 'Tipo de cobro' }} />
+    <Stack.Screen name="InicioRep"    component={RepartidorTabs}           options={{ headerShown: false }} />
+    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}       options={{ title: 'Pedido en curso' }} />
+    <Stack.Screen name="Tier"         component={TierScreen}               options={{ title: 'Tipo de cobro' }} />
+    <Stack.Screen name="GananciasRepartidor" component={GananciasRepartidorScreen} options={{ title: 'Mis ganancias' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}
       options={{ title: 'Completa tu registro' }}
     />
-    <Stack.Screen name="Perfil"       component={PerfilScreen}          options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Perfil"       component={PerfilScreen}             options={{ title: 'Mi perfil' }} />
     {/* Alias "Inicio" para compatibilidad con navigation.replace('Inicio') en PedidoActivoScreen */}
-    <Stack.Screen name="Inicio"       component={RepartidorTabs}        options={{ headerShown: false }} />
+    <Stack.Screen name="Inicio"       component={RepartidorTabs}           options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -253,6 +256,7 @@ const NegocioStack = () => (
     <Stack.Screen name="Tokens"               component={TokenesScreen}               options={{ title: 'Tokens' }} />
     <Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
+    <Stack.Screen name="GananciasNegocio"     component={GananciasNegocioScreen}      options={{ title: 'Mis ganancias' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
     <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}    options={{ title: 'Privacidad y Términos' }} />
