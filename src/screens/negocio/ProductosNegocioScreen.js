@@ -5,8 +5,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Image,
-  ActivityIndicator, Alert, Switch, Modal, ScrollView,
-  KeyboardAvoidingView, TextInput, Platform,
+  ActivityIndicator, Alert, Switch, Modal, ScrollView, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -261,19 +260,14 @@ export default function ProductosNegocioScreen() {
 
       {/* Modal nuevo / editar */}
       <Modal visible={!!modal} animationType="slide" transparent statusBarTranslucent>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <View style={estilos.modalOverlay}>
-            <View style={estilos.modalContenido}>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="always"
-                keyboardDismissMode="none"
-                automaticallyAdjustKeyboardInsets={true}
-              >
+        <View style={estilos.modalOverlay}>
+          <View style={estilos.modalContenido}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              keyboardDismissMode="none"
+              automaticallyAdjustKeyboardInsets={true}
+            >
               <Text style={estilos.modalTitulo}>
                 {modal === 'nuevo' ? '➕ Nuevo producto' : '✏️ Editar producto'}
               </Text>
@@ -443,8 +437,7 @@ export default function ProductosNegocioScreen() {
               </View>
             </ScrollView>
           </View>
-          </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );

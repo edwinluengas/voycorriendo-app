@@ -86,19 +86,18 @@ const estilos = StyleSheet.create({
   },
   inputClaro: {
     backgroundColor: colors.superficie,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: colors.borde,
   },
   inputOscuro: {
     backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.1)',
   },
   inputFoco: {
     borderColor: colors.primario,
-    borderWidth: 2,
-    // Shadow only on iOS — on Android changing elevation triggers layout
-    // recalculation that flashes the keyboard (New Architecture regression)
+    // borderWidth NO cambia — cambiar borderWidth en focus dispara layout recalc
+    // en Android New Architecture (Fabric) que invalida touch responder de hermanos
     shadowColor: colors.primario,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
