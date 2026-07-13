@@ -167,20 +167,26 @@ export default function SeguimientoScreen({ route, navigation }) {
 
         {/* Pago digital pendiente — dar oportunidad de reintentar */}
         {['tarjeta', 'mercado_pago'].includes(pedido.metodo_pago) && pedido.pago_estado === 'pendiente' && (
-          <Pressable
-            style={estilos.btnPagarMP}
-            onPress={async () => {
-              try {
-                const res = await pagosAPI.preferencia(pedido.id);
-                const url = res.data.data?.init_point || res.data.data?.sandbox_init_point;
-                if (url) Linking.openURL(url);
-              } catch (_) {
-                Alert.alert('Error', 'No pudimos generar el link de pago. Intenta más tarde.');
-              }
-            }}
-          >
-            <Text style={estilos.btnPagarMPTxt}>💳 Completar pago con Mercado Pago</Text>
-          </Pressable>
+          <View style={estilos.pagoBox}>
+            <Text style={estilos.pagoBoxTitulo}>⏳ Esperando confirmación de pago</Text>
+            <Text style={estilos.pagoBoxSub}>
+              Si ya pagaste, tu pedido se actualizará en segundos. Si no, toca el botón para completar el pago.
+            </Text>
+            <Pressable
+              style={estilos.btnPagarMP}
+              onPress={async () => {
+                try {
+                  const res = await pagosAPI.preferencia(pedido.id);
+                  const url = res.data.data?.init_point || res.data.data?.sandbox_init_point;
+                  if (url) Linking.openURL(url);
+                } catch (_) {
+                  Alert.alert('Error', 'No pudimos generar el link de pago. Intenta más tarde.');
+                }
+              }}
+            >
+              <Text style={estilos.btnPagarMPTxt}>💳 Completar pago con Mercado Pago</Text>
+            </Pressable>
+          </View>
         )}
 
         {/* 📦 Vista paquetería */}
@@ -539,9 +545,16 @@ const estilos = StyleSheet.create({
   },
   btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
 
+  pagoBox: {
+    backgroundColor: '#EFF8FF',
+    borderWidth: 1.5, borderColor: '#009EE3',
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.md,
+  },
+  pagoBoxTitulo: { fontSize: 15, fontWeight: '800', color: '#007BB5', marginBottom: espacio.xs },
+  pagoBoxSub: { fontSize: 13, color: '#007BB5', lineHeight: 18, marginBottom: espacio.md },
   btnPagarMP: {
     backgroundColor: '#009EE3',
-    marginHorizontal: espacio.md, marginTop: espacio.md,
     paddingVertical: espacio.md, borderRadius: radio.md,
     alignItems: 'center',
   },

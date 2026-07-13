@@ -111,7 +111,7 @@ export default function InicioClienteScreen({ navigation, route }) {
     }
   }, []);
 
-  useEffect(() => { cargarNegocios(); }, [cargarNegocios]);
+  // useFocusEffect ya dispara en el primer render — no duplicar con useEffect
 
   const destacados   = negocios.filter((n) => n.destacado);
   const porCategoria = categoria === 'todos'

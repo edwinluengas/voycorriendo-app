@@ -64,7 +64,7 @@ export default function DashboardNegocioScreen({ navigation }) {
         setPedidos([]);
       }
     } catch (e) {
-      console.log('Error dashboard negocio:', e.mensajeAmigable);
+      Alert.alert('Error', e?.mensajeAmigable || 'No pudimos cargar el dashboard. Revisa tu conexión.');
     } finally {
       setCargando(false);
       setRefrescar(false);

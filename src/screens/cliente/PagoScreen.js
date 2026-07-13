@@ -15,7 +15,7 @@ const FEE_ENVIO = { standard: 35, express: 60 };
 const TOKENS_POR_PESO = 10;
 
 const METODOS_BASE = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el repartidor (máximo $500 MXN)' },
+  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas al repartidor · máx. $500 en productos + fee de envío' },
   { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago — seguro y rápido' },
   { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Pago desde tu cuenta o saldo de Mercado Pago' },
 ];
@@ -182,7 +182,6 @@ export default function PagoScreen({ route, navigation }) {
       Alert.alert('Dirección', 'Por favor escribe dónde quieres que te entreguemos.');
       return;
     }
-    const carrito = getCarrito();
     if (!carrito.negocio || carrito.items.length === 0) {
       Alert.alert('Carrito vacío', 'Regresa y arma tu pedido.');
       return;
@@ -442,8 +441,7 @@ export default function PagoScreen({ route, navigation }) {
         {metodo === 'efectivo' && subtotal > 500 && (
           <View style={estilos.avisoEfectivo}>
             <Text style={estilos.avisoEfectivoTxt}>
-              ⚠️ Tu subtotal es ${subtotal.toFixed(0)} MXN. Pagos en efectivo tienen un límite de $500 en productos.
-              Elige tarjeta o Mercado Pago para continuar.
+              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta $500 en productos (+ el fee de envío encima). Elige tarjeta o Mercado Pago.
             </Text>
           </View>
         )}
@@ -460,6 +458,7 @@ export default function PagoScreen({ route, navigation }) {
               keyboardType="numeric"
               value={pagaCon}
               onChangeText={setPagaCon}
+              maxLength={6}
             />
           </View>
         )}
@@ -480,7 +479,7 @@ export default function PagoScreen({ route, navigation }) {
 
         {subtotal > 500 && (
           <Text style={estilos.avisoLimite}>
-            💡 Tu subtotal es de ${subtotal.toFixed(2)} MXN. El efectivo solo está disponible cuando los productos suman $500 o menos.
+            💡 Productos: ${subtotal.toFixed(2)} MXN. Efectivo disponible solo si los productos son ≤$500 (el fee de envío va encima de ese límite).
           </Text>
         )}
 

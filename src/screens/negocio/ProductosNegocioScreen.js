@@ -316,6 +316,7 @@ export default function ProductosNegocioScreen() {
                 onChangeText={(v) => setForm((f) => ({ ...f, precio: v }))}
                 placeholder="0.00"
                 keyboardType="decimal-pad"
+                maxLength={7}
               />
 
               {/* Selector de categoría con chips */}
@@ -431,6 +432,7 @@ export default function ProductosNegocioScreen() {
                         keyboardType="numeric"
                         returnKeyType="done"
                         blurOnSubmit={false}
+                        maxLength={5}
                         onSubmitEditing={agregarValor}
                       />
                     </View>

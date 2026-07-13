@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -22,17 +22,30 @@ export default function PedidoActivoScreen({ route, navigation }) {
   const { pedidoId } = route.params;
   const [pedido, setPedido]           = useState(null);
   const [cargando, setCargando]       = useState(false);
+  const [errorCarga, setErrorCarga]   = useState(false);
   const [montoEfe, setMontoEfe]       = useState('');
   const [codigoEntrega, setCodigo]    = useState('');
+  const [codigoError, setCodigoError] = useState(false);
+  const scrollRef = useRef(null);
 
   const cargar = useCallback(async () => {
     try {
+      setErrorCarga(false);
       const { data } = await pedidosAPI.detalle(pedidoId);
       if (data.data?.pedido) setPedido(data.data.pedido);
-    } catch (_) {}
+    } catch (_) {
+      setErrorCarga(true);
+    }
   }, [pedidoId]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Cuando el estado llega a en_camino, bajar al área de entrega automáticamente
+  useEffect(() => {
+    if (pedido?.estado === 'en_camino') {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
+    }
+  }, [pedido?.estado]);
 
   // Escuchar cambios de estado via socket (ej: negocio marca "listo")
   useEffect(() => {
@@ -107,10 +120,13 @@ export default function PedidoActivoScreen({ route, navigation }) {
       // 2. Código de entrega: obligatorio para confirmar
       const codigo = codigoEntrega.trim();
       if (!codigo || codigo.length < 4) {
-        Alert.alert('Código de entrega', 'Pide el código de 4 dígitos al cliente y escríbelo aquí para confirmar.');
+        setCodigoError(true);
+        scrollRef.current?.scrollToEnd({ animated: true });
+        Alert.alert('Código de entrega', 'Pide al cliente el código de 4 dígitos que aparece en su app y escríbelo en la casilla naranja.');
         setCargando(false);
         return;
       }
+      setCodigoError(false);
 
       try {
         setCargando(true);
@@ -130,7 +146,7 @@ export default function PedidoActivoScreen({ route, navigation }) {
     try {
       setCargando(true);
       await repartidoresAPI.actualizarEstado(pedidoId, sig.estado);
-      cargar();
+      await cargar();
     } catch (e) {
       Alert.alert('Error', e.mensajeAmigable || 'No pudimos actualizar el estado.');
     } finally {
@@ -138,6 +154,17 @@ export default function PedidoActivoScreen({ route, navigation }) {
     }
   };
 
+  if (errorCarga || (!pedido && !cargando)) {
+    return (
+      <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
+        <View style={estilos.errorBox}>
+          <Text style={estilos.errorTxt}>No pudimos cargar el pedido. Revisa tu conexión.</Text>
+          <Boton titulo="Reintentar" onPress={cargar} />
+          <Boton titulo="Volver" variante="secundario" onPress={() => navigation.goBack()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
   if (!pedido) return null;
 
   const sig = SIGUIENTE[pedido.estado];
@@ -145,7 +172,7 @@ export default function PedidoActivoScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={estilos.scroll}>
         <Text style={estilos.numero}>{pedido.numero}</Text>
 
         {/* Recoger en */}
@@ -204,23 +231,32 @@ export default function PedidoActivoScreen({ route, navigation }) {
             keyboardType="numeric"
             value={montoEfe}
             onChangeText={setMontoEfe}
+            maxLength={6}
           />
         )}
 
         {/* Código de entrega — obligatorio al confirmar entrega */}
         {esEntrega && (
-          <View style={estilos.codigoBox}>
-            <Text style={estilos.codigoTitulo}>🔑 Código de entrega</Text>
+          <View style={[estilos.codigoBox, codigoError && estilos.codigoBoxError]}>
+            <View style={estilos.codigoHeader}>
+              <Text style={estilos.codigoTitulo}>🔑 Paso final: Código del cliente</Text>
+              {codigoEntrega.length === 4 && (
+                <Text style={estilos.codigoOk}>✅ Listo</Text>
+              )}
+            </View>
             <Text style={estilos.codigoDesc}>
-              Pide al cliente el código de 4 dígitos que aparece en su app y escríbelo aquí para confirmar la entrega.
+              Pide al cliente que abra su app — verá un código de 4 dígitos en pantalla. Escríbelo aquí para confirmar la entrega.
             </Text>
             <Campo
-              placeholder="Ej. 3847"
+              placeholder="_ _ _ _"
               keyboardType="numeric"
               value={codigoEntrega}
-              onChangeText={(v) => setCodigo(v.replace(/\D/g, '').slice(0, 4))}
+              onChangeText={(v) => { setCodigo(v.replace(/\D/g, '').slice(0, 4)); setCodigoError(false); }}
               maxLength={4}
             />
+            {codigoError && (
+              <Text style={estilos.codigoErrorTxt}>⚠️ Ingresa el código antes de confirmar</Text>
+            )}
           </View>
         )}
 
@@ -271,8 +307,24 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md, padding: espacio.md,
     marginBottom: espacio.md,
   },
-  codigoTitulo: { fontSize: 15, fontWeight: '800', color: colors.primario, marginBottom: espacio.xs },
+  codigoBoxError: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  codigoHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: espacio.xs,
+  },
+  codigoTitulo: { fontSize: 16, fontWeight: '900', color: colors.primario },
+  codigoOk: { fontSize: 13, fontWeight: '800', color: '#16A34A' },
   codigoDesc: { fontSize: 13, color: colors.textoSuave, lineHeight: 18, marginBottom: espacio.sm },
+  codigoErrorTxt: { fontSize: 13, color: '#DC2626', fontWeight: '700', marginTop: espacio.xs },
 
   btnEntregar: { backgroundColor: colors.exito },
+
+  errorBox: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    padding: espacio.xl, gap: espacio.md,
+  },
+  errorTxt: { fontSize: 15, color: colors.textoSuave, textAlign: 'center', marginBottom: espacio.sm },
 });
