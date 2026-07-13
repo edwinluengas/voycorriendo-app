@@ -157,7 +157,7 @@ export const repartidoresAPI = {
     api.patch('/repartidores/conectarse', { conectado: true, latitud: lat, longitud: lng }),
   pedidosDisponibles: ()                   => api.get('/repartidores/pedidos-disponibles'),
   aceptarPedido:      (pedido_id)          => api.post('/repartidores/aceptar-pedido', { pedido_id }),
-  actualizarEstado:   (pedido_id, estado)  => api.patch(`/pedidos/${pedido_id}/estado`, { estado }),
+  actualizarEstado:   (pedido_id, estado, extra = {}) => api.patch(`/pedidos/${pedido_id}/estado`, { estado, ...extra }),
   disponibilidad:     (disponible, lat, lng) =>
     api.patch('/repartidores/disponibilidad', { disponible, latitud: lat, longitud: lng }),
   misEntregas:        ()                   => api.get('/repartidores/mis-entregas'),
