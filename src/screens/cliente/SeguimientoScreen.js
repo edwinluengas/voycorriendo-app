@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
-import { pedidosAPI } from '../../api/client';
+import { pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -164,6 +164,24 @@ export default function SeguimientoScreen({ route, navigation }) {
             <Text style={estilos.direccionEntrega}>📍 {pedido.direccion_entrega}</Text>
           )}
         </View>
+
+        {/* Pago digital pendiente — dar oportunidad de reintentar */}
+        {['tarjeta', 'mercado_pago'].includes(pedido.metodo_pago) && pedido.pago_estado === 'pendiente' && (
+          <Pressable
+            style={estilos.btnPagarMP}
+            onPress={async () => {
+              try {
+                const res = await pagosAPI.preferencia(pedido.id);
+                const url = res.data.data?.init_point || res.data.data?.sandbox_init_point;
+                if (url) Linking.openURL(url);
+              } catch (_) {
+                Alert.alert('Error', 'No pudimos generar el link de pago. Intenta más tarde.');
+              }
+            }}
+          >
+            <Text style={estilos.btnPagarMPTxt}>💳 Completar pago con Mercado Pago</Text>
+          </Pressable>
+        )}
 
         {/* 📦 Vista paquetería */}
         {esPaqueteria && ['en_envio', 'entregado'].includes(pedido.estado) && (
@@ -370,8 +388,11 @@ export default function SeguimientoScreen({ route, navigation }) {
                     placeholderTextColor={colors.textoSuave}
                     keyboardType="numeric"
                     value={[20, 30, 50].map(String).includes(propina) ? '' : propina}
-                    onChangeText={(v) => setPropina(v)}
-                    maxLength={5}
+                    onChangeText={(v) => {
+                      const n = parseFloat(v) || 0;
+                      if (n <= 1000) setPropina(v);
+                    }}
+                    maxLength={4}
                   />
                 </View>
               </>
@@ -517,6 +538,14 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md, minWidth: 200, alignItems: 'center',
   },
   btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+
+  btnPagarMP: {
+    backgroundColor: '#009EE3',
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    paddingVertical: espacio.md, borderRadius: radio.md,
+    alignItems: 'center',
+  },
+  btnPagarMPTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
 
   codigoCard: {
     backgroundColor: '#FFF3E8',

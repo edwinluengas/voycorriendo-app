@@ -438,6 +438,16 @@ export default function PagoScreen({ route, navigation }) {
           </Pressable>
         ))}
 
+        {/* Aviso límite efectivo */}
+        {metodo === 'efectivo' && subtotal > 500 && (
+          <View style={estilos.avisoEfectivo}>
+            <Text style={estilos.avisoEfectivoTxt}>
+              ⚠️ Tu subtotal es ${subtotal.toFixed(0)} MXN. Pagos en efectivo tienen un límite de $500 en productos.
+              Elige tarjeta o Mercado Pago para continuar.
+            </Text>
+          </View>
+        )}
+
         {/* Campo "¿Con cuánto pagas?" — solo para efectivo */}
         {metodo === 'efectivo' && (
           <View style={estilos.pagaConBox}>
@@ -639,6 +649,13 @@ const estilos = StyleSheet.create({
   avisoStoreEmoji: { fontSize: 22 },
   avisoStoreTitulo: { fontSize: 13, fontWeight: '800', color: '#E0E0E0', marginBottom: 3 },
   avisoStoreDesc: { fontSize: 12, color: '#9E9E9E', lineHeight: 16 },
+  avisoEfectivo: {
+    backgroundColor: '#FEF2F2', borderRadius: radio.md,
+    padding: espacio.md, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  avisoEfectivoTxt: { fontSize: 13, color: '#991B1B', lineHeight: 18 },
+
   pagaConBox: {
     backgroundColor: '#F0FDF4',
     borderRadius: radio.md,
