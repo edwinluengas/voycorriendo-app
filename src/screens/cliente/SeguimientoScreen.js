@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { pedidosAPI } from '../../api/client';
@@ -38,14 +38,17 @@ const NOTIF_ESTADO = {
   cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
 };
 
-const notificarCambioEstado = (nuevoEstado, pedidoId) => {
+const notificarCambioEstado = (nuevoEstado, pedidoId, codigoEntrega) => {
   const n = NOTIF_ESTADO[nuevoEstado];
   if (!n) return;
   Vibration.vibrate([0, 200, 100, 200]);
+  const cuerpo = nuevoEstado === 'en_camino' && codigoEntrega
+    ? `Ya va en camino. Tu código de entrega es: ${codigoEntrega}. Tenlo listo.`
+    : n.cuerpo;
   Notifications.scheduleNotificationAsync({
     content: {
       title: n.titulo,
-      body: n.cuerpo,
+      body: cuerpo,
       sound: true,
       channelId: 'pedidos',
       data: { tipo: 'estado_pedido', pedidoId },
@@ -97,9 +100,11 @@ export default function SeguimientoScreen({ route, navigation }) {
       const nuevoEstado = data.estado;
       setPedido((p) => {
         if (p && p.estado !== nuevoEstado) {
-          notificarCambioEstado(nuevoEstado, pedidoId);
+          notificarCambioEstado(nuevoEstado, pedidoId, data.codigo_entrega);
         }
-        return p ? { ...p, estado: nuevoEstado } : p;
+        const update = { ...p, estado: nuevoEstado };
+        if (data.codigo_entrega) update.codigo_entrega = data.codigo_entrega;
+        return p ? update : p;
       });
     };
 
@@ -261,8 +266,17 @@ export default function SeguimientoScreen({ route, navigation }) {
 
         {pedido.repartidor_id && (
           <View style={estilos.repartidor}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.repTxt}>🛵 {pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
+            <View style={estilos.repFotoWrap}>
+              {pedido.repartidor?.usuario?.foto_perfil ? (
+                <Image source={{ uri: pedido.repartidor.usuario.foto_perfil }} style={estilos.repFoto} />
+              ) : (
+                <View style={estilos.repFotoPlaceholder}>
+                  <Text style={estilos.repFotoIcon}>🛵</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flex: 1, marginLeft: espacio.sm }}>
+              <Text style={estilos.repTxt}>{pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
               {pedido.repartidor?.marca_vehiculo && (
                 <Text style={estilos.repSub}>
                   {pedido.repartidor.marca_vehiculo}
@@ -271,10 +285,16 @@ export default function SeguimientoScreen({ route, navigation }) {
               )}
             </View>
             <Pressable
-              onPress={() => Linking.openURL(`tel:${pedido.repartidor?.usuario?.telefono || ''}`)}
-              style={estilos.btnLlamar}
+              onPress={() => {
+                const msg = encodeURIComponent(
+                  `Hola VoyCorriendo, soy el cliente del pedido #${pedido.numero}. Necesito contactar a mi repartidor.`
+                );
+                Linking.openURL(`whatsapp://send?phone=${WA_VOYCORRIENDO}&text=${msg}`)
+                  .catch(() => Linking.openURL(`https://wa.me/${WA_VOYCORRIENDO}?text=${msg}`));
+              }}
+              style={estilos.btnContactar}
             >
-              <Text style={estilos.btnLlamarTxt}>📞 Llamar</Text>
+              <Text style={estilos.btnContactarTxt}>💬 Contactar</Text>
             </Pressable>
           </View>
         )}
@@ -436,17 +456,24 @@ const estilos = StyleSheet.create({
   lineaActiva: { backgroundColor: colors.primario },
 
   repartidor: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.superficie, padding: espacio.md,
-    marginHorizontal: espacio.md, borderRadius: radio.md,
+    marginHorizontal: espacio.md, borderRadius: radio.md, marginTop: espacio.md,
   },
+  repFotoWrap: { width: 48, height: 48 },
+  repFoto: { width: 48, height: 48, borderRadius: 24 },
+  repFotoPlaceholder: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#FFE6D1', alignItems: 'center', justifyContent: 'center',
+  },
+  repFotoIcon: { fontSize: 24 },
   repTxt: { fontSize: 15, fontWeight: '700', color: colors.texto },
   repSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
-  btnLlamar: {
-    backgroundColor: colors.exito, paddingVertical: espacio.sm,
+  btnContactar: {
+    backgroundColor: '#25D366', paddingVertical: espacio.sm,
     paddingHorizontal: espacio.md, borderRadius: radio.full,
   },
-  btnLlamarTxt: { color: '#FFF', fontWeight: '700' },
+  btnContactarTxt: { color: '#FFF', fontWeight: '700', fontSize: 13 },
 
   sugerencia: {
     flexDirection: 'row', alignItems: 'center',

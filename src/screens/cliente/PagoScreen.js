@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
@@ -232,16 +232,27 @@ export default function PagoScreen({ route, navigation }) {
 
       // 2. Si no es efectivo, abrir pasarela de Mercado Pago
       if (metodo === 'tarjeta' || metodo === 'mercado_pago') {
+        let mpUrl = null;
         try {
           const resPref = await pagosAPI.preferencia(pedido.id);
-          const url = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
-          if (!url) throw new Error('Sin URL de pago');
-          await WebBrowser.openBrowserAsync(url);
+          mpUrl = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
+          if (!mpUrl) throw new Error('Sin URL de pago');
+          await WebBrowser.openBrowserAsync(mpUrl);
         } catch (payErr) {
-          Alert.alert(
-            '⚠️ Pedido creado',
-            'Tu pedido fue registrado pero no pudimos abrir el link de pago. Puedes pagar desde "Mis pedidos" cuando quieras.'
-          );
+          if (mpUrl) {
+            // Browser falló — fallback a Linking
+            Linking.openURL(mpUrl).catch(() => {
+              Alert.alert(
+                '⚠️ Link de pago',
+                'Abre este link en tu navegador para completar el pago:\n\n' + mpUrl
+              );
+            });
+          } else {
+            Alert.alert(
+              '⚠️ Pedido creado',
+              'Tu pedido fue registrado. No pudimos generar el link de pago. Escríbenos por WhatsApp para resolverlo.'
+            );
+          }
         }
       } else if (metodo === 'transferencia') {
         Alert.alert(
