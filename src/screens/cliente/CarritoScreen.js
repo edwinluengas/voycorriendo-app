@@ -4,26 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCarrito, carritoRequiereINE } from './NegocioScreen';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
-
-const FEES = { standard: 35, express: 60 };
-const PEDIDO_MINIMO = 100;
-const TOKENS_POR_PESO = 10;
-
-const TIPOS_ENVIO = [
-  { id: 'standard', label: 'Estándar', emoji: '🚚', sub: 'Mismo día', precio: 35 },
-  { id: 'express',  label: 'Express',  emoji: '⚡', sub: 'Primero en llegar', precio: 60 },
-];
+import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, TIPOS_ENVIO } from '../../config/businessRules';
 
 export default function CarritoScreen({ navigation }) {
   const carrito = getCarrito();
   const [items, setItems]         = useState(carrito.items);
   const [tipoEnvio, setTipoEnvio] = useState('standard');
 
-  const subtotal  = items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
-  const feeEnvio  = FEES[tipoEnvio];
-  const total     = subtotal + feeEnvio;
-  const tokens    = Math.floor(subtotal / TOKENS_POR_PESO);
-  const debajo    = subtotal < PEDIDO_MINIMO;
+  const subtotal = items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
+  const feeEnvio = FEE_ENVIO[tipoEnvio];
+  const total    = subtotal + feeEnvio;
+  const debajo   = subtotal < PEDIDO_MINIMO;
   const requiereINE = items.some((it) => it.requiere_id);
   const esRestaurante = carrito.negocio?.categoria === 'restaurante';
 
@@ -164,37 +155,27 @@ export default function CarritoScreen({ navigation }) {
           <Linea label="Total" valor={total} fuerte />
         </View>
 
-        {/* VoyTokens */}
-        {tokens > 0 && !debajo && (
-          <View style={estilos.tokensRow}>
-            <Text style={estilos.tokensEmoji}>🪙</Text>
-            <Text style={estilos.tokensTxt}>
-              Ganarás <Text style={estilos.tokensBold}>{tokens} VoyTokens</Text>
-              {tokens >= 50
-                ? ' — ¡suficientes para envío gratis!'
-                : ` · te faltan ${50 - tokens} para envío gratis`}
-            </Text>
-          </View>
-        )}
-
         {/* Avisos */}
         {debajo && (
           <View style={estilos.aviso}>
+            <View style={estilos.progresoBarra}>
+              <View style={[estilos.progresoRelleno, { width: `${Math.min(100, (subtotal / PEDIDO_MINIMO) * 100)}%` }]} />
+            </View>
             <Text style={estilos.avisoTxt}>
-              ⚠️  Pedido mínimo $100 en productos. Te faltan ${(PEDIDO_MINIMO - subtotal).toFixed(2)} MXN.
+              ⚠️  Pedido mínimo ${PEDIDO_MINIMO} en productos. Te faltan ${(PEDIDO_MINIMO - subtotal).toFixed(2)} MXN.
             </Text>
           </View>
         )}
-        {subtotal > 500 && (
+        {subtotal > LIMITE_EFECTIVO && (
           <View style={estilos.aviso}>
             <Text style={estilos.avisoTxt}>
-              ⚠️  Subtotal mayor a $500 MXN. El pago en efectivo no estará disponible.
+              ⚠️  Subtotal mayor a ${LIMITE_EFECTIVO} MXN. El pago en efectivo no estará disponible.
             </Text>
           </View>
         )}
 
         <Boton
-          titulo={debajo ? `Mínimo $${PEDIDO_MINIMO} en productos` : 'Continuar al pago →'}
+          titulo={debajo ? `Mínimo $${PEDIDO_MINIMO} MXN en productos` : 'Continuar al pago →'}
           deshabilitado={debajo}
           onPress={() => navigation.navigate('Pago', { total, tipo_envio: tipoEnvio })}
         />
@@ -373,21 +354,6 @@ const estilos = StyleSheet.create({
   lineaFuerteValor: { fontSize: 22, fontWeight: '900', color: colors.primario },
   separadorTotal: { height: 1, backgroundColor: colors.borde, marginVertical: espacio.sm },
 
-  tokensRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: radio.sm,
-    padding: espacio.sm,
-    marginBottom: espacio.sm,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: espacio.xs,
-  },
-  tokensEmoji: { fontSize: 16 },
-  tokensTxt: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 17 },
-  tokensBold: { fontWeight: '800' },
-
   aviso: {
     backgroundColor: '#FFF9E6',
     padding: espacio.sm,
@@ -397,4 +363,12 @@ const estilos = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   avisoTxt: { fontSize: 12, color: '#78350F', lineHeight: 18 },
+
+  progresoBarra: {
+    height: 6, borderRadius: 3, backgroundColor: '#FDE68A',
+    overflow: 'hidden', marginBottom: espacio.xs,
+  },
+  progresoRelleno: {
+    height: '100%', backgroundColor: colors.primario, borderRadius: 3,
+  },
 });

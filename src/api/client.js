@@ -130,6 +130,7 @@ export const negocioOnboardingAPI = {
   eliminarProducto:  (id)                  => api.delete(`/negocios/mi-negocio/productos/${id}`),
   subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
   ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
+  pagarDeuda:        (referencia_spei, monto) => api.post('/negocios/mi-negocio/pagar-deuda', { referencia_spei, monto }),
 };
 
 export const pagosAPI = {
@@ -165,6 +166,7 @@ export const repartidoresAPI = {
   crearPerfil:        (data)               => api.post('/repartidores/perfil', data),
   ganancias:          ()                   => api.get('/repartidores/ganancias'),
   solicitarDeposito:  ()                   => api.post('/repartidores/solicitar-deposito'),
+  retiroDiario:       ()                   => api.post('/repartidores/retiro-diario'),
 };
 
 export const adminAPI = {

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { repartidoresAPI, telegramAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
+import { FEE_RETIRO_DIARIO } from '../../config/businessRules';
 
 const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtFecha = (iso) => {
@@ -30,6 +31,7 @@ export default function GananciasRepartidorScreen({ navigation }) {
   const [cargando, setCargando]       = useState(true);
   const [refrescando, setRefrescar]   = useState(false);
   const [solicitando, setSolicitando] = useState(false);
+  const [retirando, setRetirando]     = useState(false);
   const [vinculando, setVinculando]   = useState(false);
 
   const cargar = useCallback(async () => {
@@ -81,6 +83,38 @@ export default function GananciasRepartidorScreen({ navigation }) {
   const d = datos || {};
   const totalGanado    = (parseFloat(d.ganancias_envios || 0) + parseFloat(d.propinas_cobradas || 0));
   const hayFondo       = parseFloat(d.fondo_efectivo || 0) > 0;
+  const esDiaViernes   = new Date().getDay() === 5;
+
+  const solicitarRetiroDiario = () => {
+    const disponible = parseFloat(d.fondo_efectivo || 0);
+    const neto = disponible - FEE_RETIRO_DIARIO;
+    if (neto <= 0) {
+      Alert.alert('Saldo insuficiente', `Necesitas al menos $${FEE_RETIRO_DIARIO + 1} disponibles para el retiro diario.`);
+      return;
+    }
+    Alert.alert(
+      '💸 Retiro diario',
+      `Disponible: ${fmt(disponible)}\nFee de retiro: -${fmt(FEE_RETIRO_DIARIO)}\nRecibirás: ${fmt(neto)}\n\n¿Confirmas el retiro inmediato?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: `Retirar ${fmt(neto)}`,
+          onPress: async () => {
+            setRetirando(true);
+            try {
+              await repartidoresAPI.retiroDiario();
+              Alert.alert('¡Solicitud enviada!', `El equipo procesará tu depósito de ${fmt(neto)} en 24 horas.`);
+              cargar();
+            } catch (e) {
+              Alert.alert('Error', e?.mensajeAmigable || 'Intenta de nuevo.');
+            } finally {
+              setRetirando(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -108,9 +142,9 @@ export default function GananciasRepartidorScreen({ navigation }) {
             color="#FBBF24"
           />
           <TarjetaStat
-            label="Fondo efectivo"
+            label="Efectivo en mano"
             valor={fmt(d.fondo_efectivo)}
-            sub="Efectivo cobrado pendiente"
+            sub="Cobrado de pedidos en efectivo"
             color={colors.secundario}
           />
           <TarjetaStat
@@ -120,9 +154,21 @@ export default function GananciasRepartidorScreen({ navigation }) {
           />
         </View>
 
-        {/* Botón solicitar depósito */}
+        {/* ── La plataforma te debe ────────────────────────── */}
+        {parseFloat(d.por_depositar || 0) > 0 && (
+          <View style={estilos.debeCard}>
+            <Text style={estilos.debeTitulo}>💳 La plataforma te debe</Text>
+            <Text style={estilos.debeValor}>{fmt(d.por_depositar)}</Text>
+            <Text style={estilos.debeSub}>
+              Tus envíos de pedidos con tarjeta aún no pagados. Se depositan el próximo viernes gratis.
+            </Text>
+          </View>
+        )}
+
+        {/* ── Retiro de fondos ─────────────────────────────── */}
         {hayFondo && (
-          <View style={{ paddingHorizontal: espacio.lg, marginTop: espacio.md }}>
+          <View style={{ paddingHorizontal: espacio.lg, marginTop: espacio.md, gap: espacio.sm }}>
+            {/* Viernes — depósito gratuito */}
             <Pressable
               style={[estilos.btnDeposito, solicitando && { opacity: 0.7 }]}
               onPress={solicitarDeposito}
@@ -130,11 +176,31 @@ export default function GananciasRepartidorScreen({ navigation }) {
             >
               {solicitando
                 ? <ActivityIndicator color="#FFF" />
-                : <Text style={estilos.btnDepositoTxt}>💸 Solicitar depósito ahora</Text>
+                : <Text style={estilos.btnDepositoTxt}>📅 Solicitar depósito del viernes (gratis)</Text>
               }
             </Pressable>
+
+            {/* Retiro diario — con fee de $10 */}
+            {!esDiaViernes && (
+              <Pressable
+                style={[estilos.btnRetiroDiario, retirando && { opacity: 0.7 }]}
+                onPress={solicitarRetiroDiario}
+                disabled={retirando}
+              >
+                {retirando
+                  ? <ActivityIndicator color={colors.primario} />
+                  : (
+                    <View>
+                      <Text style={estilos.btnRetiroDiarioTxt}>⚡ Retiro diario — fee $10</Text>
+                      <Text style={estilos.btnRetiroDiarioSub}>Recibirás {fmt(parseFloat(d.fondo_efectivo || 0) - FEE_RETIRO_DIARIO)} hoy</Text>
+                    </View>
+                  )
+                }
+              </Pressable>
+            )}
+
             <Text style={estilos.depositoSub}>
-              El equipo procesará tu depósito a la CLABE registrada en 24-48 horas hábiles.
+              Los depósitos del viernes son gratuitos. El retiro diario tiene un fee de $10 MXN.
             </Text>
           </View>
         )}
@@ -226,11 +292,26 @@ const estilos = StyleSheet.create({
   statLabel: { fontSize: 12, color: colors.textoSuave, marginTop: 2, fontWeight: '600' },
   statSub:   { fontSize: 11, color: colors.textoSuave, marginTop: 2 },
 
+  debeCard: {
+    marginHorizontal: espacio.lg, marginTop: espacio.md,
+    backgroundColor: '#EFF6FF', borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  debeTitulo: { fontSize: 13, fontWeight: '800', color: '#1E40AF', marginBottom: espacio.xs },
+  debeValor:  { fontSize: 28, fontWeight: '900', color: '#1D4ED8', marginBottom: espacio.xs },
+  debeSub:    { fontSize: 12, color: '#374151', lineHeight: 17 },
+
   btnDeposito: {
     backgroundColor: colors.secundario, borderRadius: radio.md,
     paddingVertical: espacio.md, alignItems: 'center',
   },
-  btnDepositoTxt: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+  btnDepositoTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+  btnRetiroDiario: {
+    borderRadius: radio.md, paddingVertical: espacio.md, alignItems: 'center',
+    borderWidth: 2, borderColor: colors.primario, backgroundColor: '#FFF3E8',
+  },
+  btnRetiroDiarioTxt: { color: colors.primario, fontWeight: '800', fontSize: 15 },
+  btnRetiroDiarioSub: { color: colors.primario, fontSize: 12, opacity: 0.8, marginTop: 2 },
   depositoSub: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.sm, lineHeight: 17 },
 
   seccion: { paddingHorizontal: espacio.md, marginTop: espacio.md },

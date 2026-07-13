@@ -10,12 +10,10 @@ import { pedidosAPI, pagosAPI } from '../../api/client';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
-
-const FEE_ENVIO = { standard: 35, express: 60 };
-const TOKENS_POR_PESO = 10;
+import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO } from '../../config/businessRules';
 
 const METODOS_BASE = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas al repartidor · máx. $500 en productos + fee de envío' },
+  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: `Pagas al repartidor · máx. $${LIMITE_EFECTIVO} en productos + envío` },
   { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago — seguro y rápido' },
   { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Pago desde tu cuenta o saldo de Mercado Pago' },
 ];
@@ -27,15 +25,12 @@ const METODO_TRANSFERENCIA = {
   esExclusivo: true,
 };
 
-const TOKENS_ENVIO_GRATIS = 50;
-
 export default function PagoScreen({ route, navigation }) {
-  const { usuario, refrescarUsuario } = useAuth();
+  const { usuario } = useAuth();
   const carrito   = getCarrito();
   const tipoEnvio = route.params?.tipo_envio || 'standard';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
   const feeEnvio  = FEE_ENVIO[tipoEnvio] || 35;
-  const tokens    = Math.floor(subtotal / TOKENS_POR_PESO);
 
   const requiereINE = carrito.items.some((it) => it.requiere_id);
 
@@ -44,14 +39,12 @@ export default function PagoScreen({ route, navigation }) {
   const [ubicacion, setUbicacion]       = useState(null);
   const [costoEnvioReal, setCostoEnvio] = useState(null);
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
-  const [usaTokens, setUsaTokens]       = useState(false);
   const [pagaCon, setPagaCon]           = useState('');
 
-  const costoEnvioBase = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
-  const costoEnvio     = usaTokens ? 0 : costoEnvioBase;
-  const total          = subtotal + costoEnvio;
+  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
+  const total      = subtotal + costoEnvio;
 
-  const [metodo, setMetodo]     = useState(subtotal > 500 ? 'tarjeta' : 'efectivo');
+  const [metodo, setMetodo]     = useState(subtotal > LIMITE_EFECTIVO ? 'tarjeta' : 'efectivo');
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -131,7 +124,7 @@ export default function PagoScreen({ route, navigation }) {
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
-  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && subtotal > 500));
+  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && subtotal > LIMITE_EFECTIVO));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
   // ── Tomar / elegir foto del INE ──
@@ -219,12 +212,11 @@ export default function PagoScreen({ route, navigation }) {
         })),
         direccion_entrega: direccion,
         latitud_entrega:  ubicacion?.lat  || null,
-        longitud_entrega: ubicacion?.lng || null,
+        longitud_entrega: ubicacion?.lng  || null,
         notas_entrega: notas,
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
         ine_foto_url,
-        usa_tokens: usaTokens,
         paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
       });
       const pedido = data.data?.pedido;
@@ -247,9 +239,11 @@ export default function PagoScreen({ route, navigation }) {
               );
             });
           } else {
+            // Mostrar el error real de Mercado Pago para diagnóstico
+            const detalleError = payErr?.mensajeAmigable || payErr?.message || 'Error desconocido';
             Alert.alert(
-              '⚠️ Pedido creado',
-              'Tu pedido fue registrado. No pudimos generar el link de pago. Escríbenos por WhatsApp para resolverlo.'
+              '⚠️ Pedido creado — pago pendiente',
+              `Tu pedido fue registrado pero el link de pago falló.\n\nDetalle: ${detalleError}\n\nEscríbenos por WhatsApp y te ayudamos a completar el pago.`
             );
           }
         }
@@ -262,7 +256,6 @@ export default function PagoScreen({ route, navigation }) {
 
       // 3. Limpiar carrito y redirigir al seguimiento
       vaciarCarrito();
-      if (usaTokens) refrescarUsuario();
       navigation.replace('Seguimiento', { pedidoId: pedido.id });
     } catch (e) {
       Alert.alert('Error al crear pedido', e?.mensajeAmigable || 'No pudimos registrar tu pedido. Intenta de nuevo.');
@@ -308,11 +301,6 @@ export default function PagoScreen({ route, navigation }) {
               </Text>
               <Text style={estilos.resumenSub}>${costoEnvio.toFixed(2)}</Text>
             </View>
-            {tokens > 0 && (
-              <Text style={estilos.tokensInfo}>
-                🪙 Ganarás {tokens} VoyTokens · {tokens >= 50 ? '¡Suficientes para envío gratis!' : `${50 - tokens} más para envío gratis`}
-              </Text>
-            )}
             {distancia_km != null && (
               <Text style={estilos.tarifaInfo}>
                 📍 ~{distancia_km.toFixed(1)} km del negocio
@@ -360,29 +348,6 @@ export default function PagoScreen({ route, navigation }) {
               </View>
             )}
           </View>
-        )}
-
-        {/* ── Toggle VoyTokens ── */}
-        {(usuario?.voytokens || 0) >= TOKENS_ENVIO_GRATIS && (
-          <Pressable
-            style={[estilos.tokensCanjeBox, usaTokens && estilos.tokensCanjeActivo]}
-            onPress={() => setUsaTokens(v => !v)}
-          >
-            <Text style={estilos.tokensCanjeEmoji}>🪙</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tokensCanjeTitulo}>
-                Usar {TOKENS_ENVIO_GRATIS} VoyTokens — envío gratis
-              </Text>
-              <Text style={estilos.tokensCanjeSub}>
-                {usaTokens
-                  ? `✓ Envío gratis aplicado · te quedarán ${(usuario.voytokens || 0) - TOKENS_ENVIO_GRATIS} tokens`
-                  : `Tienes ${usuario.voytokens} tokens disponibles`}
-              </Text>
-            </View>
-            <View style={[estilos.tokensCanjeSwitch, usaTokens && estilos.tokensCanjeOn]}>
-              <Text style={estilos.tokensCanjeSwitchTxt}>{usaTokens ? 'ON' : 'OFF'}</Text>
-            </View>
-          </Pressable>
         )}
 
         <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
@@ -438,10 +403,10 @@ export default function PagoScreen({ route, navigation }) {
         ))}
 
         {/* Aviso límite efectivo */}
-        {metodo === 'efectivo' && subtotal > 500 && (
+        {metodo === 'efectivo' && subtotal > LIMITE_EFECTIVO && (
           <View style={estilos.avisoEfectivo}>
             <Text style={estilos.avisoEfectivoTxt}>
-              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta $500 en productos (+ el fee de envío encima). Elige tarjeta o Mercado Pago.
+              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta ${LIMITE_EFECTIVO} en productos (+ el fee de envío encima). Elige tarjeta o Mercado Pago.
             </Text>
           </View>
         )}
@@ -477,9 +442,9 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
-        {subtotal > 500 && (
+        {subtotal > LIMITE_EFECTIVO && (
           <Text style={estilos.avisoLimite}>
-            💡 Productos: ${subtotal.toFixed(2)} MXN. Efectivo disponible solo si los productos son ≤$500 (el fee de envío va encima de ese límite).
+            💡 Productos: ${subtotal.toFixed(2)} MXN. Efectivo disponible solo si los productos son ≤${LIMITE_EFECTIVO} (el fee de envío va encima de ese límite).
           </Text>
         )}
 
@@ -511,26 +476,6 @@ const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
   scroll: { padding: espacio.lg },
   seccion: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md, marginBottom: espacio.sm },
-
-  // Toggle VoyTokens
-  tokensCanjeBox: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: espacio.md,
-    borderRadius: radio.md,
-    borderWidth: 1.5, borderColor: '#FDE68A',
-    backgroundColor: '#FFFBEB',
-    marginBottom: espacio.md,
-  },
-  tokensCanjeActivo: { borderColor: '#F59E0B', backgroundColor: '#FFF3CD' },
-  tokensCanjeEmoji: { fontSize: 26, marginRight: espacio.sm },
-  tokensCanjeTitulo: { fontSize: 13, fontWeight: '800', color: '#92400E' },
-  tokensCanjeSub: { fontSize: 11, color: '#92400E', marginTop: 2, lineHeight: 15 },
-  tokensCanjeSwitch: {
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20, backgroundColor: colors.borde, marginLeft: espacio.sm,
-  },
-  tokensCanjeOn: { backgroundColor: '#F59E0B' },
-  tokensCanjeSwitchTxt: { fontSize: 11, fontWeight: '800', color: '#FFF' },
 
   // Botón detectar ubicación
   ubicacionBtn: {
@@ -569,7 +514,6 @@ const estilos = StyleSheet.create({
   resumenEdad: { fontSize: 12, color: '#9B1C1C', fontWeight: '800' },
   resumenExtra: { fontSize: 12, color: colors.secundario, marginLeft: 16, marginBottom: 2 },
   tarifaInfo:  { fontSize: 11, color: colors.textoSuave, marginTop: 2, fontStyle: 'italic' },
-  tokensInfo:  { fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: '600', backgroundColor: '#FFFBEB', padding: 6, borderRadius: 6 },
   fueraCobertura: {
     backgroundColor: '#FEF2F2',
     padding: espacio.sm, borderRadius: radio.sm,
