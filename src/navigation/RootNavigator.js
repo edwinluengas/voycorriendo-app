@@ -36,7 +36,6 @@ import GananciasRepartidorScreen from '../screens/repartidor/GananciasRepartidor
 import DashboardNegocioScreen      from '../screens/negocio/DashboardNegocioScreen';
 import PedidoDetalleNegocioScreen  from '../screens/negocio/PedidoDetalleNegocioScreen';
 import OnboardingNegocioScreen     from '../screens/negocio/OnboardingNegocioScreen';
-import TokenesScreen               from '../screens/negocio/TokenesScreen';
 import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
 import ProductosNegocioScreen      from '../screens/negocio/ProductosNegocioScreen';
 import GananciasNegocioScreen      from '../screens/negocio/GananciasNegocioScreen';
@@ -253,8 +252,7 @@ const NegocioStack = () => (
   >
     <Stack.Screen name="DashboardNegocio"     component={DashboardNegocioScreen}     options={{ title: 'Mis pedidos' }} />
     <Stack.Screen name="PedidoDetalleNegocio" component={PedidoDetalleNegocioScreen}  options={{ title: 'Detalle del pedido' }} />
-    <Stack.Screen name="Tokens"               component={TokenesScreen}               options={{ title: 'Tokens' }} />
-    <Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
+<Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
     <Stack.Screen name="GananciasNegocio"     component={GananciasNegocioScreen}      options={{ title: 'Mis ganancias' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />

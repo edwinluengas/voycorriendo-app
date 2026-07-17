@@ -55,34 +55,6 @@ export default function PerfilScreen({ navigation }) {
           </View>
         </View>
 
-        {/* VoyTokens */}
-        {(usuario?.voytokens >= 0) && (
-          <View style={estilos.tokensCard}>
-            <View style={estilos.tokensEncab}>
-              <View style={estilos.tokensIconWrap}>
-                <Text style={estilos.tokensIcono}>🪙</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={estilos.tokensTitulo}>{usuario.voytokens || 0} VoyTokens</Text>
-                <Text style={estilos.tokensSub}>
-                  {(usuario.voytokens || 0) >= 50
-                    ? '¡Tienes envío gratis listo!'
-                    : `${50 - (usuario.voytokens || 0)} tokens más para envío gratis`}
-                </Text>
-              </View>
-              <Text style={estilos.tokensCont}>
-                {Math.min(usuario.voytokens || 0, 50)}/50
-              </Text>
-            </View>
-            <View style={estilos.barraFondo}>
-              <View style={[
-                estilos.barraRelleno,
-                { width: `${Math.min(((usuario.voytokens || 0) / 50) * 100, 100)}%` }
-              ]} />
-            </View>
-          </View>
-        )}
-
         {/* Modos */}
         <View style={estilos.seccionHeader}>
           <Text style={estilos.seccionTit}>Mis modos</Text>
@@ -277,32 +249,6 @@ const estilos = StyleSheet.create({
   datosFila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   dato: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
 
-  tokensCard: {
-    marginHorizontal: espacio.lg,
-    marginTop: espacio.md,
-    backgroundColor: colors.superficie,
-    borderRadius: radio.lg,
-    padding: espacio.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  tokensEncab: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm, gap: espacio.sm },
-  tokensIconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#FFFBEB',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  tokensIcono: { fontSize: 22 },
-  tokensTitulo: { fontSize: 16, fontWeight: '800', color: '#92400E' },
-  tokensSub: { fontSize: 12, color: '#A16207', marginTop: 1 },
-  tokensCont: { fontSize: 14, fontWeight: '800', color: '#92400E' },
-  barraFondo: { height: 6, backgroundColor: '#FDE68A', borderRadius: 3, overflow: 'hidden' },
-  barraRelleno: { height: 6, backgroundColor: '#F59E0B', borderRadius: 3 },
 
   seccionHeader: {
     flexDirection: 'row', alignItems: 'center',

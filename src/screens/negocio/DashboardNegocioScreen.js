@@ -265,11 +265,7 @@ export default function DashboardNegocioScreen({ navigation }) {
           <Ionicons name="bar-chart-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Ganancias</Text>
         </Pressable>
-        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Tokens')}>
-          <Ionicons name="ticket-outline" size={22} color={colors.textoSuave} />
-          <Text style={estilos.footerTabTxt}>Tokens</Text>
-        </Pressable>
-        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Perfil')}>
+<Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Perfil')}>
           <Ionicons name="person-outline" size={22} color={colors.textoSuave} />
           <Text style={estilos.footerTabTxt}>Perfil</Text>
         </Pressable>
