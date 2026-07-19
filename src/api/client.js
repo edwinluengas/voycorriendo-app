@@ -100,6 +100,8 @@ export const pedidosAPI = {
   // Cancelar = transición de estado a 'cancelado' (solo el cliente puede hacerla mientras el pedido esté pendiente)
   cancelar:    (id, motivo)  => api.patch(`/pedidos/${id}/estado`, { estado: 'cancelado', nota: motivo }),
   calificar:   (id, data)    => api.post(`/pedidos/${id}/calificar`, data),
+  // Sube la foto del INE a Supabase Storage y devuelve la URL pública
+  subirFotoINE: (base64, mime) => api.post('/pedidos/ine-foto', { base64, mime }),
   // Actualización genérica de estado (usada por negocio y repartidor)
   actualizarEstado: (id, estado, nota, extra = {}) =>
     api.patch(`/pedidos/${id}/estado`, { estado, nota, ...extra }),

@@ -49,6 +49,8 @@ export default function PagoScreen({ route, navigation }) {
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
   const [ineFoto, setIneFoto]   = useState(null);
+  const [ineFotoUrl, setIneFotoUrl] = useState(null);
+  const [subiendoIne, setSubiendoIne] = useState(false);
 
   const detectarUbicacion = async () => {
     setDetectandoUbicacion(true);
@@ -127,6 +129,26 @@ export default function PagoScreen({ route, navigation }) {
   const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && subtotal > LIMITE_EFECTIVO));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
+  // ── Sube la foto del INE a Supabase Storage y guarda la URL pública ──
+  const subirIne = async (asset) => {
+    setIneFoto({ uri: asset.uri, base64: asset.base64 });
+    setIneFotoUrl(null);
+    setSubiendoIne(true);
+    try {
+      const mime = asset.mimeType || 'image/jpeg';
+      const { data } = await pedidosAPI.subirFotoINE(asset.base64, mime);
+      const url = data?.data?.url;
+      if (!url) throw new Error('Sin URL');
+      setIneFotoUrl(url);
+    } catch (e) {
+      Alert.alert('No se pudo subir tu INE', e?.mensajeAmigable || 'Intenta tomar la foto de nuevo.');
+      setIneFoto(null);
+      setIneFotoUrl(null);
+    } finally {
+      setSubiendoIne(false);
+    }
+  };
+
   // ── Tomar / elegir foto del INE ──
   const tomarFotoINE = async () => {
     try {
@@ -142,7 +164,7 @@ export default function PagoScreen({ route, navigation }) {
         allowsEditing: false,
       });
       if (!res.canceled && res.assets?.[0]) {
-        setIneFoto({ uri: res.assets[0].uri, base64: res.assets[0].base64 });
+        await subirIne(res.assets[0]);
       }
     } catch (e) {
       Alert.alert('Error', 'No pudimos abrir la cámara.');
@@ -163,7 +185,7 @@ export default function PagoScreen({ route, navigation }) {
         allowsEditing: false,
       });
       if (!res.canceled && res.assets?.[0]) {
-        setIneFoto({ uri: res.assets[0].uri, base64: res.assets[0].base64 });
+        await subirIne(res.assets[0]);
       }
     } catch (e) {
       Alert.alert('Error', 'No pudimos abrir la galería.');
@@ -179,7 +201,11 @@ export default function PagoScreen({ route, navigation }) {
       Alert.alert('Carrito vacío', 'Regresa y arma tu pedido.');
       return;
     }
-    if (requiereINE && !ineFoto) {
+    if (requiereINE && subiendoIne) {
+      Alert.alert('Subiendo INE', 'Espera a que termine de subir tu INE antes de confirmar.');
+      return;
+    }
+    if (requiereINE && !ineFotoUrl) {
       Alert.alert(
         'Validación de edad',
         'Tu pedido incluye productos con restricción de edad (alcohol o cigarros). Por favor sube una foto de tu INE para poder entregar.'
@@ -193,13 +219,8 @@ export default function PagoScreen({ route, navigation }) {
 
     try {
       setEnviando(true);
-      // Armar URL de la foto del INE (data URI base64 si la tomamos)
-      let ine_foto_url = null;
-      if (requiereINE && ineFoto) {
-        ine_foto_url = ineFoto.base64
-          ? `data:image/jpeg;base64,${ineFoto.base64}`
-          : ineFoto.uri;
-      }
+      // URL pública del INE ya subido a Supabase Storage
+      const ine_foto_url = requiereINE ? ineFotoUrl : null;
 
       // 1. Crear el pedido en el backend
       const { data } = await pedidosAPI.crear({
@@ -329,10 +350,21 @@ export default function PagoScreen({ route, navigation }) {
               <View style={estilos.inePreview}>
                 <Image source={{ uri: ineFoto.uri }} style={estilos.ineImagen} />
                 <View style={{ flex: 1 }}>
-                  <Text style={estilos.ineOk}>✅ INE cargada</Text>
-                  <Pressable onPress={() => setIneFoto(null)}>
-                    <Text style={estilos.ineLink}>Cambiar foto</Text>
-                  </Pressable>
+                  {subiendoIne ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacio.sm }}>
+                      <ActivityIndicator size="small" color={colors.primario} />
+                      <Text style={estilos.ineSubiendo}>Subiendo…</Text>
+                    </View>
+                  ) : ineFotoUrl ? (
+                    <Text style={estilos.ineOk}>✅ INE cargada</Text>
+                  ) : (
+                    <Text style={estilos.ineSubiendo}>Sin subir</Text>
+                  )}
+                  {!subiendoIne && (
+                    <Pressable onPress={() => { setIneFoto(null); setIneFotoUrl(null); }}>
+                      <Text style={estilos.ineLink}>Cambiar foto</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             ) : (
@@ -457,15 +489,17 @@ export default function PagoScreen({ route, navigation }) {
           titulo={
             fuera_de_cobertura
               ? '🚫 Fuera de cobertura'
-              : requiereINE && !ineFoto
-                ? '📷 Sube tu INE para continuar'
-                : cotizando
-                  ? 'Verificando cobertura…'
-                  : 'Confirmar pedido'
+              : requiereINE && subiendoIne
+                ? '⬆️ Subiendo INE…'
+                : requiereINE && !ineFotoUrl
+                  ? '📷 Sube tu INE para continuar'
+                  : cotizando
+                    ? 'Verificando cobertura…'
+                    : 'Confirmar pedido'
           }
           onPress={confirmar}
           cargando={enviando}
-          deshabilitado={(requiereINE && !ineFoto) || fuera_de_cobertura || cotizando}
+          deshabilitado={(requiereINE && !ineFotoUrl) || subiendoIne || fuera_de_cobertura || cotizando}
         />
       </ScrollView>
     </SafeAreaView>
@@ -560,6 +594,7 @@ const estilos = StyleSheet.create({
     backgroundColor: colors.borde,
   },
   ineOk: { fontSize: 14, fontWeight: '800', color: colors.exito },
+  ineSubiendo: { fontSize: 14, fontWeight: '700', color: colors.primario },
   ineLink: { fontSize: 13, color: colors.primario, fontWeight: '600', marginTop: 4 },
 
   metodo: {
