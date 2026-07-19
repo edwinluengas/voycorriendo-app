@@ -189,12 +189,6 @@ export const adminAPI = {
   usuarios:           (buscar)              => api.get('/admin/usuarios', { params: buscar ? { buscar } : {} }),
 };
 
-export const tokensAPI = {
-  packs:   ()         => api.get('/tokens/packs'),
-  saldo:   ()         => api.get('/tokens/saldo'),
-  comprar: (pack_type) => api.post('/tokens/comprar', { pack_type }),
-};
-
 export const telegramAPI = {
   vincularLink: () => api.get('/telegram/vincular-link'),
 };
