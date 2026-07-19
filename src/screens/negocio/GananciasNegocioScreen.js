@@ -35,6 +35,7 @@ export default function GananciasNegocioScreen({ navigation }) {
   const [pagando, setPagando]       = useState(false);
   const [refSpei, setRefSpei]       = useState('');
   const [mostrarSpei, setMostrarSpei] = useState(false);
+  const [retirando, setRetirando]   = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -66,6 +67,31 @@ export default function GananciasNegocioScreen({ navigation }) {
     } finally {
       setPagando(false);
     }
+  };
+
+  const solicitarRetiroDiario = () => {
+    Alert.alert(
+      'Retiro diario',
+      'Se te cobrará una comisión por adelantar tu pago de tarjeta/app antes del viernes. ¿Confirmas?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setRetirando(true);
+            try {
+              const { data } = await negocioOnboardingAPI.retiroDiario();
+              Alert.alert('¡Solicitud enviada!', data.mensaje || 'El equipo procesará tu depósito en breve.');
+              cargar();
+            } catch (e) {
+              Alert.alert('Error', e?.mensajeAmigable || 'Intenta de nuevo.');
+            } finally {
+              setRetirando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (cargando) {
@@ -128,6 +154,18 @@ export default function GananciasNegocioScreen({ navigation }) {
             <Text style={estilos.netoLabel}>Neto estimado del viernes:</Text>
             <Text style={estilos.netoValor}>{fmt(d.neto_viernes)}</Text>
           </View>
+          {parseFloat(d.plataforma_debe || 0) > 0 && !bloqueado && (
+            <Pressable
+              style={[estilos.btnRetiroDiario, retirando && { opacity: 0.7 }]}
+              onPress={solicitarRetiroDiario}
+              disabled={retirando}
+            >
+              {retirando
+                ? <ActivityIndicator color={colors.primario} size="small" />
+                : <Text style={estilos.btnRetiroDiarioTxt}>⚡ Adelantar hoy (con comisión)</Text>
+              }
+            </Pressable>
+          )}
         </View>
 
         {/* ── Debes a la plataforma (fees efectivo) ─────────── */}
@@ -329,6 +367,12 @@ const estilos = StyleSheet.create({
   },
   netoLabel: { fontSize: 13, color: '#1E40AF', fontWeight: '600' },
   netoValor: { fontSize: 18, fontWeight: '900', color: '#1D4ED8' },
+  btnRetiroDiario: {
+    marginTop: espacio.sm, paddingTop: espacio.sm,
+    borderTopWidth: 1, borderTopColor: '#BFDBFE',
+    alignItems: 'center', paddingVertical: espacio.xs,
+  },
+  btnRetiroDiarioTxt: { color: '#1D4ED8', fontWeight: '800', fontSize: 13 },
 
   deudaCard: {
     marginHorizontal: espacio.md, marginBottom: espacio.md,

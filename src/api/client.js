@@ -133,6 +133,7 @@ export const negocioOnboardingAPI = {
   subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
   ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
   pagarDeuda:        (referencia_spei, monto) => api.post('/negocios/mi-negocio/pagar-deuda', { referencia_spei, monto }),
+  retiroDiario:      ()                    => api.post('/negocios/mi-negocio/retiro-diario'),
 };
 
 export const pagosAPI = {
