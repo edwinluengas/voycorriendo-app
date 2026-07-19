@@ -24,10 +24,10 @@ import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const TOTAL_PASOS = 5;
+const TOTAL_PASOS = 6;
 
 export default function OnboardingRepartidorScreen({ navigation }) {
-  const { cargarRoles } = useAuth();
+  const { cargarRoles, usuario } = useAuth();
   const [paso, setPaso] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -44,6 +44,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
     foto_ine_reverso: null,
     foto_licencia: null,
     foto_tarjeta_circulacion: null,
+    foto_perfil: null,
   });
 
   // Activamos modo repartidor al abrir (idempotente: si ya existe, no truena)
@@ -67,6 +68,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
             foto_ine_reverso: r.foto_ine_reverso,
             foto_licencia:    r.foto_licencia,
             foto_tarjeta_circulacion: r.foto_tarjeta_circulacion,
+            foto_perfil:      usuario?.foto_perfil || null,
           }));
         }
       } catch (e) {
@@ -155,6 +157,11 @@ export default function OnboardingRepartidorScreen({ navigation }) {
       }
     }
     if (paso === 4) {
+      if (!datos.foto_perfil) {
+        return Alert.alert('Falta foto', 'Toma una selfie de tu cara para completar tu perfil.');
+      }
+    }
+    if (paso === 5) {
       if (datos.clabe_bancaria.length !== 18) {
         return Alert.alert('CLABE inválida', 'La CLABE debe tener exactamente 18 dígitos.');
       }
@@ -167,6 +174,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
       });
       if (!ok) return;
     }
+    if (paso === 6) return;
     setPaso((p) => Math.min(p + 1, TOTAL_PASOS));
   };
 
@@ -238,8 +246,9 @@ export default function OnboardingRepartidorScreen({ navigation }) {
               seleccionar={seleccionarYSubir}
             />
           )}
-          {paso === 4 && <PasoBancario datos={datos} setDatos={setDatos} />}
-          {paso === 5 && <PasoResumen datos={datos} />}
+          {paso === 4 && <PasoSelfie datos={datos} seleccionar={seleccionarYSubir} />}
+          {paso === 5 && <PasoBancario datos={datos} setDatos={setDatos} />}
+          {paso === 6 && <PasoResumen datos={datos} />}
         </ScrollView>
 
         <View style={estilos.botones}>
@@ -389,7 +398,52 @@ function PasoFotos({ titulo, subtitulo, fotos, datos, seleccionar }) {
   );
 }
 
-// ─── Paso 4: Cuenta bancaria ────────────────────────────────
+// ─── Paso 4: Selfie / foto de cara ─────────────────────────
+function PasoSelfie({ datos, seleccionar }) {
+  return (
+    <View>
+      <Text style={estilos.tituloPaso}>🤳 Tu foto de perfil</Text>
+      <Text style={estilos.subtitulo}>
+        Los clientes verán tu cara cuando reciban su pedido. Usa buena iluminación y mira directo a la cámara.
+      </Text>
+
+      <View style={{ alignItems: 'center', marginVertical: espacio.lg }}>
+        {datos.foto_perfil ? (
+          <Image
+            source={{ uri: datos.foto_perfil }}
+            style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: colors.primario }}
+          />
+        ) : (
+          <View style={{
+            width: 140, height: 140, borderRadius: 70,
+            backgroundColor: '#FFE6D1', alignItems: 'center', justifyContent: 'center',
+            borderWidth: 2, borderColor: colors.borde, borderStyle: 'dashed',
+          }}>
+            <Text style={{ fontSize: 48 }}>🧑</Text>
+            <Text style={{ fontSize: 12, color: colors.textoSuave, marginTop: 4 }}>Sin foto</Text>
+          </View>
+        )}
+      </View>
+
+      <Pressable
+        style={[estilos.fotoBoton, { alignSelf: 'stretch' }]}
+        onPress={() => seleccionar('foto_perfil', 'foto_perfil')}
+      >
+        <Text style={estilos.fotoBotonTxt}>
+          {datos.foto_perfil ? '🔄 Cambiar foto' : '📷 Tomar selfie'}
+        </Text>
+      </Pressable>
+
+      <View style={[estilos.aviso, { marginTop: espacio.lg }]}>
+        <Text style={estilos.avisoTxt}>
+          📌 Tu cara debe ser claramente visible. No uses lentes oscuros ni sombreros que cubran tu rostro.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Paso 5: Cuenta bancaria ────────────────────────────────
 function PasoBancario({ datos, setDatos }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
   const bancos = ['BBVA', 'Banamex', 'Santander', 'Banorte', 'HSBC', 'Azteca', 'Mercado Pago', 'Otro'];
@@ -427,7 +481,7 @@ function PasoBancario({ datos, setDatos }) {
   );
 }
 
-// ─── Paso 5: Resumen ────────────────────────────────────────
+// ─── Paso 6: Resumen ────────────────────────────────────────
 function PasoResumen({ datos }) {
   return (
     <View>
@@ -448,10 +502,11 @@ function PasoResumen({ datos }) {
 
       <View style={estilos.tarjetaResumen}>
         <Text style={estilos.resumenSeccion}>Documentos</Text>
-        <Item label="INE frente"     valor={datos.foto_ine_frente ? '✅ Subida' : '❌ Falta'} />
-        <Item label="INE reverso"    valor={datos.foto_ine_reverso ? '✅ Subida' : '❌ Falta'} />
-        <Item label="Licencia"       valor={datos.foto_licencia ? '✅ Subida' : '❌ Falta'} />
-        <Item label="Tarjeta circ."  valor={datos.foto_tarjeta_circulacion ? '✅ Subida' : '— Opcional'} />
+        <Item label="Foto de perfil"  valor={datos.foto_perfil ? '✅ Subida' : '❌ Falta'} />
+        <Item label="INE frente"      valor={datos.foto_ine_frente ? '✅ Subida' : '❌ Falta'} />
+        <Item label="INE reverso"     valor={datos.foto_ine_reverso ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Licencia"        valor={datos.foto_licencia ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Tarjeta circ."   valor={datos.foto_tarjeta_circulacion ? '✅ Subida' : '— Opcional'} />
       </View>
 
       <View style={estilos.tarjetaResumen}>
