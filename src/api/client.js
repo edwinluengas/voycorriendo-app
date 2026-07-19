@@ -181,8 +181,10 @@ export const repartidoresAPI = {
 
 export const adminAPI = {
   dashboard:          ()                    => api.get('/admin/dashboard'),
+  obtenerNegocio:     (id)                  => api.get(`/admin/negocios/${id}`),
   aprobarNegocio:     (id)                  => api.patch(`/admin/negocios/${id}/aprobar`),
   rechazarNegocio:    (id, motivo)          => api.patch(`/admin/negocios/${id}/rechazar`, { motivo }),
+  obtenerRepartidor:  (id)                  => api.get(`/admin/repartidores/${id}`),
   aprobarRepartidor:  (id)                  => api.patch(`/admin/repartidores/${id}/aprobar`),
   rechazarRepartidor: (id, motivo)          => api.patch(`/admin/repartidores/${id}/rechazar`, { motivo }),
   revenue:            (periodo = 'semana')  => api.get('/admin/revenue', { params: { periodo } }),

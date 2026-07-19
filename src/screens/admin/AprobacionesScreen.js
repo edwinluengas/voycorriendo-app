@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, Pressable, Alert, Modal,
   ActivityIndicator, StyleSheet, RefreshControl,
-  TextInput, ScrollView, KeyboardAvoidingView, Platform,
+  TextInput, ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -100,6 +100,62 @@ function ModalRechazo({ visible, titulo, onCancelar, onConfirmar }) {
   );
 }
 
+// ─── Modal de documentos (foto/INE/licencia/etc) ─────────────
+function FotoDoc({ label, url }) {
+  if (!url) {
+    return (
+      <View style={estilos.docFalta}>
+        <Text style={estilos.docFaltaTxt}>❌ {label} — no subida</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={estilos.docBox}>
+      <Text style={estilos.docLabel}>{label}</Text>
+      <Image source={{ uri: url }} style={estilos.docImagen} resizeMode="cover" />
+    </View>
+  );
+}
+
+function ModalDocumentos({ visible, cargando, tipo, data, onCerrar }) {
+  const docs = data?.documentos_firmados || {};
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onCerrar}>
+      <SafeAreaView style={estilos.docContenedor} edges={['top', 'bottom']}>
+        <View style={estilos.docHeader}>
+          <Text style={estilos.docTitulo}>
+            {tipo === 'negocio' ? `🏪 ${data?.nombre || ''}` : `🛵 ${data?.usuario?.nombre || ''}`}
+          </Text>
+          <Pressable onPress={onCerrar}><Text style={estilos.docCerrar}>✕</Text></Pressable>
+        </View>
+        {cargando ? (
+          <ActivityIndicator size="large" color={colors.primario} style={{ marginTop: 40 }} />
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: espacio.md }}>
+            {tipo === 'repartidor' ? (
+              <>
+                <FotoDoc label="Selfie de perfil" url={data?.usuario?.foto_perfil} />
+                <FotoDoc label="INE — frente" url={docs.ine_frente} />
+                <FotoDoc label="INE — reverso" url={docs.ine_reverso} />
+                <FotoDoc label="Licencia de conducir" url={docs.licencia} />
+                <FotoDoc label="Tarjeta de circulación" url={docs.tarjeta_circulacion} />
+              </>
+            ) : (
+              <>
+                <FotoDoc label="Foto de portada" url={docs.foto_portada} />
+                <FotoDoc label="Foto del local" url={docs.foto_local} />
+                <FotoDoc label="Comprobante de domicilio" url={docs.comprobante_domicilio} />
+                <FotoDoc label="INE del dueño" url={docs.documento_ine_dueno} />
+                <FotoDoc label="RFC" url={docs.documento_rfc} />
+              </>
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
 // ─── Pantalla principal ──────────────────────────────────────
 export default function AprobacionesScreen() {
   const [tabMain, setTabMain]         = useState('pendientes');
@@ -113,7 +169,27 @@ export default function AprobacionesScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [accionando, setAccionando]   = useState(null);
   const [rechazo, setRechazo]         = useState(null); // { id, nombre, tipo }
+  const [verDoc, setVerDoc]           = useState(null); // { tipo }
+  const [docData, setDocData]        = useState(null);
+  const [cargandoDoc, setCargandoDoc] = useState(false);
   const buscarTimer                   = useRef(null);
+
+  const abrirDocumentos = async (tipo, id) => {
+    setVerDoc({ tipo });
+    setDocData(null);
+    setCargandoDoc(true);
+    try {
+      const { data } = tipo === 'negocio'
+        ? await adminAPI.obtenerNegocio(id)
+        : await adminAPI.obtenerRepartidor(id);
+      setDocData(data.data?.negocio || data.data?.repartidor || null);
+    } catch (e) {
+      Alert.alert('Error', e?.mensajeAmigable || 'No se pudieron cargar los documentos.');
+      setVerDoc(null);
+    } finally {
+      setCargandoDoc(false);
+    }
+  };
 
   const cargarDash = useCallback(async () => {
     const { data } = await adminAPI.dashboard();
@@ -313,6 +389,7 @@ export default function AprobacionesScreen() {
                 <TarjetaNegocio
                   negocio={item}
                   enProceso={accionando === item.id}
+                  onVerDocumentos={() => abrirDocumentos('negocio', item.id)}
                   onAprobar={() => aprobarNeg(item.id, item.nombre)}
                   onRechazar={() => setRechazo({ id: item.id, nombre: item.nombre, tipo: 'negocio' })}
                 />
@@ -320,6 +397,7 @@ export default function AprobacionesScreen() {
                 <TarjetaRepartidor
                   repartidor={item}
                   enProceso={accionando === item.id}
+                  onVerDocumentos={() => abrirDocumentos('repartidor', item.id)}
                   onAprobar={() => aprobarRep(item.id, item.usuario?.nombre || 'Sin nombre')}
                   onRechazar={() => setRechazo({ id: item.id, nombre: item.usuario?.nombre || 'Sin nombre', tipo: 'repartidor' })}
                 />
@@ -457,6 +535,15 @@ export default function AprobacionesScreen() {
         onCancelar={() => setRechazo(null)}
         onConfirmar={rechazo?.tipo === 'negocio' ? rechazarNegConMotivo : rechazarRepConMotivo}
       />
+
+      {/* Modal de documentos */}
+      <ModalDocumentos
+        visible={!!verDoc}
+        cargando={cargandoDoc}
+        tipo={verDoc?.tipo}
+        data={docData}
+        onCerrar={() => { setVerDoc(null); setDocData(null); }}
+      />
     </SafeAreaView>
   );
 }
@@ -510,7 +597,7 @@ function EstadoBadge({ estado }) {
   );
 }
 
-function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
+function TarjetaNegocio({ negocio, enProceso, onVerDocumentos, onAprobar, onRechazar }) {
   return (
     <View style={estilos.tarjeta}>
       <View style={estilos.encabFila}>
@@ -527,6 +614,9 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
       {negocio.verificacion_nota && (
         <Text style={estilos.nota}>📝 {negocio.verificacion_nota}</Text>
       )}
+      <Pressable style={estilos.btnVerDocs} onPress={onVerDocumentos}>
+        <Text style={estilos.btnVerDocsTxt}>📄 Ver documentos</Text>
+      </Pressable>
       <View style={estilos.botonesRow}>
         <Pressable
           style={[estilos.btnRechazar, enProceso && estilos.btnDis]}
@@ -549,7 +639,7 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
   );
 }
 
-function TarjetaRepartidor({ repartidor, enProceso, onAprobar, onRechazar }) {
+function TarjetaRepartidor({ repartidor, enProceso, onVerDocumentos, onAprobar, onRechazar }) {
   const nombre = repartidor.usuario?.nombre || 'Sin nombre';
   const tel    = repartidor.usuario?.telefono || '';
   return (
@@ -568,6 +658,9 @@ function TarjetaRepartidor({ repartidor, enProceso, onAprobar, onRechazar }) {
       {repartidor.verificacion_nota && (
         <Text style={estilos.nota}>📝 {repartidor.verificacion_nota}</Text>
       )}
+      <Pressable style={estilos.btnVerDocs} onPress={onVerDocumentos}>
+        <Text style={estilos.btnVerDocsTxt}>📄 Ver documentos</Text>
+      </Pressable>
       <View style={estilos.botonesRow}>
         <Pressable
           style={[estilos.btnRechazar, enProceso && estilos.btnDis]}
@@ -657,6 +750,12 @@ const estilos = StyleSheet.create({
     borderRadius: radio.full, borderWidth: 1,
   },
   pillTxt: { fontSize: 11, fontWeight: '700' },
+
+  btnVerDocs: {
+    marginTop: espacio.sm, paddingVertical: 8, borderRadius: radio.sm,
+    borderWidth: 1.5, borderColor: colors.primario, alignItems: 'center',
+  },
+  btnVerDocsTxt: { color: colors.primario, fontWeight: '700', fontSize: 13 },
 
   botonesRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md },
   btnRechazar: {
@@ -769,4 +868,25 @@ const estilos = StyleSheet.create({
   modalBtnRechazar:   { backgroundColor: colors.error },
   modalBtnCancelarTxt: { fontSize: 15, fontWeight: '700', color: colors.textoSuave },
   modalBtnRechazarTxt: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+
+  // Modal de documentos
+  docContenedor: { flex: 1, backgroundColor: colors.fondo },
+  docHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: espacio.md, backgroundColor: colors.superficie,
+    borderBottomWidth: 1, borderBottomColor: colors.borde,
+  },
+  docTitulo: { fontSize: 17, fontWeight: '800', color: colors.texto },
+  docCerrar: { fontSize: 22, color: colors.textoSuave, paddingHorizontal: espacio.sm },
+  docBox: { marginBottom: espacio.lg },
+  docLabel: { fontSize: 14, fontWeight: '700', color: colors.texto, marginBottom: espacio.xs },
+  docImagen: {
+    width: '100%', height: 220, borderRadius: radio.md,
+    backgroundColor: colors.borde,
+  },
+  docFalta: {
+    backgroundColor: '#FEF2F2', borderRadius: radio.md, padding: espacio.md,
+    marginBottom: espacio.lg, borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  docFaltaTxt: { color: '#991B1B', fontWeight: '700', fontSize: 13 },
 });
