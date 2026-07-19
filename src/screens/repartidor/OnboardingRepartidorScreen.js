@@ -109,6 +109,26 @@ export default function OnboardingRepartidorScreen({ navigation }) {
   };
 
   const seleccionarYSubir = (tipo, columnaLocal) => {
+    // La selfie se toma en vivo con cámara frontal — no se permite elegir de
+    // galería (verifica que sea la persona registrándose ahora mismo).
+    if (tipo === 'foto_perfil') {
+      (async () => {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Permiso denegado', 'Necesitamos acceso a tu cámara para tomar la selfie.');
+          return;
+        }
+        const r = await ImagePicker.launchCameraAsync({
+          base64: true,
+          quality: 0.6,
+          allowsEditing: false,
+          cameraType: ImagePicker.CameraType.front,
+        });
+        if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
+      })();
+      return;
+    }
+
     Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
       {
         text: '📷 Tomar foto',
