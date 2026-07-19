@@ -130,13 +130,13 @@ export default function PerfilScreen({ navigation }) {
         {/* Opciones de cuenta */}
         <Text style={[estilos.seccionTit, { marginTop: espacio.lg }]}>Mi cuenta</Text>
         <View style={estilos.menuCard}>
-          <MenuItem icono="📍" titulo="Mis direcciones" onPress={() => Alert.alert('Próximamente')} />
+          <MenuItem icono="📍" titulo="Mis direcciones" onPress={() => navigation.navigate('Direcciones')} />
           <View style={estilos.divider} />
-          <MenuItem icono="💳" titulo="Métodos de pago" onPress={() => Alert.alert('Próximamente')} />
+          <MenuItem icono="💳" titulo="Métodos de pago" onPress={() => navigation.navigate('MetodosPago')} />
           <View style={estilos.divider} />
-          <MenuItem icono="⭐" titulo="Mis calificaciones" onPress={() => Alert.alert('Próximamente')} />
+          <MenuItem icono="⭐" titulo="Mis calificaciones" onPress={() => navigation.navigate('Calificaciones')} />
           <View style={estilos.divider} />
-          <MenuItem icono="🔔" titulo="Notificaciones" onPress={() => Alert.alert('Próximamente')} />
+          <MenuItem icono="🔔" titulo="Notificaciones" onPress={() => navigation.navigate('Notificaciones')} />
           <View style={estilos.divider} />
           <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => navigation.navigate('PoliticaPrivacidad')} ultima />
         </View>

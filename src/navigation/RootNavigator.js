@@ -23,6 +23,10 @@ import MisPedidosScreen from '../screens/cliente/MisPedidosScreen';
 import PerfilScreen from '../screens/cliente/PerfilScreen';
 import SoporteScreen from '../screens/cliente/SoporteScreen';
 import PoliticaPrivacidadScreen from '../screens/cliente/PoliticaPrivacidadScreen';
+import DireccionesScreen from '../screens/cliente/DireccionesScreen';
+import MetodosPagoScreen from '../screens/cliente/MetodosPagoScreen';
+import CalificacionesScreen from '../screens/cliente/CalificacionesScreen';
+import NotificacionesScreen from '../screens/cliente/NotificacionesScreen';
 
 // Pantallas Repartidor
 import InicioRepartidorScreen    from '../screens/repartidor/InicioRepartidorScreen';
@@ -149,6 +153,10 @@ const ClienteStack = () => (
     <Stack.Screen name="Carrito"     component={CarritoScreen}     options={{ title: 'Tu carrito' }} />
     <Stack.Screen name="Pago"        component={PagoScreen}        options={{ title: 'Forma de pago' }} />
     <Stack.Screen name="Seguimiento" component={SeguimientoScreen} options={{ title: 'Tu pedido' }} />
+    <Stack.Screen name="Direcciones"    component={DireccionesScreen}    options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"    component={MetodosPagoScreen}    options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones" component={CalificacionesScreen} options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: 'Notificaciones' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}
@@ -236,6 +244,10 @@ const RepartidorStack = () => (
       options={{ title: 'Completa tu registro' }}
     />
     <Stack.Screen name="Perfil"       component={PerfilScreen}             options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Direcciones"    component={DireccionesScreen}    options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"    component={MetodosPagoScreen}    options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones" component={CalificacionesScreen} options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: 'Notificaciones' }} />
     {/* Alias "Inicio" para compatibilidad con navigation.replace('Inicio') en PedidoActivoScreen */}
     <Stack.Screen name="Inicio"       component={RepartidorTabs}           options={{ headerShown: false }} />
   </Stack.Navigator>
@@ -256,6 +268,10 @@ const NegocioStack = () => (
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
     <Stack.Screen name="GananciasNegocio"     component={GananciasNegocioScreen}      options={{ title: 'Mis ganancias' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Direcciones"          component={DireccionesScreen}           options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"          component={MetodosPagoScreen}           options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones"       component={CalificacionesScreen}        options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones"       component={NotificacionesScreen}        options={{ title: 'Notificaciones' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
     <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}    options={{ title: 'Privacidad y Términos' }} />
   </Stack.Navigator>

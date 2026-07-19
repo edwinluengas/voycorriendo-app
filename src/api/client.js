@@ -141,9 +141,17 @@ export const pagosAPI = {
 
 // Multi-rol (estilo Uber/Rappi): consultar y cambiar modo activo
 export const usuariosAPI = {
-  misRoles:         ()      => api.get('/usuarios/mis-roles'),
-  cambiarModo:      (modo)  => api.post('/usuarios/cambiar-modo', { modo }),
-  guardarPushToken: (token) => api.patch('/usuarios/push-token', { token }),
+  misRoles:              ()           => api.get('/usuarios/mis-roles'),
+  cambiarModo:           (modo)       => api.post('/usuarios/cambiar-modo', { modo }),
+  guardarPushToken:      (token)      => api.patch('/usuarios/push-token', { token }),
+  misDirecciones:        ()           => api.get('/usuarios/mis-direcciones'),
+  agregarDireccion:      (data)       => api.post('/usuarios/mis-direcciones', data),
+  eliminarDireccion:     (id)         => api.delete(`/usuarios/mis-direcciones/${id}`),
+  misCalificaciones:     ()           => api.get('/usuarios/mis-calificaciones'),
+  getMetodoPagoDefault:  ()           => api.get('/usuarios/metodo-pago-default'),
+  setMetodoPagoDefault:  (metodo)     => api.patch('/usuarios/metodo-pago-default', { metodo }),
+  getNotificaciones:     ()           => api.get('/usuarios/notificaciones'),
+  setNotificaciones:     (prefs)      => api.patch('/usuarios/notificaciones', prefs),
 };
 
 export const repartidoresAPI = {
