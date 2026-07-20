@@ -149,8 +149,26 @@ export default function GananciasRepartidorScreen({ navigation }) {
           />
           <TarjetaStat
             label="Entregas totales"
-            valor={d.pedidos_completados || 0}
+            valor={d.total_pedidos ?? d.pedidos_completados ?? 0}
             color={colors.textoSuave}
+          />
+          <TarjetaStat
+            label="Ingreso generado"
+            valor={fmt(d.ingreso_generado)}
+            sub="Total ganado en la vida"
+            color="#2563EB"
+          />
+          <TarjetaStat
+            label="Ingreso ya pagado"
+            valor={fmt(d.ingreso_pagado)}
+            sub="Efectivo + retiros confirmados"
+            color={colors.secundario}
+          />
+          <TarjetaStat
+            label="Por pagar"
+            valor={fmt(d.ingreso_por_pagar)}
+            sub="Pendiente de retiro/depósito"
+            color="#F59E0B"
           />
         </View>
 

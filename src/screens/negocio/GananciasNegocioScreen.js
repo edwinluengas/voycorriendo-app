@@ -141,6 +141,10 @@ export default function GananciasNegocioScreen({ navigation }) {
           <TarjetaStat label="Ventas semana" valor={fmt(d.ventas_semana)} color={colors.primario} />
           <TarjetaStat label="Tarjeta/digital" valor={fmt(d.subtotal_tarjeta)}  sub="Cobrado en app"    color="#2563EB" />
           <TarjetaStat label="Efectivo"        valor={fmt(d.subtotal_efectivo)} sub="Cobrado en mano"   color={colors.texto} />
+          <TarjetaStat label="Pedidos totales" valor={d.total_pedidos ?? d.pedidos_completados ?? 0} color={colors.textoSuave} />
+          <TarjetaStat label="Ingreso generado" valor={fmt(d.ingreso_generado)} sub="Neto, toda la vida" color="#2563EB" />
+          <TarjetaStat label="Ingreso ya pagado" valor={fmt(d.ingreso_pagado)} sub="Efectivo + cortes confirmados" color={colors.secundario} />
+          <TarjetaStat label="Por pagar" valor={fmt(d.ingreso_por_pagar)} sub="Pendiente de corte/retiro" color="#F59E0B" />
         </View>
 
         {/* ── La plataforma te debe (tarjeta pendiente de viernes) ── */}
