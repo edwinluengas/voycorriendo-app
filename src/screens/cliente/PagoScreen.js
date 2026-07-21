@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Boton from '../../components/Boton';
@@ -133,20 +134,27 @@ export default function PagoScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Carga tarjetas guardadas la primera vez que el cliente elige "tarjeta"
-  useEffect(() => {
-    if (metodo !== 'tarjeta' || tarjetas.length > 0 || cargandoTarjetas) return;
-    setCargandoTarjetas(true);
-    tarjetasAPI.listar()
-      .then(({ data }) => {
-        const lista = data.data?.tarjetas || [];
-        setTarjetas(lista);
-        setTarjetaElegida(lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva');
-      })
-      .catch(() => setTarjetaElegida('nueva'))
-      .finally(() => setCargandoTarjetas(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metodo]);
+  // Carga tarjetas guardadas cada vez que la pantalla toma foco con "tarjeta"
+  // elegida — así refleja altas/bajas hechas en Métodos de pago sin perder
+  // la selección actual si esa tarjeta sigue existiendo.
+  useFocusEffect(
+    useCallback(() => {
+      if (metodo !== 'tarjeta') return;
+      setCargandoTarjetas(true);
+      tarjetasAPI.listar()
+        .then(({ data }) => {
+          const lista = data.data?.tarjetas || [];
+          setTarjetas(lista);
+          setTarjetaElegida((actual) => {
+            if (actual && actual !== 'nueva' && lista.some((t) => t.id === actual)) return actual;
+            return lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva';
+          });
+        })
+        .catch(() => setTarjetaElegida('nueva'))
+        .finally(() => setCargandoTarjetas(false));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [metodo])
+  );
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
@@ -250,9 +258,19 @@ export default function PagoScreen({ route, navigation }) {
           Alert.alert('Datos de tarjeta incompletos', 'Revisa el número, nombre, vencimiento y CVV.');
           return;
         }
-      } else if (cvvGuardada.length < 3) {
-        Alert.alert('Falta el CVV', 'Ingresa el CVV de tu tarjeta guardada para continuar.');
-        return;
+        if (!metodoDetectado?.payment_method_id) {
+          Alert.alert('No identificamos tu banco', 'Revisa el número de tarjeta o espera un momento a que lo detectemos antes de continuar.');
+          return;
+        }
+      } else {
+        if (!tarjetas.some((t) => t.id === tarjetaElegida)) {
+          Alert.alert('Tarjeta no disponible', 'Esa tarjeta ya no está disponible. Elige otra o agrega una nueva.');
+          return;
+        }
+        if (cvvGuardada.length < 3) {
+          Alert.alert('Falta el CVV', 'Ingresa el CVV de tu tarjeta guardada para continuar.');
+          return;
+        }
       }
     }
 
@@ -287,6 +305,7 @@ export default function PagoScreen({ route, navigation }) {
           let token, payment_method_id, issuer_id;
           if (tarjetaElegida !== 'nueva') {
             const tarjeta = tarjetas.find((t) => t.id === tarjetaElegida);
+            if (!tarjeta) throw new Error('Esa tarjeta ya no está disponible. Elige otra desde "Métodos de pago".');
             token = await tokenizarTarjetaGuardada({ mp_card_id: tarjeta.mp_card_id, cvv: cvvGuardada });
             payment_method_id = tarjeta.payment_method_id;
             issuer_id = tarjeta.issuer_id;

@@ -163,8 +163,23 @@ export default function SeguimientoScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Pago digital pendiente — dar oportunidad de reintentar */}
-        {['tarjeta', 'mercado_pago'].includes(pedido.metodo_pago) && pedido.pago_estado === 'pendiente' && (
+        {/* Pago con tarjeta nativo pendiente de confirmar (in_process en MP) —
+            se resuelve solo por webhook; aquí solo se ofrece refrescar. */}
+        {pedido.metodo_pago === 'tarjeta' && pedido.pago_estado === 'pendiente' && (
+          <View style={estilos.pagoBox}>
+            <Text style={estilos.pagoBoxTitulo}>⏳ Verificando tu pago</Text>
+            <Text style={estilos.pagoBoxSub}>
+              Tu banco está confirmando el cobro. Esto se actualiza solo en cuanto termine — si tarda más de unos minutos, toca para revisar de nuevo.
+            </Text>
+            <Pressable style={estilos.btnPagarMP} onPress={cargar}>
+              <Text style={estilos.btnPagarMPTxt}>🔄 Revisar estado del pago</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Legado: pedidos creados con el Checkout Pro anterior (webview de
+            Mercado Pago) — ya no se generan pedidos nuevos con este método. */}
+        {pedido.metodo_pago === 'mercado_pago' && pedido.pago_estado === 'pendiente' && (
           <View style={estilos.pagoBox}>
             <Text style={estilos.pagoBoxTitulo}>⏳ Esperando confirmación de pago</Text>
             <Text style={estilos.pagoBoxSub}>

@@ -16,9 +16,11 @@ const formatearNumero = (v) => v.replace(/[^0-9]/g, '').slice(0, 19).replace(/(.
 export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, setMetodoDetectado }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
   const timeoutRef = useRef(null);
+  const binVigenteRef = useRef(''); // evita que una respuesta tardía de un BIN viejo pise el estado actual
 
   useEffect(() => {
     const bin = datos.numero.replace(/\s+/g, '').slice(0, 8);
+    binVigenteRef.current = bin;
     clearTimeout(timeoutRef.current);
     if (bin.length < 6) {
       setMetodoDetectado(null);
@@ -27,9 +29,9 @@ export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, se
     timeoutRef.current = setTimeout(async () => {
       try {
         const info = await buscarMetodoPago(bin);
-        setMetodoDetectado(info);
+        if (binVigenteRef.current === bin) setMetodoDetectado(info);
       } catch (_) {
-        setMetodoDetectado(null);
+        if (binVigenteRef.current === bin) setMetodoDetectado(null);
       }
     }, 400);
     return () => clearTimeout(timeoutRef.current);
@@ -93,9 +95,16 @@ export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, se
   );
 }
 
-export const tarjetaCompleta = (d) =>
-  d.numero.replace(/\s+/g, '').length >= 13 && d.nombre.trim().length >= 3 &&
-  d.mes.length === 2 && d.anio.length === 2 && d.cvv.length >= 3;
+export const tarjetaCompleta = (d) => {
+  if (d.numero.replace(/\s+/g, '').length < 13 || d.nombre.trim().length < 3) return false;
+  if (d.mes.length !== 2 || d.anio.length !== 2 || d.cvv.length < 3) return false;
+  const mes = Number(d.mes);
+  if (!Number.isInteger(mes) || mes < 1 || mes > 12) return false;
+  const anio = 2000 + Number(d.anio);
+  const ahora = new Date();
+  const vencida = anio < ahora.getFullYear() || (anio === ahora.getFullYear() && mes < ahora.getMonth() + 1);
+  return !vencida;
+};
 
 const s = StyleSheet.create({
   metodoDetectado: {
