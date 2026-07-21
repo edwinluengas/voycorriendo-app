@@ -150,8 +150,6 @@ export default function SeguimientoScreen({ route, navigation }) {
   const esAhivoy       = pedido.negocio?.categoria === 'ahivoy store';
   const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : ESTADOS_LOCAL;
   const estadoActual   = ESTADOS.findIndex((e) => e.id === pedido.estado);
-  const esRestaurante  = pedido.negocio?.categoria === 'restaurante';
-  const mostrarSugerencia = esRestaurante && ['confirmado', 'preparando', 'listo', 'en_camino'].includes(pedido.estado);
   const yaCalificado   = pedido.calificacion_negocio !== null && pedido.calificacion_negocio !== undefined;
 
   return (
@@ -323,27 +321,6 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Sugerencia cruzada */}
-        {mostrarSugerencia && (
-          <Pressable
-            style={estilos.sugerencia}
-            onPress={() =>
-              navigation.navigate('Home', {
-                screen: 'Inicio',
-                params: { filtroCategoria: 'tienda_conveniencia' },
-              })
-            }
-          >
-            <Text style={estilos.sugerenciaEmoji}>🥤</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.sugerenciaTitulo}>¿Te falta una bebida?</Text>
-              <Text style={estilos.sugerenciaSub}>
-                Mientras llega tu comida, pide refrescos, cervezas o aguas frescas →
-              </Text>
-            </View>
-          </Pressable>
-        )}
-
         {/* ⭐ Calificación */}
         {pedido.estado === 'entregado' && !yaCalificado && (
           <View style={estilos.calificacionBloque}>
@@ -501,16 +478,6 @@ const estilos = StyleSheet.create({
     paddingHorizontal: espacio.md, borderRadius: radio.full,
   },
   btnContactarTxt: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-
-  sugerencia: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF3E6', marginHorizontal: espacio.md, marginTop: espacio.md,
-    padding: espacio.md, borderRadius: radio.md, gap: espacio.md,
-    borderWidth: 1, borderColor: '#FFD6A5',
-  },
-  sugerenciaEmoji: { fontSize: 32 },
-  sugerenciaTitulo: { fontSize: 15, fontWeight: '800', color: colors.texto },
-  sugerenciaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2, lineHeight: 16 },
 
   paqueteriaBloque: {
     backgroundColor: colors.superficie, marginHorizontal: espacio.md, marginTop: espacio.md,
