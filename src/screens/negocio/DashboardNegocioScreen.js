@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
@@ -50,7 +51,30 @@ export default function DashboardNegocioScreen({ navigation }) {
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [cambiandoApertura, setCambiandoApertura] = useState(false);
+  const [confirmandoUbicacion, setConfirmandoUbicacion] = useState(false);
   const socketRef = useRef(null);
+
+  const confirmarUbicacion = async () => {
+    setConfirmandoUbicacion(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('Permiso necesario', 'Necesitamos tu ubicación para que los repartidores puedan encontrar tu negocio. Actívala en los ajustes del telefono.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await negocioOnboardingAPI.actualizarPerfil({
+        latitud: loc.coords.latitude,
+        longitud: loc.coords.longitude,
+      });
+      setNegocio((n) => n ? { ...n, latitud: loc.coords.latitude, longitud: loc.coords.longitude } : n);
+      Alert.alert('¡Listo!', 'Tu ubicación quedó confirmada. Los repartidores ya pueden encontrarte.');
+    } catch (e) {
+      Alert.alert('No pudimos confirmar tu ubicación', e?.mensajeAmigable || 'Verifica que el GPS esté activado e intenta de nuevo.');
+    } finally {
+      setConfirmandoUbicacion(false);
+    }
+  };
 
   const cargar = useCallback(async () => {
     try {
@@ -200,6 +224,23 @@ export default function DashboardNegocioScreen({ navigation }) {
           </Text>
         </View>
       </View>
+
+      {(!negocio.latitud || !negocio.longitud) && (
+        <View style={estilos.ubicacionBanner}>
+          <Text style={estilos.ubicacionBannerTxt}>
+            ⚠️ Tu negocio no tiene ubicación confirmada. Los repartidores no pueden encontrarte.
+          </Text>
+          <Pressable
+            style={estilos.ubicacionBannerBtn}
+            onPress={confirmarUbicacion}
+            disabled={confirmandoUbicacion}
+          >
+            {confirmandoUbicacion
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={estilos.ubicacionBannerBtnTxt}>Confirmar ahora</Text>}
+          </Pressable>
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={estilos.tabs}>
@@ -393,6 +434,19 @@ const estilos = StyleSheet.create({
   },
   aperturaDot: { width: 8, height: 8, borderRadius: 4 },
   aperturaTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+
+  // Banner de ubicación faltante
+  ubicacionBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#FFF3E8', paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    borderBottomWidth: 1, borderBottomColor: '#FCD9B8', gap: espacio.sm,
+  },
+  ubicacionBannerTxt: { flex: 1, fontSize: 12, color: '#92400E', fontWeight: '600' },
+  ubicacionBannerBtn: {
+    backgroundColor: colors.primario, paddingVertical: 8, paddingHorizontal: 14,
+    borderRadius: radio.md,
+  },
+  ubicacionBannerBtnTxt: { color: '#FFF', fontSize: 12, fontWeight: '800' },
 
   // Tabs
   tabs: {

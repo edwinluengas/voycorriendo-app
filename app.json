@@ -77,7 +77,8 @@
         "projectId": "1b3b85c7-7e86-4acc-8825-a4d1e0f92285"
       },
       "apiUrl": "https://voycorriendo-backend-production.up.railway.app",
-      "socketUrl": "https://voycorriendo-backend-production.up.railway.app"
+      "socketUrl": "https://voycorriendo-backend-production.up.railway.app",
+      "mpPublicKey": ""
     },
     "owner": "edwinluengas"
   }

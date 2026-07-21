@@ -1,19 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usuariosAPI } from '../../api/client';
+import { useFocusEffect } from '@react-navigation/native';
+import { usuariosAPI, tarjetasAPI } from '../../api/client';
+import { tokenizarTarjetaNueva, mpConfigurado } from '../../api/mercadoPago';
+import Boton from '../../components/Boton';
+import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const METODOS = [
-  { id: 'efectivo',    icono: '💵', titulo: 'Efectivo',     desc: 'Paga al repartidor al recibir tu pedido. Máx. $500.' },
-  { id: 'tarjeta',     icono: '💳', titulo: 'Tarjeta',      desc: 'Débito o crédito — procesado por Mercado Pago.' },
-  { id: 'mercado_pago',icono: '💙', titulo: 'Mercado Pago', desc: 'Saldo en tu cuenta de Mercado Pago.' },
+  { id: 'efectivo', icono: '💵', titulo: 'Efectivo', desc: 'Paga al repartidor al recibir tu pedido. Máx. $500.' },
+  { id: 'tarjeta',   icono: '💳', titulo: 'Tarjeta',  desc: 'Débito o crédito — pagas directo en la app, sin cuenta de Mercado Pago.' },
 ];
+
+const MARCA_EMOJI = { visa: '💳', master: '💳', mastercard: '💳', amex: '💳' };
 
 export default function MetodosPagoScreen() {
   const [seleccionado, setSeleccionado] = useState(null);
   const [cargando, setCargando]         = useState(true);
   const [guardando, setGuardando]       = useState(false);
+
+  const [tarjetas, setTarjetas]           = useState([]);
+  const [cargandoTarjetas, setCargandoTarjetas] = useState(true);
+  const [mostrarForm, setMostrarForm]     = useState(false);
+  const [datosTarjeta, setDatosTarjeta]   = useState({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+  const [metodoDetectado, setMetodoDetectado] = useState(null);
+  const [guardandoTarjeta, setGuardandoTarjeta] = useState(false);
+
+  const cargarTarjetas = useCallback(async () => {
+    try {
+      const { data } = await tarjetasAPI.listar();
+      setTarjetas(data.data?.tarjetas || []);
+    } catch (_) {} finally {
+      setCargandoTarjetas(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { cargarTarjetas(); }, [cargarTarjetas]));
 
   useEffect(() => {
     (async () => {
@@ -35,6 +58,48 @@ export default function MetodosPagoScreen() {
     } finally {
       setGuardando(false);
     }
+  };
+
+  const guardarTarjetaNueva = async () => {
+    if (!mpConfigurado()) {
+      Alert.alert('No disponible', 'El pago con tarjeta aún no está configurado. Intenta más tarde.');
+      return;
+    }
+    if (!tarjetaCompleta(datosTarjeta)) {
+      Alert.alert('Datos incompletos', 'Revisa el número, nombre, vencimiento y CVV de tu tarjeta.');
+      return;
+    }
+    setGuardandoTarjeta(true);
+    try {
+      const token = await tokenizarTarjetaNueva(datosTarjeta);
+      await tarjetasAPI.agregar(token);
+      setDatosTarjeta({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+      setMetodoDetectado(null);
+      setMostrarForm(false);
+      await cargarTarjetas();
+      Alert.alert('¡Listo!', 'Tu tarjeta quedó guardada para tus próximos pedidos.');
+    } catch (e) {
+      const msg = e?.message === 'MP_PUBLIC_KEY_FALTANTE'
+        ? 'El pago con tarjeta aún no está configurado.'
+        : e?.response?.data?.message || e?.mensajeAmigable || 'No pudimos validar tu tarjeta. Revisa los datos.';
+      Alert.alert('No se pudo guardar', msg);
+    } finally {
+      setGuardandoTarjeta(false);
+    }
+  };
+
+  const eliminarTarjeta = (tarjeta) => {
+    Alert.alert('Eliminar tarjeta', `¿Quitar la tarjeta terminada en ${tarjeta.ultimos_4}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try {
+          await tarjetasAPI.eliminar(tarjeta.id);
+          setTarjetas((t) => t.filter((x) => x.id !== tarjeta.id));
+        } catch (_) {
+          Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
+        }
+      }},
+    ]);
   };
 
   if (cargando) {
@@ -71,10 +136,58 @@ export default function MetodosPagoScreen() {
           );
         })}
 
+        <Text style={s.seccion}>Mis tarjetas</Text>
+
+        {cargandoTarjetas ? (
+          <ActivityIndicator color={colors.primario} style={{ marginVertical: espacio.md }} />
+        ) : tarjetas.length === 0 && !mostrarForm ? (
+          <Text style={s.sinTarjetas}>No tienes tarjetas guardadas.</Text>
+        ) : (
+          tarjetas.map((t) => (
+            <View key={t.id} style={s.tarjetaRow}>
+              <Text style={{ fontSize: 22 }}>{MARCA_EMOJI[t.marca?.toLowerCase()] || '💳'}</Text>
+              <View style={{ flex: 1, marginLeft: espacio.sm }}>
+                <Text style={s.tarjetaNombre}>
+                  {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
+                  {t.predeterminada && <Text style={s.tarjetaDefault}>  · Predeterminada</Text>}
+                </Text>
+                {!!t.exp_mes && <Text style={s.tarjetaVenc}>Vence {String(t.exp_mes).padStart(2, '0')}/{t.exp_anio}</Text>}
+              </View>
+              <Pressable onPress={() => eliminarTarjeta(t)} hitSlop={10}>
+                <Text style={s.eliminarTxt}>Eliminar</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+
+        {mostrarForm ? (
+          <View style={s.formBox}>
+            <FormularioTarjeta
+              datos={datosTarjeta}
+              setDatos={setDatosTarjeta}
+              metodoDetectado={metodoDetectado}
+              setMetodoDetectado={setMetodoDetectado}
+            />
+            <Boton
+              titulo={guardandoTarjeta ? 'Guardando...' : 'Guardar tarjeta'}
+              onPress={guardarTarjetaNueva}
+              cargando={guardandoTarjeta}
+              estilo={{ marginTop: espacio.sm }}
+            />
+            <Pressable onPress={() => { setMostrarForm(false); setMetodoDetectado(null); }} style={{ marginTop: espacio.sm, alignItems: 'center' }}>
+              <Text style={s.cancelarTxt}>Cancelar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={s.agregarBtn} onPress={() => setMostrarForm(true)}>
+            <Text style={s.agregarTxt}>+ Agregar tarjeta</Text>
+          </Pressable>
+        )}
+
         <View style={s.aviso}>
           <Text style={s.avisoTxt}>
-            🔒 Los pagos con tarjeta son procesados de forma segura por Mercado Pago.
-            VoyCorriendo nunca almacena los datos de tu tarjeta.
+            🔒 El número y CVV de tu tarjeta se envían directo y cifrados a Mercado Pago —
+            VoyCorriendo nunca los recibe ni los almacena.
           </Text>
         </View>
       </View>
@@ -87,6 +200,7 @@ const s = StyleSheet.create({
   centrado:   { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:     { padding: espacio.lg },
   subtitulo:  { fontSize: 14, color: colors.textoSuave, marginBottom: espacio.lg, lineHeight: 20 },
+  seccion:    { fontSize: 16, fontWeight: '800', color: colors.texto, marginTop: espacio.lg, marginBottom: espacio.sm },
 
   card: {
     backgroundColor: colors.superficie,
@@ -105,6 +219,25 @@ const s = StyleSheet.create({
   radio:       { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.borde, alignItems: 'center', justifyContent: 'center' },
   radioActivo: { borderColor: colors.primario },
   radioInner:  { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primario },
+
+  sinTarjetas: { fontSize: 13, color: colors.textoSuave, marginBottom: espacio.sm },
+  tarjetaRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.superficie, borderRadius: radio.md,
+    padding: espacio.md, marginBottom: espacio.sm,
+  },
+  tarjetaNombre: { fontSize: 14, fontWeight: '700', color: colors.texto },
+  tarjetaDefault: { fontSize: 12, color: colors.primario, fontWeight: '700' },
+  tarjetaVenc: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  eliminarTxt: { fontSize: 12, color: colors.error, fontWeight: '700' },
+
+  agregarBtn: {
+    borderWidth: 1.5, borderColor: colors.primario, borderStyle: 'dashed',
+    borderRadius: radio.md, padding: espacio.md, alignItems: 'center', marginBottom: espacio.md,
+  },
+  agregarTxt: { color: colors.primario, fontWeight: '800', fontSize: 14 },
+  formBox: { backgroundColor: colors.superficie, borderRadius: radio.md, padding: espacio.md, marginBottom: espacio.md },
+  cancelarTxt: { color: colors.textoSuave, fontWeight: '700', fontSize: 13 },
 
   aviso:    { backgroundColor: '#F0FDF4', padding: espacio.md, borderRadius: radio.md, marginTop: espacio.md },
   avisoTxt: { fontSize: 13, color: '#166534', lineHeight: 19 },

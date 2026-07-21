@@ -140,6 +140,13 @@ export const pagosAPI = {
   preferencia:     (pedido_id)                         => api.post('/pagos/preferencia', { pedido_id }),
   efectivo:        (pedido_id, monto_recibido)         => api.post('/pagos/efectivo', { pedido_id, monto_recibido }),
   transferencia:   (pedido_id, referencia, comprobante)=> api.post('/pagos/transferencia', { pedido_id, referencia, comprobante_url: comprobante }),
+  tarjeta:         (payload)                           => api.post('/pagos/tarjeta', payload),
+};
+
+export const tarjetasAPI = {
+  listar:   ()       => api.get('/tarjetas'),
+  agregar:  (token)  => api.post('/tarjetas', { token }),
+  eliminar: (id)      => api.delete(`/tarjetas/${id}`),
 };
 
 // Multi-rol (estilo Uber/Rappi): consultar y cambiar modo activo

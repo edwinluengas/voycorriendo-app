@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
-import { pedidosAPI, pagosAPI } from '../../api/client';
+import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
+import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
+import { tokenizarTarjetaNueva, tokenizarTarjetaGuardada, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO } from '../../config/businessRules';
 
 const METODOS_BASE = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: `Pagas al repartidor · máx. $${LIMITE_EFECTIVO} en productos + envío` },
-  { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago — seguro y rápido' },
-  { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Pago desde tu cuenta o saldo de Mercado Pago' },
+  { id: 'efectivo', nombre: 'Efectivo', emoji: '💵', desc: `Pagas al repartidor · máx. $${LIMITE_EFECTIVO} en productos + envío` },
+  { id: 'tarjeta',  nombre: 'Tarjeta',  emoji: '💳', desc: 'Débito o crédito, directo en la app — sin cuenta de Mercado Pago' },
 ];
 const METODO_TRANSFERENCIA = {
   id: 'transferencia',
@@ -51,6 +51,15 @@ export default function PagoScreen({ route, navigation }) {
   const [ineFoto, setIneFoto]   = useState(null);
   const [ineFotoUrl, setIneFotoUrl] = useState(null);
   const [subiendoIne, setSubiendoIne] = useState(false);
+
+  // ── Pago con tarjeta nativo ──
+  const [tarjetas, setTarjetas]           = useState([]);
+  const [cargandoTarjetas, setCargandoTarjetas] = useState(false);
+  const [tarjetaElegida, setTarjetaElegida] = useState(null); // id de TarjetaGuardada, o 'nueva'
+  const [cvvGuardada, setCvvGuardada]     = useState('');
+  const [datosTarjetaNueva, setDatosTarjetaNueva] = useState({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+  const [metodoDetectado, setMetodoDetectado] = useState(null);
+  const [guardarTarjetaNueva, setGuardarTarjetaNueva] = useState(true);
 
   const detectarUbicacion = async () => {
     setDetectandoUbicacion(true);
@@ -123,6 +132,21 @@ export default function PagoScreen({ route, navigation }) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Carga tarjetas guardadas la primera vez que el cliente elige "tarjeta"
+  useEffect(() => {
+    if (metodo !== 'tarjeta' || tarjetas.length > 0 || cargandoTarjetas) return;
+    setCargandoTarjetas(true);
+    tarjetasAPI.listar()
+      .then(({ data }) => {
+        const lista = data.data?.tarjetas || [];
+        setTarjetas(lista);
+        setTarjetaElegida(lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva');
+      })
+      .catch(() => setTarjetaElegida('nueva'))
+      .finally(() => setCargandoTarjetas(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metodo]);
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
@@ -216,6 +240,21 @@ export default function PagoScreen({ route, navigation }) {
       Alert.alert('Fuera de cobertura', aviso || 'Tu dirección está fuera de nuestra zona de entrega.');
       return;
     }
+    if (metodo === 'tarjeta') {
+      if (!mpConfigurado()) {
+        Alert.alert('No disponible', 'El pago con tarjeta aún no está configurado. Elige otro método.');
+        return;
+      }
+      if (tarjetaElegida === 'nueva' || !tarjetaElegida) {
+        if (!tarjetaCompleta(datosTarjetaNueva)) {
+          Alert.alert('Datos de tarjeta incompletos', 'Revisa el número, nombre, vencimiento y CVV.');
+          return;
+        }
+      } else if (cvvGuardada.length < 3) {
+        Alert.alert('Falta el CVV', 'Ingresa el CVV de tu tarjeta guardada para continuar.');
+        return;
+      }
+    }
 
     try {
       setEnviando(true);
@@ -242,31 +281,54 @@ export default function PagoScreen({ route, navigation }) {
       });
       const pedido = data.data?.pedido;
 
-      // 2. Si no es efectivo, abrir pasarela de Mercado Pago
-      if (metodo === 'tarjeta' || metodo === 'mercado_pago') {
-        let mpUrl = null;
+      // 2. Tarjeta: tokeniza y cobra directo en la app (sin salir a Mercado Pago)
+      if (metodo === 'tarjeta') {
         try {
-          const resPref = await pagosAPI.preferencia(pedido.id);
-          mpUrl = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
-          if (!mpUrl) throw new Error('Sin URL de pago');
-          await WebBrowser.openBrowserAsync(mpUrl);
-        } catch (payErr) {
-          if (mpUrl) {
-            // Browser falló — fallback a Linking
-            Linking.openURL(mpUrl).catch(() => {
-              Alert.alert(
-                '⚠️ Link de pago',
-                'Abre este link en tu navegador para completar el pago:\n\n' + mpUrl
-              );
-            });
+          let token, payment_method_id, issuer_id;
+          if (tarjetaElegida !== 'nueva') {
+            const tarjeta = tarjetas.find((t) => t.id === tarjetaElegida);
+            token = await tokenizarTarjetaGuardada({ mp_card_id: tarjeta.mp_card_id, cvv: cvvGuardada });
+            payment_method_id = tarjeta.payment_method_id;
+            issuer_id = tarjeta.issuer_id;
           } else {
-            // Mostrar el error real de Mercado Pago para diagnóstico
-            const detalleError = payErr?.mensajeAmigable || payErr?.message || 'Error desconocido';
-            Alert.alert(
-              '⚠️ Pedido creado — pago pendiente',
-              `Tu pedido fue registrado pero el link de pago falló.\n\nDetalle: ${detalleError}\n\nEscríbenos por WhatsApp y te ayudamos a completar el pago.`
-            );
+            payment_method_id = metodoDetectado?.payment_method_id;
+            issuer_id = metodoDetectado?.issuer_id;
+            if (!payment_method_id) throw new Error('No pudimos identificar el banco de tu tarjeta.');
+
+            if (guardarTarjetaNueva) {
+              // El token de MP es de un solo uso: para guardar Y pagar con
+              // una tarjeta nueva primero se guarda (consume ese token) y
+              // luego se genera uno nuevo desde la tarjeta ya guardada para
+              // el cobro — nunca se reusa el mismo token dos veces.
+              const tokenParaGuardar = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              const resGuardar = await tarjetasAPI.agregar(tokenParaGuardar);
+              const tarjetaGuardada = resGuardar.data.data.tarjeta;
+              token = await tokenizarTarjetaGuardada({ mp_card_id: tarjetaGuardada.mp_card_id, cvv: datosTarjetaNueva.cvv });
+            } else {
+              token = await tokenizarTarjetaNueva(datosTarjetaNueva);
+            }
           }
+
+          const resPago = await pagosAPI.tarjeta({
+            pedido_id: pedido.id,
+            token,
+            payment_method_id,
+            issuer_id,
+            installments: 1,
+          });
+
+          const status = resPago.data?.data?.status;
+          if (status === 'rejected') {
+            Alert.alert('Pago rechazado', resPago.data?.mensaje || 'Tu banco rechazó el pago. Intenta con otra tarjeta desde "Mis pedidos".');
+          } else if (status === 'in_process' || status === 'pending') {
+            Alert.alert('Pago en proceso', 'Tu pago está siendo verificado. Te avisaremos en cuanto se confirme.');
+          }
+        } catch (payErr) {
+          const detalleError = payErr?.response?.data?.mensaje || payErr?.mensajeAmigable || payErr?.message || 'Error desconocido';
+          Alert.alert(
+            '⚠️ Pedido creado — pago pendiente',
+            `Tu pedido fue registrado pero el cobro falló.\n\nDetalle: ${detalleError}\n\nPuedes reintentar el pago desde "Mis pedidos".`
+          );
         }
       } else if (metodo === 'transferencia') {
         Alert.alert(
@@ -438,7 +500,7 @@ export default function PagoScreen({ route, navigation }) {
         {metodo === 'efectivo' && subtotal > LIMITE_EFECTIVO && (
           <View style={estilos.avisoEfectivo}>
             <Text style={estilos.avisoEfectivoTxt}>
-              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta ${LIMITE_EFECTIVO} en productos (+ el fee de envío encima). Elige tarjeta o Mercado Pago.
+              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta ${LIMITE_EFECTIVO} en productos (+ el fee de envío encima). Elige tarjeta.
             </Text>
           </View>
         )}
@@ -457,6 +519,70 @@ export default function PagoScreen({ route, navigation }) {
               onChangeText={setPagaCon}
               maxLength={6}
             />
+          </View>
+        )}
+
+        {/* Selección de tarjeta / captura de tarjeta nueva */}
+        {metodo === 'tarjeta' && (
+          <View style={estilos.tarjetaBox}>
+            {cargandoTarjetas ? (
+              <ActivityIndicator color={colors.primario} style={{ marginVertical: espacio.sm }} />
+            ) : (
+              <>
+                {tarjetas.map((t) => (
+                  <Pressable
+                    key={t.id}
+                    style={[estilos.tarjetaOpcion, tarjetaElegida === t.id && estilos.tarjetaOpcionActiva]}
+                    onPress={() => setTarjetaElegida(t.id)}
+                  >
+                    <Text style={{ fontSize: 20 }}>💳</Text>
+                    <Text style={estilos.tarjetaOpcionTxt}>
+                      {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
+                    </Text>
+                    <View style={[estilos.radio, tarjetaElegida === t.id && estilos.radioActivo]} />
+                  </Pressable>
+                ))}
+                <Pressable
+                  style={[estilos.tarjetaOpcion, tarjetaElegida === 'nueva' && estilos.tarjetaOpcionActiva]}
+                  onPress={() => setTarjetaElegida('nueva')}
+                >
+                  <Text style={{ fontSize: 20 }}>➕</Text>
+                  <Text style={estilos.tarjetaOpcionTxt}>Usar otra tarjeta</Text>
+                  <View style={[estilos.radio, tarjetaElegida === 'nueva' && estilos.radioActivo]} />
+                </Pressable>
+
+                {tarjetaElegida === 'nueva' ? (
+                  <View style={{ marginTop: espacio.sm }}>
+                    <FormularioTarjeta
+                      datos={datosTarjetaNueva}
+                      setDatos={setDatosTarjetaNueva}
+                      metodoDetectado={metodoDetectado}
+                      setMetodoDetectado={setMetodoDetectado}
+                    />
+                    <Pressable
+                      style={estilos.checkboxRow}
+                      onPress={() => setGuardarTarjetaNueva((v) => !v)}
+                    >
+                      <View style={[estilos.checkbox, guardarTarjetaNueva && estilos.checkboxActivo]}>
+                        {guardarTarjetaNueva && <Text style={estilos.checkboxCheck}>✓</Text>}
+                      </View>
+                      <Text style={estilos.checkboxTxt}>Guardar esta tarjeta para mis próximos pedidos</Text>
+                    </Pressable>
+                  </View>
+                ) : tarjetaElegida ? (
+                  <Campo
+                    etiqueta="CVV de tu tarjeta"
+                    placeholder="123"
+                    keyboardType="numeric"
+                    secureTextEntry
+                    maxLength={4}
+                    value={cvvGuardada}
+                    onChangeText={setCvvGuardada}
+                    style={{ marginTop: espacio.sm }}
+                  />
+                ) : null}
+              </>
+            )}
           </View>
         )}
 
@@ -650,6 +776,25 @@ const estilos = StyleSheet.create({
     borderWidth: 2, borderColor: colors.borde,
   },
   radioActivo: { borderColor: colors.primario, backgroundColor: colors.primario },
+
+  tarjetaBox: {
+    backgroundColor: colors.superficie, borderRadius: radio.md,
+    padding: espacio.md, marginBottom: espacio.sm, borderWidth: 1, borderColor: colors.borde,
+  },
+  tarjetaOpcion: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    paddingVertical: espacio.sm, borderBottomWidth: 1, borderBottomColor: colors.borde,
+  },
+  tarjetaOpcionActiva: {},
+  tarjetaOpcionTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.texto },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm, marginTop: espacio.sm },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.borde,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxActivo: { backgroundColor: colors.primario, borderColor: colors.primario },
+  checkboxCheck: { color: '#FFF', fontSize: 13, fontWeight: '900' },
+  checkboxTxt: { flex: 1, fontSize: 13, color: colors.texto },
   avisoLimite: {
     backgroundColor: '#FFF9E6',
     padding: espacio.md, borderRadius: radio.sm,
