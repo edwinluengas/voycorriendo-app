@@ -49,7 +49,9 @@ export default function PoliticaPrivacidadScreen() {
 
         <Seccion titulo="5. Verificación de edad">
           Algunos productos (bebidas alcohólicas, tabaco) requieren fotografía de INE al
-          momento de la entrega. Esta imagen se elimina automáticamente 30 días después.
+          momento de la entrega. Esta imagen se conserva de forma segura mientras sea necesaria
+          para fines de verificación y cumplimiento, y puedes solicitar su eliminación escribiendo
+          a nuestro correo de contacto.
         </Seccion>
 
         <Seccion titulo="6. Ubicación">
