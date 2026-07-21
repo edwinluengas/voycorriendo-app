@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getCarrito, carritoRequiereINE } from './NegocioScreen';
+import { getCarrito, carritoRequiereINE, vaciarCarrito } from './NegocioScreen';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, TIPOS_ENVIO } from '../../config/businessRules';
@@ -24,6 +24,17 @@ export default function CarritoScreen({ navigation }) {
       .filter((it) => it.cantidad > 0);
     setItems(nuevos);
     carrito.items = nuevos;
+  };
+
+  const confirmarVaciar = () => {
+    Alert.alert(
+      'Vaciar carrito',
+      `¿Seguro que quieres quitar todos los productos de "${carrito.negocio?.nombre}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Vaciar', style: 'destructive', onPress: () => { vaciarCarrito(); setItems([]); } },
+      ],
+    );
   };
 
   if (items.length === 0) {
@@ -50,7 +61,10 @@ export default function CarritoScreen({ navigation }) {
             {/* Nombre del negocio */}
             <View style={estilos.negocioHeader}>
               <View style={estilos.negocioAccent} />
-              <Text style={estilos.negocioNombre}>{carrito.negocio?.nombre}</Text>
+              <Text style={estilos.negocioNombre} numberOfLines={1}>{carrito.negocio?.nombre}</Text>
+              <Pressable onPress={confirmarVaciar} hitSlop={10} style={{ marginLeft: 'auto' }}>
+                <Text style={estilos.vaciarTxt}>Vaciar carrito</Text>
+              </Pressable>
             </View>
 
             {requiereINE && (
@@ -214,7 +228,8 @@ const estilos = StyleSheet.create({
     width: 4, height: 22, borderRadius: 2,
     backgroundColor: colors.primario,
   },
-  negocioNombre: { fontSize: 20, fontWeight: '800', color: colors.texto },
+  negocioNombre: { fontSize: 20, fontWeight: '800', color: colors.texto, flexShrink: 1 },
+  vaciarTxt: { fontSize: 12, color: colors.error, fontWeight: '700' },
 
   avisoINE: {
     flexDirection: 'row',

@@ -22,8 +22,10 @@ export const LIMITE_EFECTIVO = 500;
 export const RADIO_MAXIMO_KM = 5;
 
 // ─── Tope de deuda de restaurante (bloqueo automático) ───────────────
-export const TOPE_DEUDA_RESTAURANTE = 1000;
-export const AVISO_DEUDA_RESTAURANTE = 700;
+// Ya no es por monto acumulado — es por CANTIDAD de pedidos en efectivo
+// sin liquidar. Al llegar a este número se bloquea, sea cual sea el monto.
+export const LIMITE_PEDIDOS_DEUDA = 15;
+export const AVISO_PEDIDOS_DEUDA = 12;
 
 // ─── Fee de retiro diario del repartidor (viernes es gratis) ─────────
 export const FEE_RETIRO_DIARIO = 10;

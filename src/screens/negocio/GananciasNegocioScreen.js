@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { negocioOnboardingAPI, telegramAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
-import { TOPE_DEUDA_RESTAURANTE } from '../../config/businessRules';
+import { LIMITE_PEDIDOS_DEUDA } from '../../config/businessRules';
 
 const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtFecha = (iso) => {
@@ -103,11 +103,12 @@ export default function GananciasNegocioScreen({ navigation }) {
   }
 
   const d = datos || {};
-  const deudaActual    = parseFloat(d.deuda_plataforma || 0);
-  const topeDeuda      = parseFloat(d.tope_deuda || TOPE_DEUDA_RESTAURANTE);
-  const pct            = Math.min(100, (deudaActual / topeDeuda) * 100);
-  const bloqueado      = d.bloqueado_por_deuda;
-  const colorDeuda     = pct >= 100 ? '#DC2626' : pct >= 70 ? '#F59E0B' : colors.secundario;
+  const deudaActual     = parseFloat(d.deuda_plataforma || 0);
+  const pedidosPendientes = d.pedidos_efectivo_pendientes || 0;
+  const limitePedidos    = d.limite_pedidos_deuda || LIMITE_PEDIDOS_DEUDA;
+  const pct             = Math.min(100, (pedidosPendientes / limitePedidos) * 100);
+  const bloqueado        = d.bloqueado_por_deuda;
+  const colorDeuda       = pct >= 100 ? '#DC2626' : pct >= 70 ? '#F59E0B' : colors.secundario;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -120,7 +121,7 @@ export default function GananciasNegocioScreen({ navigation }) {
           <View style={estilos.bloqueadoBox}>
             <Text style={estilos.bloqueadoTitulo}>🚫 Cuenta suspendida</Text>
             <Text style={estilos.bloqueadoDesc}>
-              Tu deuda con la plataforma superó el límite de {fmt(topeDeuda)}. Transfiere el saldo adeudado por SPEI y notifícanos para reactivarte.
+              Llegaste a {limitePedidos} pedidos en efectivo sin liquidar ({fmt(deudaActual)}). Transfiere el saldo adeudado por SPEI y notifícanos para reactivarte.
             </Text>
             <Pressable style={estilos.bloqueadoBtn} onPress={() => setMostrarSpei(true)}>
               <Text style={estilos.bloqueadoBtnTxt}>Pagar ahora →</Text>
@@ -183,12 +184,12 @@ export default function GananciasNegocioScreen({ navigation }) {
           <Text style={estilos.deudaSub}>
             Fee de $35 por cada pedido en efectivo entregado. Se netea del depósito del viernes.
           </Text>
-          {/* Barra de progreso hacia el tope */}
+          {/* Barra de progreso hacia el límite de pedidos sin liquidar */}
           <View style={estilos.barraBg}>
             <View style={[estilos.barraRelleno, { width: `${pct}%`, backgroundColor: colorDeuda }]} />
           </View>
           <Text style={estilos.barraMeta}>
-            {fmt(deudaActual)} de {fmt(topeDeuda)} · {pct >= 100 ? 'BLOQUEADO' : pct >= 70 ? 'Cerca del límite' : 'Dentro del límite'}
+            {pedidosPendientes} de {limitePedidos} pedidos en efectivo · {pct >= 100 ? 'BLOQUEADO' : pct >= 70 ? 'Cerca del límite' : 'Dentro del límite'}
           </Text>
           {deudaActual > 0 && (
             <Pressable style={estilos.btnPagarDeuda} onPress={() => setMostrarSpei(!mostrarSpei)}>

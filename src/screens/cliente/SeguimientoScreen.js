@@ -304,8 +304,8 @@ export default function SeguimientoScreen({ route, navigation }) {
         {pedido.repartidor_id && (
           <View style={estilos.repartidor}>
             <View style={estilos.repFotoWrap}>
-              {pedido.repartidor?.usuario?.foto_perfil ? (
-                <Image source={{ uri: pedido.repartidor.usuario.foto_perfil }} style={estilos.repFoto} />
+              {(pedido.repartidor_foto_snapshot || pedido.repartidor?.usuario?.foto_perfil) ? (
+                <Image source={{ uri: pedido.repartidor_foto_snapshot || pedido.repartidor.usuario.foto_perfil }} style={estilos.repFoto} />
               ) : (
                 <View style={estilos.repFotoPlaceholder}>
                   <Text style={estilos.repFotoIcon}>🛵</Text>
@@ -313,11 +313,12 @@ export default function SeguimientoScreen({ route, navigation }) {
               )}
             </View>
             <View style={{ flex: 1, marginLeft: espacio.sm }}>
-              <Text style={estilos.repTxt}>{pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
-              {pedido.repartidor?.marca_vehiculo && (
+              <Text style={estilos.repTxt}>{pedido.repartidor_nombre_snapshot || pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
+              {(pedido.repartidor?.marca_vehiculo || pedido.repartidor_placa_snapshot) && (
                 <Text style={estilos.repSub}>
-                  {pedido.repartidor.marca_vehiculo}
-                  {pedido.repartidor.color_vehiculo ? ` · ${pedido.repartidor.color_vehiculo}` : ''}
+                  {pedido.repartidor?.marca_vehiculo}
+                  {pedido.repartidor?.color_vehiculo ? ` · ${pedido.repartidor.color_vehiculo}` : ''}
+                  {pedido.repartidor_placa_snapshot ? ` · Placa ${pedido.repartidor_placa_snapshot}` : ''}
                 </Text>
               )}
             </View>

@@ -85,7 +85,6 @@ export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, se
           placeholder="123"
           keyboardType="numeric"
           maxLength={4}
-          secureTextEntry
           value={datos.cvv}
           onChangeText={set('cvv')}
           style={{ flex: 1 }}

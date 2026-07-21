@@ -300,6 +300,7 @@ export default function PagoScreen({ route, navigation }) {
       const pedido = data.data?.pedido;
 
       // 2. Tarjeta: tokeniza y cobra directo en la app (sin salir a Mercado Pago)
+      let pagoRechazado = false;
       if (metodo === 'tarjeta') {
         try {
           let token, payment_method_id, issuer_id;
@@ -338,17 +339,21 @@ export default function PagoScreen({ route, navigation }) {
 
           const status = resPago.data?.data?.status;
           if (status === 'rejected') {
-            Alert.alert('Pago rechazado', resPago.data?.mensaje || 'Tu banco rechazó el pago. Intenta con otra tarjeta desde "Mis pedidos".');
+            pagoRechazado = true;
+            Alert.alert('Pago rechazado', resPago.data?.mensaje || 'Tu banco rechazó el pago. Verifica los datos de tu tarjeta o intenta con otra.');
           } else if (status === 'in_process' || status === 'pending') {
             Alert.alert('Pago en proceso', 'Tu pago está siendo verificado. Te avisaremos en cuanto se confirme.');
           }
         } catch (payErr) {
+          // El pago no se pudo intentar siquiera (tarjeta inválida, tokenización
+          // falló, red, etc.) — el pedido YA se creó pero nunca llega al negocio
+          // sin pago capturado (pedidosDelNegocio lo filtra). No lo mandamos a
+          // Seguimiento como si fuera normal: se queda aquí para reintentar.
+          pagoRechazado = true;
           const detalleError = payErr?.response?.data?.mensaje || payErr?.mensajeAmigable || payErr?.message || 'Error desconocido';
-          Alert.alert(
-            '⚠️ Pedido creado — pago pendiente',
-            `Tu pedido fue registrado pero el cobro falló.\n\nDetalle: ${detalleError}\n\nPuedes reintentar el pago desde "Mis pedidos".`
-          );
+          Alert.alert('No se pudo cobrar tu tarjeta', `Detalle: ${detalleError}\n\nVerifica los datos o intenta con otra tarjeta.`);
         }
+        if (pagoRechazado) return; // no vaciar carrito ni navegar — el pedido no avanza sin pago
       } else if (metodo === 'transferencia') {
         Alert.alert(
           'Datos bancarios',
@@ -593,7 +598,6 @@ export default function PagoScreen({ route, navigation }) {
                     etiqueta="CVV de tu tarjeta"
                     placeholder="123"
                     keyboardType="numeric"
-                    secureTextEntry
                     maxLength={4}
                     value={cvvGuardada}
                     onChangeText={setCvvGuardada}

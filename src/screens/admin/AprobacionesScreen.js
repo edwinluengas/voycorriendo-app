@@ -101,7 +101,7 @@ function ModalRechazo({ visible, titulo, onCancelar, onConfirmar }) {
 }
 
 // ─── Modal de documentos (foto/INE/licencia/etc) ─────────────
-function FotoDoc({ label, url }) {
+function FotoDoc({ label, url, onVerGrande }) {
   if (!url) {
     return (
       <View style={estilos.docFalta}>
@@ -112,13 +112,43 @@ function FotoDoc({ label, url }) {
   return (
     <View style={estilos.docBox}>
       <Text style={estilos.docLabel}>{label}</Text>
-      <Image source={{ uri: url }} style={estilos.docImagen} resizeMode="cover" />
+      <Pressable onPress={() => onVerGrande(url, label)}>
+        <Image source={{ uri: url }} style={estilos.docImagen} resizeMode="contain" />
+        <Text style={estilos.docVerGrandeTxt}>🔍 Toca para ver completo (incluye CURP)</Text>
+      </Pressable>
     </View>
+  );
+}
+
+// ─── Visor de documento en pantalla completa (pinch-to-zoom nativo) ──
+function VisorDocumento({ url, label, onCerrar }) {
+  return (
+    <Modal visible={!!url} transparent animationType="fade" onRequestClose={onCerrar}>
+      <View style={estilos.visorFondo}>
+        <Pressable style={estilos.visorCerrar} onPress={onCerrar} hitSlop={16}>
+          <Text style={estilos.visorCerrarTxt}>✕ Cerrar</Text>
+        </Pressable>
+        {!!label && <Text style={estilos.visorLabel}>{label}</Text>}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={estilos.visorScrollContenido}
+          minimumZoomScale={1}
+          maximumZoomScale={4}
+          pinchGestureEnabled
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+        >
+          {!!url && <Image source={{ uri: url }} style={estilos.visorImagen} resizeMode="contain" />}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
 function ModalDocumentos({ visible, cargando, tipo, data, onCerrar }) {
   const docs = data?.documentos_firmados || {};
+  const [grande, setGrande] = useState(null); // { url, label }
+  const verGrande = (url, label) => setGrande({ url, label });
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onCerrar}>
       <SafeAreaView style={estilos.docContenedor} edges={['top', 'bottom']}>
@@ -134,24 +164,25 @@ function ModalDocumentos({ visible, cargando, tipo, data, onCerrar }) {
           <ScrollView contentContainerStyle={{ padding: espacio.md }}>
             {tipo === 'repartidor' ? (
               <>
-                <FotoDoc label="Selfie de perfil" url={data?.usuario?.foto_perfil} />
-                <FotoDoc label="INE — frente" url={docs.ine_frente} />
-                <FotoDoc label="INE — reverso" url={docs.ine_reverso} />
-                <FotoDoc label="Licencia de conducir" url={docs.licencia} />
-                <FotoDoc label="Tarjeta de circulación" url={docs.tarjeta_circulacion} />
+                <FotoDoc label="Selfie de perfil" url={data?.usuario?.foto_perfil} onVerGrande={verGrande} />
+                <FotoDoc label="INE — frente" url={docs.ine_frente} onVerGrande={verGrande} />
+                <FotoDoc label="INE — reverso (aquí suele estar la CURP)" url={docs.ine_reverso} onVerGrande={verGrande} />
+                <FotoDoc label="Licencia de conducir" url={docs.licencia} onVerGrande={verGrande} />
+                <FotoDoc label="Tarjeta de circulación" url={docs.tarjeta_circulacion} onVerGrande={verGrande} />
               </>
             ) : (
               <>
-                <FotoDoc label="Foto de portada" url={docs.foto_portada} />
-                <FotoDoc label="Foto del local" url={docs.foto_local} />
-                <FotoDoc label="Comprobante de domicilio" url={docs.comprobante_domicilio} />
-                <FotoDoc label="INE del dueño" url={docs.documento_ine_dueno} />
-                <FotoDoc label="RFC" url={docs.documento_rfc} />
+                <FotoDoc label="Foto de portada" url={docs.foto_portada} onVerGrande={verGrande} />
+                <FotoDoc label="Foto del local" url={docs.foto_local} onVerGrande={verGrande} />
+                <FotoDoc label="Comprobante de domicilio" url={docs.comprobante_domicilio} onVerGrande={verGrande} />
+                <FotoDoc label="INE del dueño" url={docs.documento_ine_dueno} onVerGrande={verGrande} />
+                <FotoDoc label="RFC" url={docs.documento_rfc} onVerGrande={verGrande} />
               </>
             )}
           </ScrollView>
         )}
       </SafeAreaView>
+      <VisorDocumento url={grande?.url} label={grande?.label} onCerrar={() => setGrande(null)} />
     </Modal>
   );
 }
@@ -884,6 +915,23 @@ const estilos = StyleSheet.create({
     width: '100%', height: 220, borderRadius: radio.md,
     backgroundColor: colors.borde,
   },
+  docVerGrandeTxt: {
+    fontSize: 12, color: colors.primario, fontWeight: '700',
+    textAlign: 'center', marginTop: 4,
+  },
+  visorFondo: { flex: 1, backgroundColor: '#000' },
+  visorCerrar: {
+    position: 'absolute', top: 48, right: espacio.lg, zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: radio.md,
+  },
+  visorCerrarTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  visorLabel: {
+    color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center',
+    marginTop: 48, marginBottom: espacio.sm, paddingHorizontal: espacio.xl,
+  },
+  visorScrollContenido: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  visorImagen: { width: '100%', height: 500 },
   docFalta: {
     backgroundColor: '#FEF2F2', borderRadius: radio.md, padding: espacio.md,
     marginBottom: espacio.lg, borderWidth: 1, borderColor: '#FCA5A5',

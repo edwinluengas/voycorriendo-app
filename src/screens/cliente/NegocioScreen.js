@@ -165,24 +165,14 @@ export default function NegocioScreen({ route, navigation }) {
 
   // Abre el modal (o agrega directo si el producto no tiene opciones)
   const agregar = (p) => {
-    // Advertir si cambia de negocio con items pendientes
+    // Un pedido es de un solo negocio — si hay items de otro, se bloquea
+    // (el cliente debe terminar o vaciar su carrito a propósito, nunca se
+    // vacía automáticamente ni se ofrece esa opción aquí).
     const c = getCarrito();
     if (c.negocio && c.negocio.id !== negocio.id && c.items.length > 0) {
       Alert.alert(
-        'Cambiar de negocio',
-        `Tienes productos de "${c.negocio.nombre}" en tu carrito. ¿Quieres vaciarlo y empezar uno nuevo en "${negocio.nombre}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Sí, vaciar',
-            style: 'destructive',
-            onPress: () => {
-              vaciarCarrito();
-              setItemsCarrito(0);
-              abrirOOAgregar(p);
-            },
-          },
-        ],
+        'Ya tienes un pedido en curso',
+        `Tienes productos de "${c.negocio.nombre}" en tu carrito. Termina o vacía ese carrito antes de pedir en "${negocio.nombre}".`,
       );
       return;
     }
@@ -374,10 +364,12 @@ export default function NegocioScreen({ route, navigation }) {
         <Pressable style={estilos.modalBackdrop} onPress={cerrarModal}>
           <Pressable style={estilos.modalContenido} onPress={() => {}}>
             <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={0}
             >
               <ScrollView
                 keyboardShouldPersistTaps="always"
+                automaticallyAdjustKeyboardInsets={true}
                 showsVerticalScrollIndicator={false}
               >
                 {/* Handle visual */}

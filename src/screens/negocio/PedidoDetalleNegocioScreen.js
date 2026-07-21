@@ -15,6 +15,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, Pressable,
   ActivityIndicator, Alert, Linking, Modal, TextInput,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -217,6 +218,17 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
           ))}
         </Seccion>
 
+        {/* Aviso de seguridad: entregar sellado al repartidor */}
+        {['confirmado', 'preparando', 'listo'].includes(pedido.estado) && (
+          <View style={estilos.selladoAviso}>
+            <Text style={estilos.selladoAvisoEmoji}>🔒</Text>
+            <Text style={estilos.selladoAvisoTxt}>
+              Por seguridad, entrega el pedido <Text style={{ fontWeight: '800' }}>sellado</Text> al repartidor
+              (bolsa cerrada, cinta o sticker de seguridad). No lo entregues abierto.
+            </Text>
+          </View>
+        )}
+
         {/* Totales y pago */}
         <Seccion titulo="Pago">
           <FilaMonto etiqueta="Subtotal"       monto={pedido.subtotal} />
@@ -259,13 +271,28 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
           </Seccion>
         )}
 
-        {/* Repartidor si ya se asignó */}
-        {pedido.repartidor?.usuario && (
+        {/* Repartidor si ya se asignó — foto + placa para verificar en la entrega */}
+        {(pedido.repartidor?.usuario || pedido.repartidor_nombre_snapshot) && (
           <Seccion titulo="Repartidor">
-            <Text style={estilos.nombre}>🛵 {pedido.repartidor.usuario.nombre}</Text>
-            {pedido.repartidor.usuario.telefono && (
-              <Text style={estilos.direccion}>📞 {pedido.repartidor.usuario.telefono}</Text>
-            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {!!(pedido.repartidor_foto_snapshot || pedido.repartidor?.usuario?.foto_perfil) && (
+                <Image
+                  source={{ uri: pedido.repartidor_foto_snapshot || pedido.repartidor.usuario.foto_perfil }}
+                  style={estilos.repartidorFoto}
+                />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={estilos.nombre}>
+                  🛵 {pedido.repartidor_nombre_snapshot || pedido.repartidor?.usuario?.nombre}
+                </Text>
+                {pedido.repartidor?.usuario?.telefono && (
+                  <Text style={estilos.direccion}>📞 {pedido.repartidor.usuario.telefono}</Text>
+                )}
+                {!!pedido.repartidor_placa_snapshot && (
+                  <Text style={estilos.direccion}>🪪 Placa: {pedido.repartidor_placa_snapshot}</Text>
+                )}
+              </View>
+            </View>
           </Seccion>
         )}
       </ScrollView>
@@ -298,7 +325,11 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
 
       {/* Modal para ingresar número de guía */}
       <Modal visible={modalGuia} transparent animationType="slide">
-        <View style={estilos.modalOverlay}>
+        <KeyboardAvoidingView
+          style={estilos.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
           <View style={estilos.modalCaja}>
             <Text style={estilos.modalTitulo}>📦 Marcar como enviado</Text>
             <Text style={estilos.modalSub}>Agrega el número de guía (opcional)</Text>
@@ -327,7 +358,7 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal de foto INE en grande */}
@@ -434,6 +465,7 @@ const estilos = StyleSheet.create({
   seccionTitulo: { fontSize: 14, fontWeight: '800', color: colors.texto, marginBottom: espacio.sm, textTransform: 'uppercase' },
 
   nombre:     { fontSize: 16, fontWeight: '700', color: colors.texto },
+  repartidorFoto: { width: 48, height: 48, borderRadius: 24, marginRight: espacio.sm, backgroundColor: colors.borde },
   contactoFila: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.sm },
   contactoBtn: {
     flex: 1, paddingVertical: espacio.sm, borderRadius: radio.md,
@@ -474,6 +506,15 @@ const estilos = StyleSheet.create({
   zonaChip:   { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, fontWeight: '600' },
   metodo:     { fontSize: 14, color: colors.texto, marginTop: espacio.sm, fontWeight: '600' },
   efectivoAviso: { fontSize: 12, color: colors.textoSuave, marginTop: espacio.xs, lineHeight: 16 },
+
+  selladoAviso: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    backgroundColor: '#FFF9E6', borderWidth: 1, borderColor: '#FDE68A',
+    borderRadius: radio.md, padding: espacio.md,
+    marginHorizontal: espacio.lg, marginTop: espacio.sm, marginBottom: espacio.md,
+  },
+  selladoAvisoEmoji: { fontSize: 22 },
+  selladoAvisoTxt: { flex: 1, fontSize: 12.5, color: '#78350F', lineHeight: 18, fontWeight: '600' },
 
   barra:      {
     flexDirection: 'row', gap: espacio.sm,
