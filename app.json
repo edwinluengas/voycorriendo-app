@@ -78,7 +78,7 @@
       },
       "apiUrl": "https://voycorriendo-backend-production.up.railway.app",
       "socketUrl": "https://voycorriendo-backend-production.up.railway.app",
-      "mpPublicKey": ""
+      "mpPublicKey": "APP_USR-f31c7db3-6585-4c4a-a02b-ad74165440c2"
     },
     "owner": "edwinluengas"
   }
