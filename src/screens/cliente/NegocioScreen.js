@@ -170,9 +170,17 @@ export default function NegocioScreen({ route, navigation }) {
     // vacía automáticamente ni se ofrece esa opción aquí).
     const c = getCarrito();
     if (c.negocio && c.negocio.id !== negocio.id && c.items.length > 0) {
+      // El botón "Ver carrito" de esta pantalla solo aparece si el carrito
+      // es del negocio que se está viendo — aquí es de OTRO negocio, así
+      // que sin esta acción el cliente no tenía ninguna ruta visible para
+      // llegar a CarritoScreen y usar "Vaciar carrito" a propósito.
       Alert.alert(
         'Ya tienes un pedido en curso',
         `Tienes productos de "${c.negocio.nombre}" en tu carrito. Termina o vacía ese carrito antes de pedir en "${negocio.nombre}".`,
+        [
+          { text: 'Entendido', style: 'cancel' },
+          { text: 'Ir a mi carrito', onPress: () => navigation.navigate('Carrito') },
+        ],
       );
       return;
     }

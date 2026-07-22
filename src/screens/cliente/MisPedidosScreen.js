@@ -79,7 +79,13 @@ export default function MisPedidosScreen({ navigation }) {
           </View>
         }
         renderItem={({ item }) => {
-          const info = ESTADO_INFO[item.estado] || { label: item.estado, color: colors.textoSuave, fondo: colors.fondo };
+          // Pedido con tarjeta rechazada: nunca llega al negocio (queda en
+          // 'pendiente' para siempre salvo que el cliente lo cancele) — sin
+          // este caso especial se veía igual que un pedido real en curso.
+          const pagoFallido = item.pago_estado === 'fallido' && item.estado === 'pendiente';
+          const info = pagoFallido
+            ? { label: 'Pago rechazado', color: colors.error, fondo: '#FEF2F2' }
+            : ESTADO_INFO[item.estado] || { label: item.estado, color: colors.textoSuave, fondo: colors.fondo };
           return (
             <Pressable
               style={({ pressed }) => [estilos.tarjeta, pressed && estilos.tarjetaPresionada]}

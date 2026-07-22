@@ -65,6 +65,7 @@ export default function SeguimientoScreen({ route, navigation }) {
   const [estrellasRep, setEstrellasRep] = useState(0);
   const [propina, setPropina]           = useState('');
   const [calificando, setCalificando]   = useState(false);
+  const [cancelando, setCancelando]     = useState(false);
   const estadoAnteriorRef               = useRef(null);
 
   const cargar = useCallback(async () => {
@@ -75,6 +76,34 @@ export default function SeguimientoScreen({ route, navigation }) {
     } catch (_) {}
     finally { setCargando(false); }
   }, [pedidoId]);
+
+  // Pedido con tarjeta rechazada: nunca llega al negocio (queda 'pendiente'
+  // para siempre si no se cancela). El backend ya permite al cliente
+  // cancelar mientras esté 'pendiente' — solo faltaba exponerlo aquí.
+  const cancelarPedidoFallido = () => {
+    Alert.alert(
+      'Cancelar pedido',
+      `El pago de #${pedido?.numero} fue rechazado. ¿Cancelamos este pedido? Puedes hacer uno nuevo con otra tarjeta.`,
+      [
+        { text: 'No, dejarlo', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelando(true);
+            try {
+              await pedidosAPI.cancelar(pedidoId, 'Pago con tarjeta rechazado');
+              await cargar();
+            } catch (e) {
+              Alert.alert('Error', e?.mensajeAmigable || 'No pudimos cancelar el pedido. Intenta de nuevo.');
+            } finally {
+              setCancelando(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     cargar();
@@ -162,6 +191,28 @@ export default function SeguimientoScreen({ route, navigation }) {
             <Text style={estilos.direccionEntrega}>📍 {pedido.direccion_entrega}</Text>
           )}
         </View>
+
+        {/* Pago con tarjeta RECHAZADO — este pedido nunca va a llegar al
+            negocio (pedidosDelNegocio lo filtra mientras no esté
+            capturado). Sin esto el cliente lo veía como si fuera un
+            pedido normal en curso, sin ninguna forma de cancelarlo. */}
+        {pedido.metodo_pago === 'tarjeta' && pedido.pago_estado === 'fallido' && pedido.estado === 'pendiente' && (
+          <View style={[estilos.pagoBox, estilos.pagoBoxError]}>
+            <Text style={[estilos.pagoBoxTitulo, { color: colors.error }]}>❌ Pago rechazado</Text>
+            <Text style={[estilos.pagoBoxSub, { color: '#991B1B' }]}>
+              Tu banco rechazó el cobro de este pedido. No se envió al negocio. Puedes cancelarlo y hacer uno nuevo con otra tarjeta.
+            </Text>
+            <Pressable
+              style={[estilos.btnPagarMP, estilos.btnCancelarPedido]}
+              onPress={cancelarPedidoFallido}
+              disabled={cancelando}
+            >
+              {cancelando
+                ? <ActivityIndicator color="#FFF" size="small" />
+                : <Text style={estilos.btnPagarMPTxt}>🗑️ Cancelar este pedido</Text>}
+            </Pressable>
+          </View>
+        )}
 
         {/* Pago con tarjeta nativo pendiente de confirmar (in_process en MP) —
             se resuelve solo por webhook; aquí solo se ofrece refrescar. */}
@@ -542,6 +593,9 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   btnPagarMPTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+
+  pagoBoxError: { backgroundColor: '#FEF2F2', borderColor: colors.error },
+  btnCancelarPedido: { backgroundColor: colors.error },
 
   codigoCard: {
     backgroundColor: '#FFF3E8',

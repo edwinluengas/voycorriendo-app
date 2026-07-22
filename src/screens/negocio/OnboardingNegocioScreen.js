@@ -216,6 +216,18 @@ export default function OnboardingNegocioScreen({ navigation }) {
 
   const irAtras = () => setPaso((p) => Math.max(p - 1, 1));
 
+  // Si el backend rechaza el envío por un dato faltante, regresa al paso
+  // donde vive ese dato en vez de dejar al usuario varado en el resumen
+  // sin saber qué corregir ni dónde.
+  const pasoDelCampoFaltante = (mensaje) => {
+    const m = (mensaje || '').toLowerCase();
+    if (m.includes('ubicación') || m.includes('gps') || m.includes('direccion')) return 2;
+    if (m.includes('nombre') || m.includes('categoria') || m.includes('telefono')) return 1;
+    if (m.includes('foto') || m.includes('comprobante') || m.includes('ine')) return 4;
+    if (m.includes('clabe') || m.includes('banco')) return 5;
+    return null;
+  };
+
   const enviarSolicitud = async () => {
     setGuardando(true);
     try {
@@ -229,7 +241,12 @@ export default function OnboardingNegocioScreen({ navigation }) {
         }}]
       );
     } catch (e) {
-      Alert.alert('No pudimos enviar', e.mensajeAmigable || 'Verifica que llenaste todo.');
+      const pasoProblema = pasoDelCampoFaltante(e.mensajeAmigable);
+      Alert.alert(
+        'No pudimos enviar',
+        e.mensajeAmigable || 'Verifica que llenaste todo.',
+        pasoProblema ? [{ text: 'Ir a corregir', onPress: () => setPaso(pasoProblema) }] : undefined
+      );
     } finally {
       setGuardando(false);
     }
