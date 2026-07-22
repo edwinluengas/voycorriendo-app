@@ -99,6 +99,8 @@ La aplicación móvil de VoyCorriendo utiliza su ubicación GPS (con su permiso,
 
 Sus datos personales se conservarán durante el tiempo que su cuenta permanezca activa y, posteriormente, durante el plazo necesario para el cumplimiento de obligaciones legales, fiscales y contables aplicables [PENDIENTE — definir plazos concretos por categoría de dato, ver inventario técnico sección 7].
 
+La fotografía de identificación oficial que se solicita para verificar la mayoría de edad en la compra de productos restringidos se elimina automáticamente **30 días** después de creado el pedido correspondiente, salvo que usted solicite su eliminación anticipada.
+
 ## 9. Cambios al presente aviso
 
 Cualquier modificación a este Aviso de Privacidad será publicada en esta misma sección de la aplicación, indicando la fecha de la última actualización. Le recomendamos revisarlo periódicamente.

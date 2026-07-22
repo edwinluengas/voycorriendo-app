@@ -173,30 +173,33 @@ export default function GananciasRepartidorScreen({ navigation }) {
         </View>
 
         {/* ── Calificación y regla de baja permanente ──────── */}
-        {d.pedidos_calificados > 0 && (
-          <View style={[
-            estilos.calificacionCard,
-            d.calificacion_promedio < d.calificacion_min && estilos.calificacionCardAlerta,
-          ]}>
-            <View style={estilos.calificacionHeader}>
-              <Text style={estilos.calificacionTitulo}>⭐ Tu calificación</Text>
-              <Text style={[
-                estilos.calificacionValor,
-                d.calificacion_promedio < d.calificacion_min && { color: colors.error },
-              ]}>
-                {parseFloat(d.calificacion_promedio || 0).toFixed(1)}
+        {/* Siempre visible, aunque aún no tenga calificaciones — la
+            consecuencia de esta regla es permanente, mejor que la conozca
+            desde el primer día y no hasta que ya le esté por aplicar. */}
+        {(() => {
+          const hayCalificaciones = (d.pedidos_calificados || 0) > 0;
+          const enAlerta = hayCalificaciones && d.calificacion_promedio < d.calificacion_min;
+          return (
+            <View style={[estilos.calificacionCard, enAlerta && estilos.calificacionCardAlerta]}>
+              <View style={estilos.calificacionHeader}>
+                <Text style={estilos.calificacionTitulo}>⭐ Tu calificación</Text>
+                <Text style={[estilos.calificacionValor, enAlerta && { color: colors.error }]}>
+                  {hayCalificaciones ? parseFloat(d.calificacion_promedio || 0).toFixed(1) : '—'}
+                </Text>
+              </View>
+              <Text style={estilos.calificacionSub}>
+                {hayCalificaciones
+                  ? `Basado en ${d.pedidos_calificados} pedido${d.pedidos_calificados === 1 ? '' : 's'} calificado${d.pedidos_calificados === 1 ? '' : 's'}.`
+                  : 'Aún sin calificaciones.'}
+              </Text>
+              <Text style={estilos.calificacionLeyenda}>
+                ⚠️ Si tu promedio baja de {d.calificacion_min}★ después de {d.calificaciones_min_para_baja} pedidos calificados,
+                tu cuenta se da de baja de forma <Text style={{ fontWeight: '800' }}>permanente</Text>: ni tú ni tu vehículo
+                podrán volver a registrarse en VoyCorriendo.
               </Text>
             </View>
-            <Text style={estilos.calificacionSub}>
-              Basado en {d.pedidos_calificados} pedido{d.pedidos_calificados === 1 ? '' : 's'} calificado{d.pedidos_calificados === 1 ? '' : 's'}.
-            </Text>
-            <Text style={estilos.calificacionLeyenda}>
-              ⚠️ Si tu promedio baja de {d.calificacion_min}★ después de {d.calificaciones_min_para_baja} pedidos calificados,
-              tu cuenta se da de baja de forma <Text style={{ fontWeight: '800' }}>permanente</Text>: ni tú ni tu vehículo
-              podrán volver a registrarse en VoyCorriendo.
-            </Text>
-          </View>
-        )}
+          );
+        })()}
 
         {/* ── La plataforma te debe ────────────────────────── */}
         {parseFloat(d.por_depositar || 0) > 0 && (

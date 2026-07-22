@@ -105,10 +105,11 @@ export default function GananciasNegocioScreen({ navigation }) {
   const d = datos || {};
   const deudaActual     = parseFloat(d.deuda_plataforma || 0);
   const pedidosPendientes = d.pedidos_efectivo_pendientes || 0;
-  const limitePedidos    = d.limite_pedidos_deuda || LIMITE_PEDIDOS_DEUDA;
+  const limitePedidos    = d.limite_pedidos_deuda || LIMITE_PEDIDOS_DEUDA || 1;
   const pct             = Math.min(100, (pedidosPendientes / limitePedidos) * 100);
   const bloqueado        = d.bloqueado_por_deuda;
-  const colorDeuda       = pct >= 100 ? '#DC2626' : pct >= 70 ? '#F59E0B' : colors.secundario;
+  // 80% ≈ el umbral real de aviso del backend (12 de 15 pedidos por default)
+  const colorDeuda       = pct >= 100 ? '#DC2626' : pct >= 80 ? '#F59E0B' : colors.secundario;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -189,7 +190,7 @@ export default function GananciasNegocioScreen({ navigation }) {
             <View style={[estilos.barraRelleno, { width: `${pct}%`, backgroundColor: colorDeuda }]} />
           </View>
           <Text style={estilos.barraMeta}>
-            {pedidosPendientes} de {limitePedidos} pedidos en efectivo · {pct >= 100 ? 'BLOQUEADO' : pct >= 70 ? 'Cerca del límite' : 'Dentro del límite'}
+            {pedidosPendientes} de {limitePedidos} pedidos en efectivo · {pct >= 100 ? 'BLOQUEADO' : pct >= 80 ? 'Cerca del límite' : 'Dentro del límite'}
           </Text>
           {deudaActual > 0 && (
             <Pressable style={estilos.btnPagarDeuda} onPress={() => setMostrarSpei(!mostrarSpei)}>
