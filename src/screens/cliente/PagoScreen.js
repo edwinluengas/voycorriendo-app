@@ -8,7 +8,7 @@ import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
 import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
-import { tokenizarTarjetaNueva, tokenizarTarjetaGuardada, mpConfigurado } from '../../api/mercadoPago';
+import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -155,6 +155,25 @@ export default function PagoScreen({ route, navigation }) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metodo])
   );
+
+  const eliminarTarjetaGuardada = (t) => {
+    Alert.alert('Eliminar tarjeta', `¿Quitar la tarjeta terminada en ${t.ultimos_4}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await tarjetasAPI.eliminar(t.id);
+            setTarjetas((prev) => prev.filter((x) => x.id !== t.id));
+            setTarjetaElegida((actual) => (actual === t.id ? 'nueva' : actual));
+          } catch (e) {
+            Alert.alert('Error', e?.mensajeAmigable || 'No se pudo eliminar la tarjeta.');
+          }
+        },
+      },
+    ]);
+  };
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
@@ -303,37 +322,50 @@ export default function PagoScreen({ route, navigation }) {
       let pagoRechazado = false;
       if (metodo === 'tarjeta') {
         try {
-          let token, payment_method_id, issuer_id;
+          let datosPago;
           if (tarjetaElegida !== 'nueva') {
             const tarjeta = tarjetas.find((t) => t.id === tarjetaElegida);
             if (!tarjeta) throw new Error('Esa tarjeta ya no está disponible. Elige otra desde "Métodos de pago".');
-            token = await tokenizarTarjetaGuardada({ mp_card_id: tarjeta.mp_card_id, cvv: cvvGuardada });
-            payment_method_id = tarjeta.payment_method_id;
-            issuer_id = tarjeta.issuer_id;
+            // La re-tokenización de una tarjeta guardada requiere el access
+            // token (secreto) de MP — se hace en el backend. Aquí solo
+            // mandamos el id de la tarjeta guardada + CVV (nunca se guarda).
+            datosPago = { tarjeta_id: tarjeta.id, cvv: cvvGuardada };
           } else {
-            payment_method_id = metodoDetectado?.payment_method_id;
-            issuer_id = metodoDetectado?.issuer_id;
-            if (!payment_method_id) throw new Error('No pudimos identificar el banco de tu tarjeta.');
+            let payment_method_id = metodoDetectado?.payment_method_id;
+            let issuer_id = metodoDetectado?.issuer_id;
+            if (!payment_method_id) {
+              // La detección por BIN (debounce 400ms) puede no haber
+              // terminado si el usuario confirma muy rápido — reintenta
+              // una vez de forma síncrona antes de rechazar el pago.
+              const binActual = datosTarjetaNueva.numero.replace(/\s+/g, '').slice(0, 6);
+              if (binActual.length === 6) {
+                try {
+                  const infoBin = await buscarMetodoPago(binActual);
+                  payment_method_id = infoBin?.payment_method_id;
+                  issuer_id = infoBin?.issuer_id;
+                } catch (_) {}
+              }
+            }
+            if (!payment_method_id) throw new Error('No identificamos tu banco. Revisa el número de tarjeta o espera un momento a que lo detectemos antes de continuar.');
 
             if (guardarTarjetaNueva) {
               // El token de MP es de un solo uso: para guardar Y pagar con
               // una tarjeta nueva primero se guarda (consume ese token) y
-              // luego se genera uno nuevo desde la tarjeta ya guardada para
-              // el cobro — nunca se reusa el mismo token dos veces.
+              // luego el backend genera uno nuevo desde la tarjeta ya
+              // guardada para el cobro — nunca se reusa el mismo token dos veces.
               const tokenParaGuardar = await tokenizarTarjetaNueva(datosTarjetaNueva);
               const resGuardar = await tarjetasAPI.agregar(tokenParaGuardar);
               const tarjetaGuardada = resGuardar.data.data.tarjeta;
-              token = await tokenizarTarjetaGuardada({ mp_card_id: tarjetaGuardada.mp_card_id, cvv: datosTarjetaNueva.cvv });
+              datosPago = { tarjeta_id: tarjetaGuardada.id, cvv: datosTarjetaNueva.cvv, payment_method_id, issuer_id };
             } else {
-              token = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              const token = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              datosPago = { token, payment_method_id, issuer_id };
             }
           }
 
           const resPago = await pagosAPI.tarjeta({
             pedido_id: pedido.id,
-            token,
-            payment_method_id,
-            issuer_id,
+            ...datosPago,
             installments: 1,
           });
 
@@ -554,17 +586,18 @@ export default function PagoScreen({ route, navigation }) {
             ) : (
               <>
                 {tarjetas.map((t) => (
-                  <Pressable
-                    key={t.id}
-                    style={[estilos.tarjetaOpcion, tarjetaElegida === t.id && estilos.tarjetaOpcionActiva]}
-                    onPress={() => setTarjetaElegida(t.id)}
-                  >
-                    <Text style={{ fontSize: 20 }}>💳</Text>
-                    <Text style={estilos.tarjetaOpcionTxt}>
-                      {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
-                    </Text>
-                    <View style={[estilos.radio, tarjetaElegida === t.id && estilos.radioActivo]} />
-                  </Pressable>
+                  <View key={t.id} style={[estilos.tarjetaOpcion, tarjetaElegida === t.id && estilos.tarjetaOpcionActiva]}>
+                    <Pressable style={estilos.tarjetaOpcionToca} onPress={() => setTarjetaElegida(t.id)}>
+                      <Text style={{ fontSize: 20 }}>💳</Text>
+                      <Text style={estilos.tarjetaOpcionTxt}>
+                        {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
+                      </Text>
+                      <View style={[estilos.radio, tarjetaElegida === t.id && estilos.radioActivo]} />
+                    </Pressable>
+                    <Pressable onPress={() => eliminarTarjetaGuardada(t)} hitSlop={10} style={estilos.tarjetaEliminarBtn}>
+                      <Text style={estilos.tarjetaEliminarTxt}>Eliminar</Text>
+                    </Pressable>
+                  </View>
                 ))}
                 <Pressable
                   style={[estilos.tarjetaOpcion, tarjetaElegida === 'nueva' && estilos.tarjetaOpcionActiva]}
@@ -805,10 +838,13 @@ const estilos = StyleSheet.create({
     padding: espacio.md, marginBottom: espacio.sm, borderWidth: 1, borderColor: colors.borde,
   },
   tarjetaOpcion: {
-    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    flexDirection: 'row', alignItems: 'center',
     paddingVertical: espacio.sm, borderBottomWidth: 1, borderBottomColor: colors.borde,
   },
   tarjetaOpcionActiva: {},
+  tarjetaOpcionToca: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
+  tarjetaEliminarBtn: { paddingHorizontal: espacio.sm, paddingVertical: espacio.xs },
+  tarjetaEliminarTxt: { fontSize: 12, color: colors.error, fontWeight: '700' },
   tarjetaOpcionTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.texto },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm, marginTop: espacio.sm },
   checkbox: {

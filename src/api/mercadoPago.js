@@ -55,14 +55,4 @@ export const tokenizarTarjetaNueva = async ({ numero, nombre, mes, anio, cvv }) 
   return data.id;
 };
 
-// ─── Tokeniza un pago con una tarjeta YA guardada, pidiendo solo el CVV ──
-export const tokenizarTarjetaGuardada = async ({ mp_card_id, cvv }) => {
-  asegurarPublicKey();
-  const { data } = await mp.post('/v1/card_tokens', {
-    card_id: mp_card_id,
-    security_code: cvv,
-  }, { params: { public_key: MP_PUBLIC_KEY } });
-  return data.id;
-};
-
 export const mpConfigurado = () => !!MP_PUBLIC_KEY;
