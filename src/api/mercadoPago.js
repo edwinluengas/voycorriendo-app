@@ -22,8 +22,12 @@ const asegurarPublicKey = () => {
 };
 
 // ─── Identifica el banco/marca y el payment_method_id a partir del BIN
-// (primeros 6-8 dígitos de la tarjeta). Necesario para crear el pago.
+// (EXACTAMENTE los primeros 6 dígitos de la tarjeta — el estándar IIN/BIN
+// de la industria; mandar 7-8 dígitos puede devolver un banco/marca
+// incorrecto de Mercado Pago). Necesario para crear el pago: si el
+// payment_method_id no coincide con la tarjeta real, MP rechaza el cobro.
 export const buscarMetodoPago = async (bin) => {
+  if (bin.length !== 6) throw new Error('El BIN debe ser de exactamente 6 dígitos.');
   asegurarPublicKey();
   const { data } = await mp.get('/v1/payment_methods/search', {
     params: { bin, public_key: MP_PUBLIC_KEY },

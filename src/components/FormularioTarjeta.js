@@ -19,13 +19,23 @@ export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, se
   const binVigenteRef = useRef(''); // evita que una respuesta tardía de un BIN viejo pise el estado actual
 
   useEffect(() => {
-    const bin = datos.numero.replace(/\s+/g, '').slice(0, 8);
-    binVigenteRef.current = bin;
+    // El BIN/IIN estándar de la industria son exactamente 6 dígitos — mandar
+    // 7 u 8 (como se hacía antes) podía devolver de Mercado Pago un banco o
+    // marca distinto al real (reportado: Mastercard Banamex detectada como
+    // American Express), y ese payment_method_id incorrecto hace que MP
+    // rechace el cobro real porque no coincide con la tarjeta tokenizada.
+    const numeroLimpio = datos.numero.replace(/\s+/g, '');
+    const bin = numeroLimpio.slice(0, 6);
     clearTimeout(timeoutRef.current);
     if (bin.length < 6) {
+      binVigenteRef.current = '';
       setMetodoDetectado(null);
       return;
     }
+    // Ya se buscó este mismo BIN (el usuario sigue escribiendo dígitos
+    // después del 6°) — no repetir la consulta, el banco no cambia.
+    if (binVigenteRef.current === bin) return;
+    binVigenteRef.current = bin;
     timeoutRef.current = setTimeout(async () => {
       try {
         const info = await buscarMetodoPago(bin);
