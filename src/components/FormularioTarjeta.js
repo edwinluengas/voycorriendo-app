@@ -11,7 +11,17 @@ import Campo from './Campo';
 import { buscarMetodoPago } from '../api/mercadoPago';
 import { colors, espacio, radio } from '../theme/colors';
 
-const formatearNumero = (v) => v.replace(/[^0-9]/g, '').slice(0, 19).replace(/(.{4})/g, '$1 ').trim();
+// American Express (empieza con 34 o 37) se agrupa 4-6-5, no 4-4-4-4 como
+// el resto — y su CVV es de 4 dígitos (impreso al frente de la tarjeta),
+// ya soportado por el campo de abajo (maxLength=4, tarjetaCompleta acepta
+// cvv.length >= 3).
+const formatearNumero = (v) => {
+  const limpio = v.replace(/[^0-9]/g, '').slice(0, 19);
+  if (/^3[47]/.test(limpio)) {
+    return [limpio.slice(0, 4), limpio.slice(4, 10), limpio.slice(10, 15)].filter(Boolean).join(' ');
+  }
+  return limpio.replace(/(.{4})/g, '$1 ').trim();
+};
 
 export default function FormularioTarjeta({ datos, setDatos, metodoDetectado, setMetodoDetectado }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
