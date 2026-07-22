@@ -16,7 +16,7 @@ import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO } from '../../config/business
 
 const METODOS_BASE = [
   { id: 'efectivo', nombre: 'Efectivo', emoji: '💵', desc: `Pagas al repartidor · máx. $${LIMITE_EFECTIVO} en productos + envío` },
-  { id: 'tarjeta',  nombre: 'Tarjeta',  emoji: '💳', desc: 'Débito o crédito, directo en la app — sin cuenta de Mercado Pago' },
+  { id: 'tarjeta',  nombre: 'Tarjeta',  emoji: '💳', desc: '🔒 Débito o crédito — pago 100% seguro' },
 ];
 const METODO_TRANSFERENCIA = {
   id: 'transferencia',

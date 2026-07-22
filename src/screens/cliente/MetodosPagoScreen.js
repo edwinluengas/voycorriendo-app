@@ -10,7 +10,7 @@ import { colors, espacio, radio } from '../../theme/colors';
 
 const METODOS = [
   { id: 'efectivo', icono: '💵', titulo: 'Efectivo', desc: 'Paga al repartidor al recibir tu pedido. Máx. $500.' },
-  { id: 'tarjeta',   icono: '💳', titulo: 'Tarjeta',  desc: 'Débito o crédito — pagas directo en la app, sin cuenta de Mercado Pago.' },
+  { id: 'tarjeta',   icono: '💳', titulo: 'Tarjeta',  desc: '🔒 Débito o crédito — pago 100% seguro.' },
 ];
 
 const MARCA_EMOJI = { visa: '💳', master: '💳', mastercard: '💳', amex: '💳' };
