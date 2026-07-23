@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
-import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
+import FormularioTarjeta, { tarjetaCompleta, cvvEsperadoPorMarca } from '../../components/FormularioTarjeta';
 import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
@@ -267,6 +267,11 @@ export default function PagoScreen({ route, navigation }) {
       Alert.alert('Fuera de cobertura', aviso || 'Tu dirección está fuera de nuestra zona de entrega.');
       return;
     }
+    // Resultado de la detección de banco/marca, resuelto ANTES de crear el
+    // pedido y usado directo en el cobro (no se lee del estado de React
+    // dentro de confirmar(): setMetodoDetectado es asíncrono y el closure
+    // vería el valor viejo).
+    let metodoResuelto = metodoDetectado;
     if (metodo === 'tarjeta') {
       if (!mpConfigurado()) {
         Alert.alert('No disponible', 'El pago con tarjeta aún no está configurado. Elige otro método.');
@@ -277,17 +282,39 @@ export default function PagoScreen({ route, navigation }) {
           Alert.alert('Datos de tarjeta incompletos', 'Revisa el número, nombre, vencimiento y CVV.');
           return;
         }
-        if (!metodoDetectado?.payment_method_id) {
-          Alert.alert('No identificamos tu banco', 'Revisa el número de tarjeta o espera un momento a que lo detectemos antes de continuar.');
-          return;
+        if (!metodoResuelto?.payment_method_id) {
+          // La detección automática por BIN pudo no haber corrido todavía o
+          // haber fallado por red — se reintenta aquí mismo en vez de dejar
+          // al usuario bloqueado esperando algo que ya no va a ocurrir.
+          const binActual = datosTarjetaNueva.numero.replace(/\s+/g, '').slice(0, 6);
+          if (binActual.length === 6) {
+            try {
+              metodoResuelto = await buscarMetodoPago(binActual);
+            } catch (_) {
+              metodoResuelto = null;
+            }
+          }
+          if (!metodoResuelto?.payment_method_id) {
+            Alert.alert('No identificamos tu banco', 'Revisa que el número de tarjeta esté completo y correcto, y que tengas conexión a internet. Luego vuelve a intentar.');
+            return;
+          }
+          setMetodoDetectado(metodoResuelto);
         }
       } else {
-        if (!tarjetas.some((t) => t.id === tarjetaElegida)) {
+        const tarjetaSel = tarjetas.find((t) => t.id === tarjetaElegida);
+        if (!tarjetaSel) {
           Alert.alert('Tarjeta no disponible', 'Esa tarjeta ya no está disponible. Elige otra o agrega una nueva.');
           return;
         }
-        if (cvvGuardada.length < 3) {
-          Alert.alert('Falta el CVV', 'Ingresa el CVV de tu tarjeta guardada para continuar.');
+        // Amex usa CVV de 4 dígitos; el resto, de 3. Si no conocemos la
+        // marca (tarjetas guardadas antes de que existiera la columna),
+        // se acepta 3 o 4 y decide Mercado Pago.
+        const lenEsperada = tarjetaSel.payment_method_id ? cvvEsperadoPorMarca(tarjetaSel.payment_method_id) : null;
+        const cvvOk = lenEsperada ? cvvGuardada.length === lenEsperada : (cvvGuardada.length >= 3 && cvvGuardada.length <= 4);
+        if (!cvvOk) {
+          Alert.alert('CVV incorrecto', lenEsperada
+            ? `El CVV de esta tarjeta es de ${lenEsperada} dígitos.`
+            : 'Ingresa el CVV de tu tarjeta guardada para continuar.');
           return;
         }
       }
@@ -331,22 +358,11 @@ export default function PagoScreen({ route, navigation }) {
             // mandamos el id de la tarjeta guardada + CVV (nunca se guarda).
             datosPago = { tarjeta_id: tarjeta.id, cvv: cvvGuardada };
           } else {
-            let payment_method_id = metodoDetectado?.payment_method_id;
-            let issuer_id = metodoDetectado?.issuer_id;
-            if (!payment_method_id) {
-              // La detección por BIN (debounce 400ms) puede no haber
-              // terminado si el usuario confirma muy rápido — reintenta
-              // una vez de forma síncrona antes de rechazar el pago.
-              const binActual = datosTarjetaNueva.numero.replace(/\s+/g, '').slice(0, 6);
-              if (binActual.length === 6) {
-                try {
-                  const infoBin = await buscarMetodoPago(binActual);
-                  payment_method_id = infoBin?.payment_method_id;
-                  issuer_id = infoBin?.issuer_id;
-                } catch (_) {}
-              }
-            }
-            if (!payment_method_id) throw new Error('No identificamos tu banco. Revisa el número de tarjeta o espera un momento a que lo detectemos antes de continuar.');
+            // metodoResuelto se garantizó arriba, ANTES de crear el pedido —
+            // este guard solo queda como red de seguridad.
+            const payment_method_id = metodoResuelto?.payment_method_id;
+            const issuer_id = metodoResuelto?.issuer_id;
+            if (!payment_method_id) throw new Error('No identificamos tu banco. Revisa el número de tarjeta e intenta de nuevo.');
 
             if (guardarTarjetaNueva) {
               // El token de MP es de un solo uso: para guardar Y pagar con
@@ -629,7 +645,7 @@ export default function PagoScreen({ route, navigation }) {
                 ) : tarjetaElegida ? (
                   <Campo
                     etiqueta="CVV de tu tarjeta"
-                    placeholder="123"
+                    placeholder={cvvEsperadoPorMarca(tarjetas.find((t) => t.id === tarjetaElegida)?.payment_method_id) === 4 ? '1234' : '123'}
                     keyboardType="numeric"
                     maxLength={4}
                     value={cvvGuardada}
