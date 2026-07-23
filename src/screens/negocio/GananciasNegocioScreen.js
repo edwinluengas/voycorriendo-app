@@ -72,7 +72,7 @@ export default function GananciasNegocioScreen({ navigation }) {
   const solicitarRetiroDiario = () => {
     Alert.alert(
       'Retiro diario',
-      'Se te cobrará una comisión por adelantar tu pago de tarjeta/app antes del viernes. ¿Confirmas?',
+      'Adelanto inmediato con 5% de descuento sobre tu saldo pendiente. El corte del viernes es gratis. ¿Confirmas?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {

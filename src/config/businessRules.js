@@ -28,7 +28,9 @@ export const LIMITE_PEDIDOS_DEUDA = 15;
 export const AVISO_PEDIDOS_DEUDA = 12;
 
 // ─── Fee de retiro diario del repartidor (viernes es gratis) ─────────
-export const FEE_RETIRO_DIARIO = 10;
+// Pago diario anticipado: 5% de descuento sobre el saldo (modelo 2026-07-23,
+// reemplaza el fee fijo de $10). El corte del viernes sigue siendo gratis.
+export const PCT_DESCUENTO_PAGO_DIARIO = 0.05;
 
 // ─── Tipos de envío con etiquetas y precios ───────────────────────────
 export const TIPOS_ENVIO = [

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { repartidoresAPI, telegramAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
-import { FEE_RETIRO_DIARIO } from '../../config/businessRules';
+import { PCT_DESCUENTO_PAGO_DIARIO } from '../../config/businessRules';
 
 const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtFecha = (iso) => {
@@ -87,14 +87,15 @@ export default function GananciasRepartidorScreen({ navigation }) {
 
   const solicitarRetiroDiario = () => {
     const disponible = parseFloat(d.fondo_efectivo || 0);
-    const neto = disponible - FEE_RETIRO_DIARIO;
+    const feeDiario = Math.round(disponible * PCT_DESCUENTO_PAGO_DIARIO * 100) / 100;
+    const neto = Math.round((disponible - feeDiario) * 100) / 100;
     if (neto <= 0) {
-      Alert.alert('Saldo insuficiente', `Necesitas al menos $${FEE_RETIRO_DIARIO + 1} disponibles para el retiro diario.`);
+      Alert.alert('Saldo insuficiente', 'No tienes saldo disponible para el retiro diario.');
       return;
     }
     Alert.alert(
       '💸 Retiro diario',
-      `Disponible: ${fmt(disponible)}\nFee de retiro: -${fmt(FEE_RETIRO_DIARIO)}\nRecibirás: ${fmt(neto)}\n\n¿Confirmas el retiro inmediato?`,
+      `Disponible: ${fmt(disponible)}\nDescuento por pago diario (5%): -${fmt(feeDiario)}\nRecibirás: ${fmt(neto)}\n\nEl corte del viernes es gratis. ¿Confirmas el retiro inmediato?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -178,7 +179,7 @@ export default function GananciasRepartidorScreen({ navigation }) {
         {parseFloat(d.saldo_por_cobrar || 0) > 0 && (
           <View style={estilos.saldoPorCobrarCard}>
             <Text style={estilos.saldoPorCobrarTitulo}>
-              📒 Saldo por cobrar: {fmt(d.saldo_por_cobrar)}
+              📒 Saldo por cobrar: -{fmt(d.saldo_por_cobrar)}
             </Text>
             <Text style={estilos.saldoPorCobrarSub}>
               Un pedido que tenías asignado no se entregó y se le regresó el dinero al cliente.
@@ -254,7 +255,7 @@ export default function GananciasRepartidorScreen({ navigation }) {
                   : (
                     <View>
                       <Text style={estilos.btnRetiroDiarioTxt}>⚡ Retiro diario — fee $10</Text>
-                      <Text style={estilos.btnRetiroDiarioSub}>Recibirás {fmt(parseFloat(d.fondo_efectivo || 0) - FEE_RETIRO_DIARIO)} hoy</Text>
+                      <Text style={estilos.btnRetiroDiarioSub}>Recibirás {fmt(parseFloat(d.fondo_efectivo || 0) * (1 - PCT_DESCUENTO_PAGO_DIARIO))} hoy (5% menos que el viernes gratis)</Text>
                     </View>
                   )
                 }
