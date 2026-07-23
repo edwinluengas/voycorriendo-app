@@ -37,10 +37,23 @@ export default function InicioRepartidorScreen({ navigation }) {
   const r = roles?.repartidor;
   const aprobado = r?.estado === 'aprobado';
 
+  // Pedidos YA ACEPTADOS y aún no entregados (mi ruta activa). Sin esto, si
+  // el repartidor cierra la app o cambia de rol a media entrega, el pedido
+  // "desaparecía": la única navegación a PedidoActivo era el instante de
+  // aceptar, y esta pantalla solo lista pedidos disponibles (sin asignar).
+  const [rutaActiva, setRutaActiva] = useState([]);
+  const cargarRuta = useCallback(async () => {
+    try {
+      const { data } = await repartidoresAPI.miRuta();
+      setRutaActiva(data.data?.batch?.pedidos || []);
+    } catch (_) {}
+  }, []);
+
   // Cargar estado actual al entrar
   useFocusEffect(useCallback(() => {
     (async () => {
       await cargarRoles();
+      cargarRuta();
       setCargando(false);
     })();
   }, []));
@@ -93,7 +106,8 @@ export default function InicioRepartidorScreen({ navigation }) {
     } finally {
       setRefrescar(false);
     }
-  }, []);
+    cargarRuta();
+  }, [cargarRuta]);
 
   // Mantener ref actualizada para el socket (evita stale closure)
   useEffect(() => { cargarPedidosRef.current = cargarPedidos; }, [cargarPedidos]);
@@ -222,6 +236,22 @@ export default function InicioRepartidorScreen({ navigation }) {
           />
         )}
       </View>
+
+      {/* Pedido(s) en curso — SIEMPRE visible, conectado o no */}
+      {rutaActiva.map((p) => (
+        <Pressable
+          key={p.id}
+          style={estilos.enCurso}
+          onPress={() => navigation.navigate('PedidoActivo', { pedidoId: p.id })}
+        >
+          <Text style={{ fontSize: 28 }}>🛵</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={estilos.enCursoTitulo}>Pedido en curso — {p.numero}</Text>
+            <Text style={estilos.enCursoSub} numberOfLines={1}>→ {p.direccion_entrega}</Text>
+          </View>
+          <Text style={estilos.enCursoIr}>Continuar ›</Text>
+        </Pressable>
+      ))}
 
       {/* Indicadores rapidos */}
       <View style={estilos.statsBar}>
@@ -363,6 +393,21 @@ const estilos = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borde,
   },
+
+  // Banner de pedido en curso (ruta activa)
+  enCurso: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espacio.sm,
+    backgroundColor: colors.primario,
+    marginHorizontal: espacio.md,
+    marginTop: espacio.sm,
+    padding: espacio.md,
+    borderRadius: radio.md,
+  },
+  enCursoTitulo: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  enCursoSub:    { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  enCursoIr:     { color: '#FFF', fontWeight: '800', fontSize: 14 },
   stat: { flex: 1, alignItems: 'center' },
   statBtn: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   statBtnEmoji: { fontSize: 18 },

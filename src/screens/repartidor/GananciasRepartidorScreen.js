@@ -172,6 +172,21 @@ export default function GananciasRepartidorScreen({ navigation }) {
           />
         </View>
 
+        {/* Saldo por cobrar: deuda con la plataforma por pedidos asignados
+            no entregados que hubo que reembolsar al cliente. Se descuenta
+            automáticamente de los próximos retiros. */}
+        {parseFloat(d.saldo_por_cobrar || 0) > 0 && (
+          <View style={estilos.saldoPorCobrarCard}>
+            <Text style={estilos.saldoPorCobrarTitulo}>
+              📒 Saldo por cobrar: {fmt(d.saldo_por_cobrar)}
+            </Text>
+            <Text style={estilos.saldoPorCobrarSub}>
+              Un pedido que tenías asignado no se entregó y se le regresó el dinero al cliente.
+              Este monto se descontará automáticamente de tus próximos retiros.
+            </Text>
+          </View>
+        )}
+
         {/* ── Calificación y regla de baja permanente ──────── */}
         {/* Siempre visible, aunque aún no tenga calificaciones — la
             consecuencia de esta regla es permanente, mejor que la conozca
@@ -347,6 +362,14 @@ const estilos = StyleSheet.create({
   debeTitulo: { fontSize: 13, fontWeight: '800', color: '#1E40AF', marginBottom: espacio.xs },
   debeValor:  { fontSize: 28, fontWeight: '900', color: '#1D4ED8', marginBottom: espacio.xs },
   debeSub:    { fontSize: 12, color: '#374151', lineHeight: 17 },
+
+  saldoPorCobrarCard: {
+    marginHorizontal: espacio.lg, marginTop: espacio.md,
+    backgroundColor: '#FEF2F2', borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  saldoPorCobrarTitulo: { fontSize: 14, fontWeight: '800', color: colors.error },
+  saldoPorCobrarSub:    { fontSize: 12, color: '#374151', lineHeight: 17, marginTop: 4 },
 
   calificacionCard: {
     marginHorizontal: espacio.lg, marginTop: espacio.md,
