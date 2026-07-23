@@ -42,10 +42,13 @@ export default function PagoScreen({ route, navigation }) {
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
   const [pagaCon, setPagaCon]           = useState('');
 
-  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
-  const total      = subtotal + costoEnvio;
-
   const [metodo, setMetodo]     = useState(subtotal > LIMITE_EFECTIVO ? 'tarjeta' : 'efectivo');
+  // Propina en el CHECKOUT (solo tarjeta): se cobra dentro del mismo cargo
+  // a la tarjeta. En efectivo se da en mano al entregar.
+  const [propinaSel, setPropinaSel] = useState(0);
+  const propina    = metodo === 'tarjeta' ? propinaSel : 0;
+  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
+  const total      = subtotal + costoEnvio + propina;
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -341,6 +344,7 @@ export default function PagoScreen({ route, navigation }) {
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
         ine_foto_url,
+        propina: propina > 0 ? propina : undefined,
         paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
       });
       const pedido = data.data?.pedido;
@@ -678,6 +682,28 @@ export default function PagoScreen({ route, navigation }) {
           </Text>
         )}
 
+        {/* Propina al repartidor — solo tarjeta: va dentro del mismo cargo */}
+        {metodo === 'tarjeta' && (
+          <View style={estilos.propinaBox}>
+            <Text style={estilos.propinaLabel}>
+              💛 Propina para el repartidor <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional, se cobra con tu tarjeta)</Text>
+            </Text>
+            <View style={{ flexDirection: 'row', gap: espacio.xs, marginTop: espacio.xs }}>
+              {[0, 10, 20, 30].map((amt) => (
+                <Pressable
+                  key={amt}
+                  style={[estilos.propinaChip, propinaSel === amt && estilos.propinaChipActivo]}
+                  onPress={() => setPropinaSel(amt)}
+                >
+                  <Text style={[estilos.propinaChipTxt, propinaSel === amt && estilos.propinaChipTxtActivo]}>
+                    {amt === 0 ? 'Sin propina' : `$${amt}`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={estilos.totalBox}>
           <Text style={estilos.totalLabel}>Total a pagar</Text>
           <Text style={estilos.totalValor}>${total.toFixed(2)} MXN</Text>
@@ -875,6 +901,21 @@ const estilos = StyleSheet.create({
     padding: espacio.md, borderRadius: radio.sm,
     color: colors.texto, fontSize: 13, marginTop: espacio.md, lineHeight: 18,
   },
+  propinaBox: {
+    marginHorizontal: espacio.md, marginBottom: espacio.sm,
+    backgroundColor: colors.superficie, borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: colors.borde,
+  },
+  propinaLabel: { fontSize: 13, fontWeight: '800', color: colors.texto },
+  propinaChip: {
+    paddingHorizontal: espacio.sm, paddingVertical: espacio.xs,
+    borderRadius: radio.md, borderWidth: 1.5, borderColor: colors.borde,
+    backgroundColor: colors.fondo,
+  },
+  propinaChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  propinaChipTxt: { fontSize: 13, fontWeight: '700', color: colors.textoSuave },
+  propinaChipTxtActivo: { color: colors.primario },
+
   totalBox: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     padding: espacio.md,

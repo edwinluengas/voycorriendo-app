@@ -417,10 +417,13 @@ export default function SeguimientoScreen({ route, navigation }) {
                   ))}
                 </View>
 
-                {/* Propina opcional al repartidor */}
+                {/* Propina opcional al repartidor — SOLO efectivo (se da en
+                    mano). Con tarjeta la propina se eligió en el checkout y
+                    ya se cobró dentro del cargo; el backend ignora una nueva. */}
+                {pedido.metodo_pago === 'efectivo' && (<>
                 <Text style={[estilos.calificacionLabel, { marginTop: espacio.md }]}>
                   Propina para el repartidor{' '}
-                  <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional)</Text>
+                  <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional, se la das en mano)</Text>
                 </Text>
                 <View style={estilos.propinaRow}>
                   {[20, 30, 50].map((amt) => (
@@ -447,6 +450,7 @@ export default function SeguimientoScreen({ route, navigation }) {
                     maxLength={4}
                   />
                 </View>
+                </>)}
               </>
             )}
 
