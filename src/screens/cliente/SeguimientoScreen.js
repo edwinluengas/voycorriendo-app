@@ -192,6 +192,19 @@ export default function SeguimientoScreen({ route, navigation }) {
           )}
         </View>
 
+        {/* Código de entrega — LO PRIMERO que ve el cliente cuando el
+            repartidor va en camino: tarjeta naranja sólida, número gigante
+            en blanco. Solo presentación — la validación vive en el backend. */}
+        {pedido.estado === 'en_camino' && pedido.codigo_entrega && (
+          <View style={estilos.codigoCard}>
+            <Text style={estilos.codigoLabel}>Código de entrega</Text>
+            <Text style={estilos.codigoNum}>{pedido.codigo_entrega}</Text>
+            <Text style={estilos.codigoSub}>
+              Muéstraselo al repartidor cuando llegue para confirmar la entrega.
+            </Text>
+          </View>
+        )}
+
         {/* Pago con tarjeta RECHAZADO — este pedido nunca va a llegar al
             negocio (pedidosDelNegocio lo filtra mientras no esté
             capturado). Sin esto el cliente lo veía como si fuera un
@@ -290,17 +303,6 @@ export default function SeguimientoScreen({ route, navigation }) {
           <View style={estilos.chipEstadoCard}>
             <Text style={estilos.chipEstadoEmoji}>{ESTADOS[estadoActual]?.emoji}</Text>
             <Text style={estilos.chipEstadoTxt}>{ESTADOS[estadoActual]?.label}</Text>
-          </View>
-        )}
-
-        {/* Código de entrega — visible solo cuando el repartidor va en camino */}
-        {pedido.estado === 'en_camino' && pedido.codigo_entrega && (
-          <View style={estilos.codigoCard}>
-            <Text style={estilos.codigoLabel}>Código de entrega</Text>
-            <Text style={estilos.codigoNum}>{pedido.codigo_entrega}</Text>
-            <Text style={estilos.codigoSub}>
-              Muestra este código al repartidor cuando llegue para confirmar la entrega.
-            </Text>
           </View>
         )}
 
@@ -598,14 +600,13 @@ const estilos = StyleSheet.create({
   btnCancelarPedido: { backgroundColor: colors.error },
 
   codigoCard: {
-    backgroundColor: '#FFF3E8',
-    borderWidth: 2, borderColor: colors.primario,
+    backgroundColor: colors.primario,
     marginHorizontal: espacio.md, marginTop: espacio.md,
-    borderRadius: radio.md, padding: espacio.md, alignItems: 'center',
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
   },
-  codigoLabel: { fontSize: 11, fontWeight: '800', color: colors.primario, letterSpacing: 1, textTransform: 'uppercase' },
-  codigoNum: { fontSize: 48, fontWeight: '900', color: colors.primario, letterSpacing: 8, marginVertical: espacio.xs },
-  codigoSub: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', lineHeight: 16 },
+  codigoLabel: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.92)', letterSpacing: 2, textTransform: 'uppercase' },
+  codigoNum: { fontSize: 72, fontWeight: '900', color: '#FFFFFF', letterSpacing: 12, marginVertical: espacio.xs },
+  codigoSub: { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', lineHeight: 18 },
 
   propinaRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs, marginTop: espacio.xs, flexWrap: 'wrap' },
   propinaChip: {

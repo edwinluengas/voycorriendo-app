@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, Linking, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -247,9 +247,14 @@ export default function PedidoActivoScreen({ route, navigation }) {
             <Text style={estilos.codigoDesc}>
               Pide al cliente que abra su app — verá un código de 4 dígitos en pantalla. Escríbelo aquí para confirmar la entrega.
             </Text>
-            <Campo
-              placeholder="_ _ _ _"
-              keyboardType="numeric"
+            {/* Campo grande dedicado — solo presentación, la validación del
+                código (obligatorio, coincidencia) sigue intacta en backend
+                y en el handler de "Confirmar entrega". */}
+            <TextInput
+              style={[estilos.codigoInputGrande, codigoError && estilos.codigoInputGrandeError]}
+              placeholder="— — — —"
+              placeholderTextColor="#D1D5DB"
+              keyboardType="number-pad"
               value={codigoEntrega}
               onChangeText={(v) => { setCodigo(v.replace(/\D/g, '').slice(0, 4)); setCodigoError(false); }}
               maxLength={4}
@@ -317,6 +322,15 @@ const estilos = StyleSheet.create({
   },
   codigoTitulo: { fontSize: 16, fontWeight: '900', color: colors.primario },
   codigoOk: { fontSize: 13, fontWeight: '800', color: '#16A34A' },
+  codigoInputGrande: {
+    height: 76,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, borderColor: colors.primario, borderRadius: radio.md,
+    fontSize: 40, fontWeight: '900', color: colors.texto,
+    textAlign: 'center', letterSpacing: 16,
+    marginTop: espacio.sm,
+  },
+  codigoInputGrandeError: { borderColor: colors.error, backgroundColor: '#FEF2F2' },
   codigoDesc: { fontSize: 13, color: colors.textoSuave, lineHeight: 18, marginBottom: espacio.sm },
   codigoErrorTxt: { fontSize: 13, color: '#DC2626', fontWeight: '700', marginTop: espacio.xs },
 
