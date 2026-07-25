@@ -444,7 +444,9 @@ export default function PagoScreen({ route, navigation }) {
       }
 
       // 3. Limpiar carrito y redirigir al seguimiento
-      if (metodo === 'tarjeta' && usarCredito) refrescarUsuario(); // refleja el saldo nuevo para el próximo pedido
+      // El crédito ahora aplica a CUALQUIER método de pago (tarjeta o
+      // efectivo) — refrescar el saldo mostrado sin importar cuál se usó.
+      if (usarCredito) refrescarUsuario();
       vaciarCarrito();
       navigation.replace('Seguimiento', { pedidoId: pedido.id });
     } catch (e) {
