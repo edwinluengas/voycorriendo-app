@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -74,6 +74,10 @@ export default function PagoScreen({ route, navigation }) {
   const [tarjetas, setTarjetas]           = useState([]);
   const [cargandoTarjetas, setCargandoTarjetas] = useState(false);
   const [tarjetaElegida, setTarjetaElegida] = useState(null); // id de TarjetaGuardada, o 'nueva'
+  // Recuerda la última tarjeta GUARDADA seleccionada — para poder
+  // "deseleccionar" (deshacer) si el usuario toca "Usar otra tarjeta" por
+  // error y quiere regresar a la que ya tenía elegida, sin fricción.
+  const tarjetaGuardadaAnteriorRef = useRef(null);
   const [cvvGuardada, setCvvGuardada]     = useState('');
   const [datosTarjetaNueva, setDatosTarjetaNueva] = useState({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
   const [metodoDetectado, setMetodoDetectado] = useState(null);
@@ -164,7 +168,12 @@ export default function PagoScreen({ route, navigation }) {
           setTarjetas(lista);
           setTarjetaElegida((actual) => {
             if (actual && actual !== 'nueva' && lista.some((t) => t.id === actual)) return actual;
-            return lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva';
+            const porDefecto = lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva';
+            // Guarda la selección por defecto como "anterior" — así, si el
+            // usuario nunca tocó explícitamente una tarjeta guardada y toca
+            // "Usar otra tarjeta" por error, deseleccionar la regresa aquí.
+            if (porDefecto !== 'nueva') tarjetaGuardadaAnteriorRef.current = porDefecto;
+            return porDefecto;
           });
         })
         .catch(() => setTarjetaElegida('nueva'))
@@ -641,6 +650,7 @@ export default function PagoScreen({ route, navigation }) {
                     <Pressable
                       style={estilos.tarjetaOpcionToca}
                       onPress={() => {
+                        tarjetaGuardadaAnteriorRef.current = t.id;
                         setTarjetaElegida(t.id);
                         // Limpia el formulario de tarjeta nueva — si el
                         // usuario había tecleado algo por error y cambia de
@@ -664,13 +674,19 @@ export default function PagoScreen({ route, navigation }) {
                 <Pressable
                   style={[estilos.tarjetaOpcion, tarjetaElegida === 'nueva' && estilos.tarjetaOpcionActiva]}
                   onPress={() => {
-                    // Si ya estaba en "nueva" (p. ej. la tocó por error),
-                    // volver a tocarla la resetea en blanco — como si no
-                    // quisiera agregar nada — en vez de no hacer nada.
                     if (tarjetaElegida === 'nueva') {
+                      // Ya estaba en "nueva" (la tocó por error) — DESELECCIONAR:
+                      // regresa a la tarjeta guardada que tenía elegida antes,
+                      // sin fricción. Si nunca había una (p. ej. no tiene
+                      // tarjetas guardadas), no hay a dónde volver — se queda
+                      // en "nueva" pero al menos limpia el formulario.
                       setDatosTarjetaNueva({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
                       setMetodoDetectado(null);
+                      if (tarjetaGuardadaAnteriorRef.current && tarjetas.some((t) => t.id === tarjetaGuardadaAnteriorRef.current)) {
+                        setTarjetaElegida(tarjetaGuardadaAnteriorRef.current);
+                      }
                     } else {
+                      tarjetaGuardadaAnteriorRef.current = tarjetaElegida;
                       setTarjetaElegida('nueva');
                     }
                   }}
