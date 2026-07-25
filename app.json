@@ -30,7 +30,6 @@
                                                   },
                                  "edgeToEdgeEnabled":  true,
                                  "package":  "mx.voycorriendo.app",
-                                 "versionCode":  20,
                                  "permissions":  [
                                                      "ACCESS_FINE_LOCATION",
                                                      "ACCESS_COARSE_LOCATION",
