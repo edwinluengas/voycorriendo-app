@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { usuariosAPI, tarjetasAPI } from '../../api/client';
@@ -108,7 +108,11 @@ export default function MetodosPagoScreen() {
 
   return (
     <SafeAreaView style={s.contenedor} edges={['bottom']}>
-      <View style={s.scroll}>
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         <Text style={s.subtitulo}>
           Elige tu método preferido. Siempre puedes cambiarlo al hacer un pedido.
         </Text>
@@ -200,7 +204,7 @@ export default function MetodosPagoScreen() {
             VoyCorriendo nunca los recibe ni los almacena.
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

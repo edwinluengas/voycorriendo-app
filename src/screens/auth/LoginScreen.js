@@ -22,6 +22,17 @@ export default function LoginScreen({ navigation }) {
       setCargando(true);
       await iniciarSesion(telefono, password);
     } catch (e) {
+      if (e?.response?.data?.codigo === 'USUARIO_NO_ENCONTRADO') {
+        Alert.alert(
+          'No encontramos tu cuenta',
+          'Ese número no está registrado. ¿Quieres crear una cuenta nueva?',
+          [
+            { text: 'Revisar número', style: 'cancel' },
+            { text: 'Crear cuenta', onPress: () => navigation.navigate('Registro') },
+          ]
+        );
+        return;
+      }
       Alert.alert('No pudimos entrar', e.mensajeAmigable || 'Verifica tus datos.');
     } finally {
       setCargando(false);
@@ -33,7 +44,8 @@ export default function LoginScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <ScrollView
         contentContainerStyle={estilos.scroll}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
         {/* Logo */}

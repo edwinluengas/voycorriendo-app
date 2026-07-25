@@ -116,6 +116,8 @@ export default function GananciasNegocioScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={{ paddingBottom: espacio.xl * 2 }}
         refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => { setRefrescar(true); cargar(); }} />}
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
       >
         {/* ── Aviso de bloqueo ─────────────────────────────── */}
         {bloqueado && (

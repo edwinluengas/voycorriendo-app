@@ -197,7 +197,12 @@ export default function PedidoActivoScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView ref={scrollRef} contentContainerStyle={estilos.scroll}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={estilos.scroll}
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         <Text style={estilos.numero}>{pedido.numero}</Text>
 
         {/* Recoger en */}

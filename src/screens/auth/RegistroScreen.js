@@ -13,6 +13,7 @@ const URL_PRIVACIDAD = `${API_BASE}/privacidad`;
 const ROLES = [
   { id: 'cliente',    emoji: '🛒', titulo: 'Soy cliente',    desc: 'Pido a domicilio' },
   { id: 'repartidor', emoji: '🛵', titulo: 'Soy repartidor', desc: 'Gano entregando'  },
+  { id: 'negocio',    emoji: '🏪', titulo: 'Soy negocio',    desc: 'Vendo en la app'  },
 ];
 
 export default function RegistroScreen() {
@@ -57,6 +58,12 @@ export default function RegistroScreen() {
           'Para empezar a repartir necesitamos tu INE, licencia y datos de tu moto. Ve a "Mi perfil" para subirlos. Un operador validará todo en 24 a 48 horas.'
         );
       }
+      if (rol === 'negocio') {
+        Alert.alert(
+          '¡Cuenta creada!',
+          'Para empezar a vender necesitamos los datos de tu negocio, ubicación, documentos y productos. Un operador validará todo en 24 a 48 horas.'
+        );
+      }
     } catch (e) {
       Alert.alert('No pudimos registrarte', e.mensajeAmigable || 'Revisa tus datos.');
     } finally {
@@ -69,7 +76,8 @@ export default function RegistroScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <ScrollView
         contentContainerStyle={estilos.scroll}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
         <Text style={estilos.titulo}>Crea tu cuenta</Text>
@@ -185,6 +193,15 @@ export default function RegistroScreen() {
               </Text>
             </View>
           )}
+          {rol === 'negocio' && (
+            <View style={estilos.aviso}>
+              <Text style={estilos.avisoEmoji}>📋</Text>
+              <Text style={estilos.avisoTxt}>
+                Necesitarás ubicación confirmada, foto de portada, foto del local, comprobante de domicilio, INE del dueño y cuenta bancaria. Verificaremos tus datos en 24-48 h.
+              </Text>
+            </View>
+          )}
+          )}
 
           {/* ── Consentimiento legal ── */}
           <View style={estilos.separador} />
@@ -259,7 +276,7 @@ const estilos = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
     borderRadius: radio.lg,
-    padding: espacio.md,
+    padding: espacio.sm,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',

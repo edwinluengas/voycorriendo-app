@@ -207,6 +207,13 @@ export default function DashboardNegocioScreen({ navigation }) {
             <Text style={estilos.headerNombre} numberOfLines={1}>{negocio?.nombre || 'Tu negocio'}</Text>
             <Text style={estilos.headerSub}>Hola {usuario?.nombre?.split(' ')[0]}, aquí van los pedidos</Text>
           </View>
+          <Pressable
+            onPress={() => navigation.navigate('HorariosNegocio')}
+            hitSlop={10}
+            style={estilos.horariosBtn}
+          >
+            <Ionicons name="time-outline" size={22} color="#FFF" />
+          </Pressable>
           {cambiandoApertura
             ? <ActivityIndicator color="#FFF" />
             : <Switch
@@ -427,6 +434,12 @@ const estilos = StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm },
   headerNombre: { fontSize: 20, fontWeight: '900', color: '#FFFFFF' },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  horariosBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: espacio.sm,
+  },
   aperturaBanner: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 7, paddingHorizontal: 12,

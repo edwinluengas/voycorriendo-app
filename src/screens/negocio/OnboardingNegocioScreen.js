@@ -271,6 +271,7 @@ export default function OnboardingNegocioScreen({ navigation }) {
         <ScrollView
           contentContainerStyle={estilos.scroll}
           keyboardShouldPersistTaps="always"
+          automaticallyAdjustKeyboardInsets={true}
           showsVerticalScrollIndicator={true}
         >
           {paso === 1 && <PasoBasico       datos={datos} setDatos={setDatos} />}

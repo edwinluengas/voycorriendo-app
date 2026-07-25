@@ -201,7 +201,7 @@ export default function SeguimientoScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView>
+      <ScrollView keyboardShouldPersistTaps="always" automaticallyAdjustKeyboardInsets={true}>
         <View style={estilos.header}>
           <Text style={estilos.numero}>Pedido {pedido.numero}</Text>
           <Text style={estilos.total}>${parseFloat(pedido.total).toFixed(2)} MXN</Text>

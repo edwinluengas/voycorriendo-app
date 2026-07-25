@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { negociosAPI } from '../../api/client';
 import Boton from '../../components/Boton';
+import MapaUbicacion from '../../components/MapaUbicacion';
 import { colors, espacio, radio } from '../../theme/colors';
 
 // ─────────────────────────────────────────────────────────────
@@ -280,6 +281,16 @@ export default function NegocioScreen({ route, navigation }) {
               </Text>
               <Text style={estilos.envio}>🛵 {envioTxt}</Text>
               {!!negocio.descripcion && <Text style={estilos.descripcion}>{negocio.descripcion}</Text>}
+              {!!(negocio.direccion || negocio.colonia) && (
+                <Text style={estilos.direccion}>
+                  📍 {[negocio.direccion, negocio.colonia].filter(Boolean).join(', ')}
+                </Text>
+              )}
+              <MapaUbicacion
+                lat={negocio.latitud ? parseFloat(negocio.latitud) : null}
+                lng={negocio.longitud ? parseFloat(negocio.longitud) : null}
+                titulo={negocio.nombre}
+              />
             </View>
 
             {/* ── Tabs de categoría estilo UberEats ── */}
@@ -529,6 +540,7 @@ const estilos = StyleSheet.create({
   meta: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
   envio: { fontSize: 13, color: colors.secundario, fontWeight: '700', marginTop: 2 },
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
+  direccion:   { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
 
   // Tabs categorías UberEats
   categoriasBar: {

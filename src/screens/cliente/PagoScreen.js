@@ -458,7 +458,11 @@ export default function PagoScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView
+        contentContainerStyle={estilos.scroll}
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Resumen del pedido */}
         {carrito.items.length > 0 && (
           <View style={estilos.resumenPedido}>

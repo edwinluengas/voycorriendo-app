@@ -239,6 +239,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
         <ScrollView
           contentContainerStyle={estilos.scroll}
           keyboardShouldPersistTaps="always"
+          automaticallyAdjustKeyboardInsets={true}
           showsVerticalScrollIndicator={true}
         >
           {paso === 1 && <PasoVehiculo datos={datos} setDatos={setDatos} />}
