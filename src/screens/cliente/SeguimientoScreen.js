@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
+import MapaSeguimiento from '../../components/MapaSeguimiento';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const WA_VOYCORRIENDO = '527542462564';
@@ -66,13 +67,21 @@ export default function SeguimientoScreen({ route, navigation }) {
   const [propina, setPropina]           = useState('');
   const [calificando, setCalificando]   = useState(false);
   const [cancelando, setCancelando]     = useState(false);
+  const [repartidorPos, setRepartidorPos] = useState(null);
   const estadoAnteriorRef               = useRef(null);
 
   const cargar = useCallback(async () => {
     try {
       const { data } = await pedidosAPI.detalle(pedidoId);
       const p = data.data?.pedido;
-      if (p) setPedido(p);
+      if (p) {
+        setPedido(p);
+        // Última ubicación conocida en DB — mientras llega el primer evento
+        // en vivo del socket, mejor mostrar algo aproximado que nada.
+        if (p.repartidor?.latitud && p.repartidor?.longitud) {
+          setRepartidorPos((actual) => actual || { lat: parseFloat(p.repartidor.latitud), lng: parseFloat(p.repartidor.longitud) });
+        }
+      }
     } catch (_) {}
     finally { setCargando(false); }
   }, [pedidoId]);
@@ -139,14 +148,23 @@ export default function SeguimientoScreen({ route, navigation }) {
 
     const onPago = () => cargar();
 
+    // Ubicación en vivo del repartidor (emitida por el backend solo a la
+    // sala del pedido, ya validada por ownership del lado del servidor).
+    const onUbicacion = (data) => {
+      if (data?.lat === undefined || data?.lng === undefined) return;
+      setRepartidorPos({ lat: data.lat, lng: data.lng });
+    };
+
     socket.on('estado_pedido', onEstado);
     socket.on('pago_actualizado', onPago);
+    socket.on('ubicacion_repartidor', onUbicacion);
 
     return () => {
       clearInterval(intervalo);
       // Pasar la referencia exacta del handler — evita eliminar listeners de otros componentes
       socket.off('estado_pedido', onEstado);
       socket.off('pago_actualizado', onPago);
+      socket.off('ubicacion_repartidor', onUbicacion);
     };
   }, [pedidoId, cargar]);
 
@@ -191,6 +209,18 @@ export default function SeguimientoScreen({ route, navigation }) {
             <Text style={estilos.direccionEntrega}>📍 {pedido.direccion_entrega}</Text>
           )}
         </View>
+
+        {/* Mapa en vivo — solo mientras el repartidor va EN CAMINO a la
+            dirección de entrega (destino = coords del propio pedido). Antes
+            de esto (recogiendo en el negocio) el que necesita verlo es el
+            negocio, no el cliente — ver PedidoDetalleNegocioScreen. */}
+        {pedido.estado === 'en_camino' && pedido.latitud_entrega && pedido.longitud_entrega && (
+          <MapaSeguimiento
+            repartidorPos={repartidorPos}
+            destino={{ lat: parseFloat(pedido.latitud_entrega), lng: parseFloat(pedido.longitud_entrega) }}
+            tituloDestino="Tu dirección"
+          />
+        )}
 
         {/* Código de entrega — LO PRIMERO que ve el cliente cuando el
             repartidor va en camino: tarjeta naranja sólida, número gigante

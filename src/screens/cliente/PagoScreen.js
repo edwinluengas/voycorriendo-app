@@ -27,7 +27,12 @@ const METODO_TRANSFERENCIA = {
 };
 
 export default function PagoScreen({ route, navigation }) {
-  const { usuario } = useAuth();
+  const { usuario, refrescarUsuario } = useAuth();
+  // El saldo de crédito puede haberlo otorgado un admin en cualquier
+  // momento de la sesión — refrescar al entrar a pagar para no mostrar un
+  // saldo desactualizado (el objeto `usuario` del contexto solo se llena
+  // una vez, al hacer login).
+  useFocusEffect(useCallback(() => { refrescarUsuario(); }, [refrescarUsuario]));
   const carrito   = getCarrito();
   const tipoEnvio = route.params?.tipo_envio || 'standard';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
@@ -49,6 +54,15 @@ export default function PagoScreen({ route, navigation }) {
   const propina    = metodo === 'tarjeta' ? propinaSel : 0;
   const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
   const total      = subtotal + costoEnvio + propina;
+  // Crédito de plataforma: complementa CUALQUIER método de pago — si no
+  // alcanza a cubrir todo el pedido, el resto se completa con tarjeta o en
+  // efectivo al entregar (el backend es la autoridad real del monto
+  // consumido, evita condiciones de carrera; esto es solo para mostrarle
+  // al cliente cuánto le va a quedar por pagar antes de confirmar).
+  const [usarCredito, setUsarCredito] = useState(true);
+  const creditoDisponible = parseFloat(usuario?.credito_disponible || 0);
+  const creditoAplicable  = usarCredito ? Math.min(creditoDisponible, total) : 0;
+  const totalNeto = Math.round((total - creditoAplicable) * 100) / 100;
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -275,7 +289,10 @@ export default function PagoScreen({ route, navigation }) {
     // dentro de confirmar(): setMetodoDetectado es asíncrono y el closure
     // vería el valor viejo).
     let metodoResuelto = metodoDetectado;
-    if (metodo === 'tarjeta') {
+    // El crédito cubre el pedido ENTERO — no hace falta tarjeta para nada,
+    // el backend ya lo marcará 'capturado' desde crearPedido.
+    const cubiertoConCredito = metodo === 'tarjeta' && totalNeto <= 0;
+    if (metodo === 'tarjeta' && !cubiertoConCredito) {
       if (!mpConfigurado()) {
         Alert.alert('No disponible', 'El pago con tarjeta aún no está configurado. Elige otro método.');
         return;
@@ -346,12 +363,16 @@ export default function PagoScreen({ route, navigation }) {
         ine_foto_url,
         propina: propina > 0 ? propina : undefined,
         paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
+        usar_credito: usarCredito ? true : undefined,
       });
       const pedido = data.data?.pedido;
 
       // 2. Tarjeta: tokeniza y cobra directo en la app (sin salir a Mercado Pago)
+      // — salvo que el crédito ya haya cubierto el pedido COMPLETO: el
+      // backend lo marca 'capturado' desde crearPedido y aquí no hay nada
+      // que cobrar a ningún medio de pago.
       let pagoRechazado = false;
-      if (metodo === 'tarjeta') {
+      if (metodo === 'tarjeta' && pedido?.pago_estado !== 'capturado') {
         try {
           let datosPago;
           if (tarjetaElegida !== 'nueva') {
@@ -414,6 +435,7 @@ export default function PagoScreen({ route, navigation }) {
       }
 
       // 3. Limpiar carrito y redirigir al seguimiento
+      if (metodo === 'tarjeta' && usarCredito) refrescarUsuario(); // refleja el saldo nuevo para el próximo pedido
       vaciarCarrito();
       navigation.replace('Seguimiento', { pedidoId: pedido.id });
     } catch (e) {
@@ -581,20 +603,29 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Campo "¿Con cuánto pagas?" — solo para efectivo */}
-        {metodo === 'efectivo' && (
+        {/* Campo "¿Con cuánto pagas?" — solo para efectivo, y solo si queda
+            algo por cobrar en mano (si el crédito cubrió todo, no hay nada
+            que pagar al entregar). */}
+        {metodo === 'efectivo' && totalNeto > 0 && (
           <View style={estilos.pagaConBox}>
             <Text style={estilos.pagaConLabel}>¿Con cuánto vas a pagar?</Text>
             <Text style={estilos.pagaConSub}>
               El repartidor sabrá cuánto cambio preparar. Opcional.
+              {creditoAplicable > 0 ? ` Ya se descontó tu crédito — solo pagas $${totalNeto.toFixed(2)}.` : ''}
             </Text>
             <Campo
-              placeholder={`Ej. $${Math.ceil(total / 50) * 50} MXN`}
+              placeholder={`Ej. $${Math.ceil(totalNeto / 50) * 50} MXN`}
               keyboardType="numeric"
               value={pagaCon}
               onChangeText={setPagaCon}
               maxLength={6}
             />
+          </View>
+        )}
+        {metodo === 'efectivo' && totalNeto <= 0 && (
+          <View style={estilos.pagaConBox}>
+            <Text style={estilos.pagaConLabel}>🎁 Tu crédito cubre este pedido completo</Text>
+            <Text style={estilos.pagaConSub}>No le debes pagar nada en efectivo al repartidor.</Text>
           </View>
         )}
 
@@ -704,9 +735,38 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* Crédito de plataforma — CUALQUIER método de pago. Otorgado por
+            un admin (manual o como compensación por un pedido no
+            entregado), usable en cualquier tienda. Si no alcanza a cubrir
+            todo, el resto se completa con tarjeta o en efectivo. */}
+        {creditoDisponible > 0 && (
+          <Pressable style={estilos.creditoBox} onPress={() => setUsarCredito((v) => !v)}>
+            <View style={[estilos.creditoCheckbox, usarCredito && estilos.creditoCheckboxActivo]}>
+              {usarCredito && <Text style={estilos.creditoCheckboxCheck}>✓</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.creditoLabel}>🎁 Usar mi crédito disponible</Text>
+              <Text style={estilos.creditoSub}>
+                Tienes ${creditoDisponible.toFixed(2)} MXN de crédito
+                {usarCredito && creditoAplicable > 0 && creditoAplicable < total
+                  ? ` — completa el resto ${metodo === 'tarjeta' ? 'con tu tarjeta' : 'en efectivo al entregar'}`
+                  : ''}
+              </Text>
+            </View>
+            {usarCredito && creditoAplicable > 0 && (
+              <Text style={estilos.creditoMonto}>-${creditoAplicable.toFixed(2)}</Text>
+            )}
+          </Pressable>
+        )}
+
         <View style={estilos.totalBox}>
-          <Text style={estilos.totalLabel}>Total a pagar</Text>
-          <Text style={estilos.totalValor}>${total.toFixed(2)} MXN</Text>
+          <View>
+            <Text style={estilos.totalLabel}>Total a pagar</Text>
+            {creditoAplicable > 0 && (
+              <Text style={estilos.totalTachado}>${total.toFixed(2)} MXN</Text>
+            )}
+          </View>
+          <Text style={estilos.totalValor}>${totalNeto.toFixed(2)} MXN</Text>
         </View>
 
         <Boton
@@ -915,6 +975,23 @@ const estilos = StyleSheet.create({
   propinaChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
   propinaChipTxt: { fontSize: 13, fontWeight: '700', color: colors.textoSuave },
   propinaChipTxtActivo: { color: colors.primario },
+
+  creditoBox: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    marginHorizontal: espacio.md, marginBottom: espacio.sm,
+    backgroundColor: '#F0FDF4', borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  creditoCheckbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.secundario,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  creditoCheckboxActivo: { backgroundColor: colors.secundario },
+  creditoCheckboxCheck: { color: '#FFF', fontWeight: '900', fontSize: 14 },
+  creditoLabel: { fontSize: 13, fontWeight: '800', color: colors.texto },
+  creditoSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  creditoMonto: { fontSize: 15, fontWeight: '800', color: colors.secundario },
+  totalTachado: { fontSize: 13, color: colors.textoSuave, textDecorationLine: 'line-through' },
 
   totalBox: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

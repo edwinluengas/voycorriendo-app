@@ -26,6 +26,7 @@ export default function PedidoActivoScreen({ route, navigation }) {
   const [montoEfe, setMontoEfe]       = useState('');
   const [codigoEntrega, setCodigo]    = useState('');
   const [codigoError, setCodigoError] = useState(false);
+  const [marcandoRecogido, setMarcandoRecogido] = useState(false);
   const scrollRef = useRef(null);
 
   const cargar = useCallback(async () => {
@@ -93,17 +94,37 @@ export default function PedidoActivoScreen({ route, navigation }) {
     return () => clearInterval(interval);
   }, [pedidoId]);
 
+  // `aceptarPedido` salta directo a estado='en_camino' en el mismo instante
+  // de aceptar el pedido — no hay ningún estado intermedio de "voy por él".
+  // Este paso marca recogido_en (columna que ya existía sin usarse) para
+  // dar una ventana real entre "acepté, voy por el pedido" y "ya lo tengo,
+  // salgo a entregar" — es lo que activa el mapa en vivo del NEGOCIO.
+  const confirmarRecogido = async () => {
+    setMarcandoRecogido(true);
+    try {
+      await repartidoresAPI.marcarRecogido(pedidoId);
+      await cargar();
+    } catch (e) {
+      Alert.alert('Error', e.mensajeAmigable || 'No se pudo confirmar. Intenta de nuevo.');
+    } finally {
+      setMarcandoRecogido(false);
+    }
+  };
+
   const avanzar = async () => {
     const sig = SIGUIENTE[pedido?.estado];
     if (!sig) return;
 
     // --- Validaciones antes de "Confirmar entrega" ---
     if (sig.estado === 'entregado') {
-      // 1. Cobro en efectivo: validar monto recibido
-      if (pedido.metodo_pago === 'efectivo') {
+      // 1. Cobro en efectivo: validar monto recibido — contra el NETO
+      // (total - crédito de plataforma ya aplicado), no el total completo.
+      // Si el crédito cubrió el pedido entero, no hay nada que cobrar.
+      const netoACobrar = Math.max(0, parseFloat(pedido.total) - parseFloat(pedido.credito_aplicado || 0));
+      if (pedido.metodo_pago === 'efectivo' && netoACobrar > 0) {
         const monto = parseFloat(montoEfe);
-        if (!montoEfe || isNaN(monto) || monto < parseFloat(pedido.total)) {
-          Alert.alert('Efectivo', `El cliente debe pagarte al menos $${parseFloat(pedido.total).toFixed(2)} MXN.`);
+        if (!montoEfe || isNaN(monto) || monto < netoACobrar) {
+          Alert.alert('Efectivo', `El cliente debe pagarte al menos $${netoACobrar.toFixed(2)} MXN.`);
           return;
         }
         try {
@@ -168,7 +189,11 @@ export default function PedidoActivoScreen({ route, navigation }) {
   if (!pedido) return null;
 
   const sig = SIGUIENTE[pedido.estado];
-  const esEntrega = sig?.estado === 'entregado';
+  // Ver nota en confirmarRecogido: al aceptar, el pedido ya llega en
+  // 'en_camino' — esta bandera local es lo único que distingue "voy por él"
+  // de "ya lo llevo, voy a entregar".
+  const faltaRecoger = pedido.estado === 'en_camino' && !pedido.recogido_en;
+  const esEntrega = sig?.estado === 'entregado' && !faltaRecoger;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -212,22 +237,37 @@ export default function PedidoActivoScreen({ route, navigation }) {
           />
         </View>
 
-        {/* Cobro */}
-        <View style={estilos.cobroBox}>
-          <Text style={estilos.cobroLabel}>Cobrar al cliente</Text>
-          <Text style={estilos.cobroValor}>${parseFloat(pedido.total).toFixed(2)} MXN</Text>
-          <Text style={estilos.cobroPago}>
-            {pedido.metodo_pago === 'efectivo' ? '💵 En efectivo' :
-             pedido.pago_estado === 'capturado' ? '✅ Ya pagó en la app' :
-             '⏳ Pago digital pendiente'}
-          </Text>
-        </View>
+        {/* Cobro — si el cliente usó crédito de plataforma, lo que hay que
+            cobrarle EN MANO es el neto (total - crédito), no el total
+            completo: ese pedazo ya lo cubrió el crédito, no es dinero que
+            el repartidor deba recibir. */}
+        {(() => {
+          const creditoAplicado = parseFloat(pedido.credito_aplicado || 0);
+          const netoACobrar = Math.max(0, parseFloat(pedido.total) - creditoAplicado);
+          return (
+            <View style={estilos.cobroBox}>
+              <Text style={estilos.cobroLabel}>Cobrar al cliente</Text>
+              <Text style={estilos.cobroValor}>${netoACobrar.toFixed(2)} MXN</Text>
+              {creditoAplicado > 0 && (
+                <Text style={estilos.cobroCredito}>
+                  🎁 ${creditoAplicado.toFixed(2)} ya cubiertos con crédito de la app (total del pedido: ${parseFloat(pedido.total).toFixed(2)})
+                </Text>
+              )}
+              <Text style={estilos.cobroPago}>
+                {pedido.metodo_pago === 'efectivo'
+                  ? (netoACobrar > 0 ? '💵 En efectivo' : '✅ Cubierto 100% con crédito — no cobres nada')
+                  : pedido.pago_estado === 'capturado' ? '✅ Ya pagó en la app' :
+                    '⏳ Pago digital pendiente'}
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Monto en efectivo — solo al entregar */}
-        {esEntrega && pedido.metodo_pago === 'efectivo' && (
+        {esEntrega && pedido.metodo_pago === 'efectivo' && Math.max(0, parseFloat(pedido.total) - parseFloat(pedido.credito_aplicado || 0)) > 0 && (
           <Campo
             etiqueta="¿Con cuánto te pagó el cliente?"
-            placeholder={`Ej. $${Math.ceil(parseFloat(pedido.total) / 50) * 50}`}
+            placeholder={`Ej. $${Math.ceil((parseFloat(pedido.total) - parseFloat(pedido.credito_aplicado || 0)) / 50) * 50}`}
             keyboardType="numeric"
             value={montoEfe}
             onChangeText={setMontoEfe}
@@ -265,7 +305,13 @@ export default function PedidoActivoScreen({ route, navigation }) {
           </View>
         )}
 
-        {sig && (
+        {faltaRecoger ? (
+          <Boton
+            titulo="📦 Ya recogí el pedido"
+            onPress={confirmarRecogido}
+            cargando={marcandoRecogido}
+          />
+        ) : sig && (
           <Boton
             titulo={sig.label}
             onPress={avanzar}
@@ -305,6 +351,7 @@ const estilos = StyleSheet.create({
   cobroLabel: { color: '#FFF', fontSize: 12, opacity: 0.85, textTransform: 'uppercase', letterSpacing: 0.5 },
   cobroValor: { color: '#FFF', fontSize: 34, fontWeight: '900', marginVertical: espacio.xs },
   cobroPago:  { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  cobroCredito: { color: '#FFF', fontSize: 12, opacity: 0.85, textAlign: 'center', marginBottom: espacio.xs },
 
   codigoBox: {
     backgroundColor: '#FFF3E8',

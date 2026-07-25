@@ -11,7 +11,7 @@
  *     preparando  → [Marcar listo]
  *     listo/+     → solo lectura
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, Pressable,
   ActivityIndicator, Alert, Linking, Modal, TextInput,
@@ -21,6 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { pedidosAPI } from '../../api/client';
+import { conectarSocket } from '../../api/socket';
+import MapaSeguimiento from '../../components/MapaSeguimiento';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const METODO_PAGO_TXT = {
@@ -50,11 +52,18 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
   const [mostrarINE, setMostrarINE] = useState(false);
   const [modalGuia, setModalGuia]   = useState(false);
   const [guia, setGuia]             = useState('');
+  const [repartidorPos, setRepartidorPos] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
       const { data } = await pedidosAPI.detalle(pedidoId);
-      setPedido(data.data?.pedido || null);
+      const p = data.data?.pedido || null;
+      setPedido(p);
+      // Última ubicación conocida en DB — mientras llega el primer evento
+      // en vivo del socket, mejor mostrar algo aproximado que nada.
+      if (p?.repartidor?.latitud && p?.repartidor?.longitud) {
+        setRepartidorPos((actual) => actual || { lat: parseFloat(p.repartidor.latitud), lng: parseFloat(p.repartidor.longitud) });
+      }
     } catch (e) {
       Alert.alert('Error', e.mensajeAmigable || 'No pudimos cargar el pedido.');
     } finally {
@@ -63,6 +72,37 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
   }, [pedidoId]);
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
+
+  // Ubicación en vivo del repartidor asignado — mientras va por el pedido.
+  // Misma sala 'pedido:<id>' que usa el cliente; el backend valida ownership
+  // por el lado del negocio (esNegocio) antes de dejar entrar al socket.
+  useEffect(() => {
+    const socket = conectarSocket();
+    socket.emit('unirse_pedido', pedidoId);
+    const onUbicacion = (data) => {
+      if (data?.lat === undefined || data?.lng === undefined) return;
+      setRepartidorPos({ lat: data.lat, lng: data.lng });
+    };
+    const onEstado = (data) => {
+      if (data?.pedido_id !== pedidoId) return;
+      setPedido((p) => (p ? { ...p, estado: data.estado } : p));
+    };
+    // El repartidor marca "ya recogí el pedido" (ver PedidoActivoScreen) —
+    // el mapa de "viene por tu pedido" debe ocultarse solo, sin esperar a
+    // que el negocio salga y vuelva a entrar a la pantalla.
+    const onRecogido = (data) => {
+      if (data?.pedido_id !== pedidoId) return;
+      setPedido((p) => (p ? { ...p, recogido_en: new Date().toISOString() } : p));
+    };
+    socket.on('ubicacion_repartidor', onUbicacion);
+    socket.on('estado_pedido', onEstado);
+    socket.on('pedido_recogido', onRecogido);
+    return () => {
+      socket.off('ubicacion_repartidor', onUbicacion);
+      socket.off('estado_pedido', onEstado);
+      socket.off('pedido_recogido', onRecogido);
+    };
+  }, [pedidoId]);
 
   const cambiarEstado = async (nuevoEstado, nota) => {
     if (enviando) return;
@@ -269,6 +309,21 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
               y se usa para pagar al repartidor.
             </Text>
           </Seccion>
+        )}
+
+        {/* Mapa en vivo — repartidor asignado, viene por el pedido (aún no
+            marca "ya recogí"; ver recogido_en). El backend salta el
+            `estado` del pedido a 'en_camino' desde el instante mismo de
+            aceptar, así que NO sirve para distinguir esta ventana — el
+            gate real es recogido_en. Destino = ubicación del negocio. */}
+        {!pedido.recogido_en && pedido.repartidor
+          && !['entregado', 'cancelado', 'rechazado'].includes(pedido.estado)
+          && pedido.negocio?.latitud && pedido.negocio?.longitud && (
+          <MapaSeguimiento
+            repartidorPos={repartidorPos}
+            destino={{ lat: parseFloat(pedido.negocio.latitud), lng: parseFloat(pedido.negocio.longitud) }}
+            tituloDestino="Tu negocio"
+          />
         )}
 
         {/* Repartidor si ya se asignó — foto + placa para verificar en la entrega */}
