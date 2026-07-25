@@ -638,7 +638,18 @@ export default function PagoScreen({ route, navigation }) {
               <>
                 {tarjetas.map((t) => (
                   <View key={t.id} style={[estilos.tarjetaOpcion, tarjetaElegida === t.id && estilos.tarjetaOpcionActiva]}>
-                    <Pressable style={estilos.tarjetaOpcionToca} onPress={() => setTarjetaElegida(t.id)}>
+                    <Pressable
+                      style={estilos.tarjetaOpcionToca}
+                      onPress={() => {
+                        setTarjetaElegida(t.id);
+                        // Limpia el formulario de tarjeta nueva — si el
+                        // usuario había tecleado algo por error y cambia de
+                        // opinión, no debe reaparecer la próxima vez que
+                        // toque "Usar otra tarjeta".
+                        setDatosTarjetaNueva({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+                        setMetodoDetectado(null);
+                      }}
+                    >
                       <Text style={{ fontSize: 20 }}>💳</Text>
                       <Text style={estilos.tarjetaOpcionTxt}>
                         {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
@@ -652,7 +663,17 @@ export default function PagoScreen({ route, navigation }) {
                 ))}
                 <Pressable
                   style={[estilos.tarjetaOpcion, tarjetaElegida === 'nueva' && estilos.tarjetaOpcionActiva]}
-                  onPress={() => setTarjetaElegida('nueva')}
+                  onPress={() => {
+                    // Si ya estaba en "nueva" (p. ej. la tocó por error),
+                    // volver a tocarla la resetea en blanco — como si no
+                    // quisiera agregar nada — en vez de no hacer nada.
+                    if (tarjetaElegida === 'nueva') {
+                      setDatosTarjetaNueva({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+                      setMetodoDetectado(null);
+                    } else {
+                      setTarjetaElegida('nueva');
+                    }
+                  }}
                 >
                   <Text style={{ fontSize: 20 }}>➕</Text>
                   <Text style={estilos.tarjetaOpcionTxt}>Usar otra tarjeta</Text>

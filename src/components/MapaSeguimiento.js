@@ -8,7 +8,7 @@
  */
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { colors, espacio, radio } from '../theme/colors';
 
 export default function MapaSeguimiento({ repartidorPos, destino, tituloDestino = 'Destino' }) {
@@ -35,7 +35,7 @@ export default function MapaSeguimiento({ repartidorPos, destino, tituloDestino 
 
   return (
     <View style={s.contenedor}>
-      <MapView ref={mapRef} style={s.mapa} initialRegion={region}>
+      <MapView ref={mapRef} provider={PROVIDER_GOOGLE} style={s.mapa} initialRegion={region}>
         <Marker coordinate={{ latitude: destino.lat, longitude: destino.lng }} title={tituloDestino} pinColor={colors.primario} />
         {repartidorPos && (
           <Marker coordinate={{ latitude: repartidorPos.lat, longitude: repartidorPos.lng }} title="Repartidor" anchor={{ x: 0.5, y: 0.5 }}>

@@ -174,7 +174,17 @@ export default function MetodosPagoScreen() {
               cargando={guardandoTarjeta}
               estilo={{ marginTop: espacio.sm }}
             />
-            <Pressable onPress={() => { setMostrarForm(false); setMetodoDetectado(null); }} style={{ marginTop: espacio.sm, alignItems: 'center' }}>
+            <Pressable
+              onPress={() => {
+                setMostrarForm(false);
+                setMetodoDetectado(null);
+                // Limpia los campos — si vuelve a presionar "Agregar
+                // tarjeta" no deben reaparecer los datos que había
+                // tecleado antes de arrepentirse.
+                setDatosTarjeta({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+              }}
+              style={{ marginTop: espacio.sm, alignItems: 'center' }}
+            >
               <Text style={s.cancelarTxt}>Cancelar</Text>
             </Pressable>
           </View>
