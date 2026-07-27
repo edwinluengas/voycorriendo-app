@@ -153,9 +153,13 @@ export default function TierScreen({ navigation }) {
             <Text style={estilos.comparativaLabel}>⚡ Express (si aplica)</Text>
             <Text style={estilos.comparativaValor}>${FEE_ENVIO.express} por entrega</Text>
           </View>
+          {/* El bono por metas NO existe todavía (nada en el backend lo paga).
+              Se quitó de aquí en vez de dejarlo prometido: mostrarle al
+              repartidor un ingreso que nunca va a llegar es peor que no
+              ofrecerlo. Cuando se active de verdad, se vuelve a poner. */}
           <View style={estilos.comparativaFila}>
-            <Text style={estilos.comparativaLabel}>📦 Bono por 10 pedidos/día</Text>
-            <Text style={estilos.comparativaValor}>$50 MXN extra</Text>
+            <Text style={estilos.comparativaLabel}>💵 Propinas</Text>
+            <Text style={estilos.comparativaValor}>100% para ti</Text>
           </View>
         </View>
 
