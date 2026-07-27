@@ -165,14 +165,36 @@ export const AuthProvider = ({ children }) => {
 
   // `lada` = código de país sin '+' (default México). Los usuarios extranjeros
   // que viven/vacacionan en Puerto eligen el suyo en la pantalla de login.
+  //
+  // Las cuentas ADMIN llevan segundo factor obligatorio: el backend responde
+  // `requiere_2fa` en vez de un token, y la pantalla debe pedir el código
+  // que llegó por Telegram/SMS/correo y llamar a `completarSegundoFactor`.
   const iniciarSesion = async (telefono, password, lada = '52') => {
     const { data } = await authAPI.login({ telefono, password, lada });
+    if (data?.requiere_2fa) {
+      return { requiere2FA: true, canales: data.canales || [], vigenciaMin: data.vigencia_min };
+    }
     const { token, usuario: user } = data.data || data;
     await SecureStore.setItemAsync('jwt', token);
     setUsuario(user);
     await cargarRoles();
     registrarPushToken();
     conectarSocket(token);   // reconectar con el nuevo JWT
+    return user;
+  };
+
+  // Segundo paso del login de administrador. Se manda otra vez la contraseña
+  // a propósito: si alguien alcanzara a ver el código (notificación en la
+  // pantalla bloqueada, Telegram abierto en otra máquina), por sí solo no
+  // le sirve de nada.
+  const completarSegundoFactor = async (telefono, password, codigo, lada = '52') => {
+    const { data } = await authAPI.loginSegundoFactor({ telefono, password, codigo, lada });
+    const { token, usuario: user } = data.data || data;
+    await SecureStore.setItemAsync('jwt', token);
+    setUsuario(user);
+    await cargarRoles();
+    registrarPushToken();
+    conectarSocket(token);
     return user;
   };
 
@@ -224,7 +246,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       usuario, roles, cargando,
-      iniciarSesion, registrarse, cerrarSesion, entrarConToken,
+      iniciarSesion, completarSegundoFactor, registrarse, cerrarSesion, entrarConToken,
       cambiarModo, cargarRoles, refrescarUsuario,
     }}>
       {children}

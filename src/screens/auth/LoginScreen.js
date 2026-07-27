@@ -8,12 +8,30 @@ import CampoTelefono, { PAISES, validarTelefono } from '../../components/CampoTe
 import { colors, espacio, radio } from '../../theme/colors';
 
 export default function LoginScreen({ navigation }) {
-  const { iniciarSesion } = useAuth();
+  const { iniciarSesion, completarSegundoFactor } = useAuth();
   const [pais, setPais]             = useState(PAISES[0]);   // México por defecto
   const [telefono, setTelefono]     = useState('');
   const [password, setPassword]     = useState('');
   const [verPassword, setVerPassword] = useState(false);
   const [cargando, setCargando]     = useState(false);
+  // Segundo factor: solo aparece para cuentas de administrador
+  const [pide2FA, setPide2FA]       = useState(null);   // { canales, vigenciaMin }
+  const [codigo2FA, setCodigo2FA]   = useState('');
+
+  const confirmar2FA = async () => {
+    if (codigo2FA.trim().length !== 6) {
+      Alert.alert('Código incompleto', 'El código de verificación son 6 dígitos.');
+      return;
+    }
+    try {
+      setCargando(true);
+      await completarSegundoFactor(telefono, password, codigo2FA.trim(), pais.lada);
+    } catch (e) {
+      Alert.alert('No pudimos verificarte', e.mensajeAmigable || 'Código incorrecto.');
+    } finally {
+      setCargando(false);
+    }
+  };
 
   const submit = async () => {
     const errorTel = validarTelefono(telefono, pais);
@@ -24,7 +42,14 @@ export default function LoginScreen({ navigation }) {
     }
     try {
       setCargando(true);
-      await iniciarSesion(telefono, password, pais.lada);
+      const r = await iniciarSesion(telefono, password, pais.lada);
+      // Cuenta admin: la contraseña sola no entra, falta el código que se
+      // acaba de enviar por Telegram / SMS / correo.
+      if (r?.requiere2FA) {
+        setPide2FA({ canales: r.canales, vigenciaMin: r.vigenciaMin });
+        setCodigo2FA('');
+        return;
+      }
     } catch (e) {
       if (e?.codigoError === 'USUARIO_NO_ENCONTRADO' || e?.response?.data?.codigo === 'USUARIO_NO_ENCONTRADO') {
         Alert.alert(
@@ -69,10 +94,45 @@ export default function LoginScreen({ navigation }) {
         <View style={estilos.logoMini}>
           <Text style={estilos.logoMiniTxt}>VC</Text>
         </View>
-        <Text style={estilos.titulo}>{'Bienvenido\nde regreso'}</Text>
-        <Text style={estilos.subtitulo}>Inicia sesión para seguir pidiendo</Text>
+        <Text style={estilos.titulo}>
+          {pide2FA ? 'Verificación\nen dos pasos' : 'Bienvenido\nde regreso'}
+        </Text>
+        <Text style={estilos.subtitulo}>
+          {pide2FA
+            ? `Tu cuenta es de administrador. Te enviamos un código por ${(pide2FA.canales || []).join(' y ') || 'tus canales de seguridad'} — vence en ${pide2FA.vigenciaMin || 10} minutos.`
+            : 'Inicia sesión para seguir pidiendo'}
+        </Text>
 
-        {/* Formulario */}
+        {/* Paso 2 — código de administrador */}
+        {pide2FA ? (
+          <View style={estilos.tarjeta}>
+            <Text style={estilos.label}>CÓDIGO DE 6 DÍGITOS</Text>
+            <TextInput
+              style={[estilos.input, estilos.inputCodigo]}
+              placeholder="000000"
+              placeholderTextColor="#D1D5DB"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={codigo2FA}
+              onChangeText={(v) => setCodigo2FA(v.replace(/\D/g, ''))}
+              autoFocus
+              onSubmitEditing={confirmar2FA}
+            />
+            <TouchableOpacity
+              style={[estilos.boton, cargando && estilos.botonDesactivado]}
+              onPress={confirmar2FA}
+              disabled={cargando}
+              activeOpacity={0.85}
+            >
+              <Text style={estilos.botonTxt}>{cargando ? 'Verificando...' : 'Entrar'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.olvide} onPress={() => { setPide2FA(null); setCodigo2FA(''); }}>
+              <Text style={estilos.olvideTxt}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+
+        /* Formulario normal */
         <View style={estilos.tarjeta}>
           <CampoTelefono
             pais={pais} onChangePais={setPais}
@@ -120,6 +180,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={estilos.olvideTxt}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>
+        )}
 
         <TouchableOpacity
           style={estilos.linkRegistro}
@@ -213,6 +274,7 @@ const estilos = StyleSheet.create({
   },
   botonDesactivado: { opacity: 0.7 },
   botonTxt: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+  inputCodigo: { fontSize: 28, fontWeight: '800', letterSpacing: 10, textAlign: 'center' },
   olvide: { alignItems: 'center', paddingVertical: espacio.md, marginTop: espacio.xs },
   olvideTxt: { color: colors.primario, fontWeight: '700', fontSize: 14 },
   linkRegistro: {

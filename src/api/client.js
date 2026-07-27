@@ -101,6 +101,8 @@ api.interceptors.response.use(
 export const authAPI = {
   registro: (data) => api.post('/auth/registro', data),
   login:    (data) => api.post('/auth/login', data),
+  // Segundo factor de las cuentas admin (código de un solo uso)
+  loginSegundoFactor: (data) => api.post('/auth/login-2fa', data),
   yo:       ()     => api.get('/auth/perfil'),
   // Recuperación de contraseña: pide código por SMS o correo, y luego lo canjea
   // por una contraseña nueva (el backend devuelve token, se entra directo).
