@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Refresh
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { negociosAPI } from '../../api/client';
+import { FEE_ENVIO } from '../../config/businessRules';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
@@ -323,7 +324,9 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
         ⭐ {negocio.calificacion_promedio || '4.5'} · {formatoTiempoEntrega(negocio)}
       </Text>
       <Text style={estilos.envio}>
-        {negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $35 MXN'}
+        {negocio.tipo_entrega === 'paqueteria'
+          ? 'Envío por paquetería'
+          : `Envío $${FEE_ENVIO.standard} MXN — tarifa única`}
       </Text>
     </View>
   </Pressable>

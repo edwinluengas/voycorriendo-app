@@ -4,8 +4,12 @@
  */
 
 // ─── Tarifas de envío (pagadas por el cliente, 100% para el repartidor) ─
+// PLANAS: no dependen de la distancia. $40 estándar desde 2026-07-26 — con
+// $35 y cobertura de 5 km, la utilidad del repartidor en una entrega larga
+// quedaba por debajo del salario mínimo por hora ya descontados gasolina,
+// mantenimiento y depreciación de la moto.
 export const FEE_ENVIO = {
-  standard: 35,
+  standard: 40,
   express:  60,
 };
 

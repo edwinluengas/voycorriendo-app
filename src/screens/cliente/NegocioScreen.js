@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { negociosAPI } from '../../api/client';
+import { FEE_ENVIO } from '../../config/businessRules';
 import Boton from '../../components/Boton';
 import MapaUbicacion from '../../components/MapaUbicacion';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -279,7 +280,9 @@ export default function NegocioScreen({ route, navigation }) {
   }
 
   const emojiNegocio = EMOJI_POR_CATEGORIA_NEGOCIO[negocio.categoria] || '🏪';
-  const envioTxt = negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $35 MXN';
+  const envioTxt = negocio.tipo_entrega === 'paqueteria'
+    ? 'Envío por paquetería'
+    : `Envío $${FEE_ENVIO.standard} MXN — tarifa única, sin importar la distancia`;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
