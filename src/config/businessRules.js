@@ -13,6 +13,12 @@ export const FEE_ENVIO = {
   express:  60,
 };
 
+// ─── Pedidos que caben en una misma ruta del repartidor ──────────────
+// Hasta 3 en el mismo viaje, y SOLO si van por el mismo rumbo: el backend
+// verifica que la recogida y la entrega queden cerca de las que ya trae
+// (services/ruta.service.js). Los Express siempre viajan solos.
+export const MAX_PEDIDOS_RUTA = 3;
+
 // ─── Comisión plataforma al restaurante (flat, no porcentaje) ─────────
 export const FEE_PLATAFORMA = 35;
 

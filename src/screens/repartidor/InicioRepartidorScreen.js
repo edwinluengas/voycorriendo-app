@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { repartidoresAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
+import { MAX_PEDIDOS_RUTA } from '../../config/businessRules';
 import { useAuth } from '../../context/AuthContext';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -125,9 +126,41 @@ export default function InicioRepartidorScreen({ navigation }) {
     const onDisponible = () => { cargarPedidosRef.current?.(); };
     socket.on('pedido_disponible', onDisponible);
 
+    // Aviso dirigido: el backend ya verificó que este pedido le queda de paso
+    // en la ruta que trae (services/ruta.service). Vale más que el aviso
+    // general — es otra tarifa completa en el mismo viaje — así que se
+    // muestra con su propio diálogo y opción de tomarlo al instante.
+    const onEnTuRuta = (info) => {
+      cargarPedidosRef.current?.();
+      Vibration.vibrate([0, 250, 150, 250, 150, 250]);
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '➕ Otro pedido en tu misma ruta',
+          body: `${info?.negocio || 'Un negocio cercano'} · +$${Number(info?.pago || 0).toFixed(0)} en el mismo viaje`,
+          sound: true,
+          channelId: 'repartidor',
+          data: { tipo: 'pedido_en_tu_ruta', pedidoId: info?.pedido_id },
+        },
+        trigger: null,
+      }).catch(() => {});
+      Alert.alert(
+        '➕ Otro pedido en tu ruta',
+        `${info?.negocio || 'Un negocio cercano'}\n`
+        + `+$${Number(info?.pago || 0).toFixed(0)} por este pedido\n`
+        + `${info?.motivo || ''}\n\n`
+        + `Te ${info?.lugares_libres === 1 ? 'queda 1 lugar' : `quedan ${info?.lugares_libres} lugares`} en esta ruta.`,
+        [
+          { text: 'Ahora no', style: 'cancel' },
+          { text: 'Tomarlo', onPress: () => info?.pedido_id && aceptarRef.current?.(info.pedido_id) },
+        ],
+      );
+    };
+    socket.on('pedido_en_tu_ruta', onEnTuRuta);
+
     return () => {
       socket.off('connect', unirse);
       socket.off('pedido_disponible', onDisponible);
+      socket.off('pedido_en_tu_ruta', onEnTuRuta);
     };
   }, [conectado, aprobado, usuario?.id]);
 
@@ -165,10 +198,16 @@ export default function InicioRepartidorScreen({ navigation }) {
       await repartidoresAPI.aceptarPedido(id);
       navigation.navigate('PedidoActivo', { pedidoId: id });
     } catch (e) {
-      Alert.alert('No se pudo aceptar', e.mensajeAmigable || 'Otro repartidor lo tomo primero.');
+      // El backend distingue "fuera de tu ruta" de "ya lo tomaron": son
+      // situaciones distintas y el repartidor necesita saber cuál fue.
+      const titulo = e?.codigoError === 'FUERA_DE_RUTA' ? 'No va en tu ruta' : 'No se pudo aceptar';
+      Alert.alert(titulo, e.mensajeAmigable || 'Otro repartidor lo tomó primero.');
       cargarPedidos();
     }
   };
+  // Ref para que el listener del socket llame siempre a la versión vigente
+  const aceptarRef = useRef(null);
+  useEffect(() => { aceptarRef.current = aceptar; });
 
   const volverACliente = async () => {
     try { await cambiarModo('cliente'); } catch (_) {}
@@ -252,6 +291,27 @@ export default function InicioRepartidorScreen({ navigation }) {
           <Text style={estilos.enCursoIr}>Continuar ›</Text>
         </Pressable>
       ))}
+
+      {/* Cupo de la ruta: hasta 3 pedidos en el mismo viaje si van por el
+          mismo rumbo. Se dice explícito para que el repartidor sepa que
+          puede seguir tomando sin terminar la entrega actual. */}
+      {rutaActiva.length > 0 && rutaActiva.length < MAX_PEDIDOS_RUTA && (
+        <View style={estilos.cupoRuta}>
+          <Text style={estilos.cupoRutaTxt}>
+            {`➕ Puedes tomar ${MAX_PEDIDOS_RUTA - rutaActiva.length} pedido${MAX_PEDIDOS_RUTA - rutaActiva.length > 1 ? 's' : ''} más en este mismo viaje`}
+          </Text>
+          <Text style={estilos.cupoRutaSub}>
+            Solo los que van por tu mismo rumbo — te avisamos en cuanto salga uno.
+          </Text>
+        </View>
+      )}
+      {rutaActiva.length >= MAX_PEDIDOS_RUTA && (
+        <View style={estilos.cupoRutaLleno}>
+          <Text style={estilos.cupoRutaTxt}>
+            {`🛵 Ruta llena (${MAX_PEDIDOS_RUTA} pedidos) — entrega para poder tomar más`}
+          </Text>
+        </View>
+      )}
 
       {/* Indicadores rapidos */}
       <View style={estilos.statsBar}>
@@ -408,6 +468,20 @@ const estilos = StyleSheet.create({
   enCursoTitulo: { color: '#FFF', fontWeight: '800', fontSize: 14 },
   enCursoSub:    { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
   enCursoIr:     { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  cupoRuta: {
+    backgroundColor: '#E8F5E9', borderRadius: radio.md,
+    paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    marginHorizontal: espacio.lg, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: '#A5D6A7',
+  },
+  cupoRutaLleno: {
+    backgroundColor: '#FFF4ED', borderRadius: radio.md,
+    paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    marginHorizontal: espacio.lg, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: colors.primario,
+  },
+  cupoRutaTxt: { fontSize: 14, fontWeight: '800', color: '#1B5E20' },
+  cupoRutaSub: { fontSize: 12, color: '#388E3C', marginTop: 2 },
   stat: { flex: 1, alignItems: 'center' },
   statBtn: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   statBtnEmoji: { fontSize: 18 },
