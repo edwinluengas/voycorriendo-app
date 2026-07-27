@@ -320,25 +320,11 @@ function PasoVehiculo({ datos, setDatos }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
   return (
     <View>
-      <Text style={estilos.tituloPaso}>🛵 Tu vehículo</Text>
+      <Text style={estilos.tituloPaso}>🛵 Tu motocicleta</Text>
       <Text style={estilos.subtitulo}>
-        ¿Con qué vas a entregar los pedidos?
+        Todas las entregas de VoyCorriendo son en motocicleta. Registra los
+        datos de la tuya — deben coincidir con tu tarjeta de circulación.
       </Text>
-
-      <View style={estilos.opcionesFila}>
-        <OpcionTipo
-          activo={datos.tipo_vehiculo === 'motocicleta'}
-          icono="🛵"
-          label="Motocicleta"
-          onPress={() => set('tipo_vehiculo')('motocicleta')}
-        />
-        <OpcionTipo
-          activo={datos.tipo_vehiculo === 'bicicleta'}
-          icono="🚲"
-          label="Bicicleta"
-          onPress={() => set('tipo_vehiculo')('bicicleta')}
-        />
-      </View>
 
       <Campo
         etiqueta="Placa *"
@@ -375,18 +361,6 @@ function PasoVehiculo({ datos, setDatos }) {
         onChangeText={set('color_vehiculo')}
       />
     </View>
-  );
-}
-
-function OpcionTipo({ activo, icono, label, onPress }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[estilos.opcionTarjeta, activo && estilos.opcionTarjetaActiva]}
-    >
-      <Text style={{ fontSize: 36 }}>{icono}</Text>
-      <Text style={[estilos.opcionTexto, activo && { color: colors.primario }]}>{label}</Text>
-    </Pressable>
   );
 }
 

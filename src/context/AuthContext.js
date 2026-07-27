@@ -163,8 +163,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const iniciarSesion = async (telefono, password) => {
-    const { data } = await authAPI.login({ telefono, password });
+  // `lada` = código de país sin '+' (default México). Los usuarios extranjeros
+  // que viven/vacacionan en Puerto eligen el suyo en la pantalla de login.
+  const iniciarSesion = async (telefono, password, lada = '52') => {
+    const { data } = await authAPI.login({ telefono, password, lada });
     const { token, usuario: user } = data.data || data;
     await SecureStore.setItemAsync('jwt', token);
     setUsuario(user);
@@ -177,6 +179,17 @@ export const AuthProvider = ({ children }) => {
   const registrarse = async (datos) => {
     const { data } = await authAPI.registro(datos);
     const { token, usuario: user } = data.data || data;
+    await SecureStore.setItemAsync('jwt', token);
+    setUsuario(user);
+    await cargarRoles();
+    registrarPushToken();
+    conectarSocket(token);
+    return user;
+  };
+
+  // Tras restablecer la contraseña el backend devuelve un token nuevo — se
+  // entra directo sin pedirle al usuario que escriba la contraseña otra vez.
+  const entrarConToken = async (token, user) => {
     await SecureStore.setItemAsync('jwt', token);
     setUsuario(user);
     await cargarRoles();
@@ -211,7 +224,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       usuario, roles, cargando,
-      iniciarSesion, registrarse, cerrarSesion,
+      iniciarSesion, registrarse, cerrarSesion, entrarConToken,
       cambiarModo, cargarRoles, refrescarUsuario,
     }}>
       {children}

@@ -4,31 +4,48 @@ import {
   StyleSheet, Alert, ScrollView, StatusBar,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import CampoTelefono, { PAISES, validarTelefono } from '../../components/CampoTelefono';
 import { colors, espacio, radio } from '../../theme/colors';
 
 export default function LoginScreen({ navigation }) {
   const { iniciarSesion } = useAuth();
+  const [pais, setPais]             = useState(PAISES[0]);   // México por defecto
   const [telefono, setTelefono]     = useState('');
   const [password, setPassword]     = useState('');
   const [verPassword, setVerPassword] = useState(false);
   const [cargando, setCargando]     = useState(false);
 
   const submit = async () => {
-    if (!telefono || !password) {
-      Alert.alert('Faltan datos', 'Escribe tu número y tu contraseña.');
+    const errorTel = validarTelefono(telefono, pais);
+    if (errorTel) { Alert.alert('Revisa tu número', errorTel); return; }
+    if (!password) {
+      Alert.alert('Faltan datos', 'Escribe tu contraseña.');
       return;
     }
     try {
       setCargando(true);
-      await iniciarSesion(telefono, password);
+      await iniciarSesion(telefono, password, pais.lada);
     } catch (e) {
-      if (e?.response?.data?.codigo === 'USUARIO_NO_ENCONTRADO') {
+      if (e?.codigoError === 'USUARIO_NO_ENCONTRADO' || e?.response?.data?.codigo === 'USUARIO_NO_ENCONTRADO') {
         Alert.alert(
           'No encontramos tu cuenta',
-          'Ese número no está registrado. ¿Quieres crear una cuenta nueva?',
+          `Ese número (+${pais.lada} ${telefono}) no está registrado. ¿Quieres crear una cuenta nueva?`,
           [
             { text: 'Revisar número', style: 'cancel' },
             { text: 'Crear cuenta', onPress: () => navigation.navigate('Registro') },
+          ]
+        );
+        return;
+      }
+      if (e?.response?.status === 401) {
+        // Contraseña incorrecta: la salida útil aquí es recuperarla, no
+        // repetir el intento a ciegas.
+        Alert.alert(
+          'Contraseña incorrecta',
+          '¿Olvidaste tu contraseña? Te mandamos un código para crear una nueva.',
+          [
+            { text: 'Volver a intentar', style: 'cancel' },
+            { text: 'Recuperarla', onPress: () => navigation.navigate('RecuperarPassword', { telefono }) },
           ]
         );
         return;
@@ -57,18 +74,10 @@ export default function LoginScreen({ navigation }) {
 
         {/* Formulario */}
         <View style={estilos.tarjeta}>
-          <Text style={estilos.label}>CELULAR</Text>
-          <TextInput
-            style={estilos.input}
-            placeholder="10 dígitos"
-            placeholderTextColor="#A0A0A8"
-            keyboardType="phone-pad"
-            value={telefono}
-            onChangeText={setTelefono}
-            maxLength={10}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
+          <CampoTelefono
+            pais={pais} onChangePais={setPais}
+            telefono={telefono} onChangeTelefono={setTelefono}
+            label="CELULAR"
           />
 
           <Text style={estilos.label}>CONTRASEÑA</Text>
@@ -101,6 +110,14 @@ export default function LoginScreen({ navigation }) {
             activeOpacity={0.85}
           >
             <Text style={estilos.botonTxt}>{cargando ? 'Entrando...' : 'Entrar'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={estilos.olvide}
+            onPress={() => navigation.navigate('RecuperarPassword', { telefono })}
+            activeOpacity={0.7}
+          >
+            <Text style={estilos.olvideTxt}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>
 
@@ -196,6 +213,8 @@ const estilos = StyleSheet.create({
   },
   botonDesactivado: { opacity: 0.7 },
   botonTxt: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+  olvide: { alignItems: 'center', paddingVertical: espacio.md, marginTop: espacio.xs },
+  olvideTxt: { color: colors.primario, fontWeight: '700', fontSize: 14 },
   linkRegistro: {
     marginTop: espacio.xl,
     alignItems: 'center',

@@ -60,12 +60,39 @@ api.interceptors.response.use(
       _onUnauthorized();
     }
 
-    const mensaje =
-      error.response?.data?.mensaje ||
-      (error.code === 'ECONNABORTED'
-        ? 'La conexión tardó demasiado. Revisa tu internet.'
-        : 'No pudimos conectarnos al servidor. Intenta de nuevo.');
-    return Promise.reject({ ...error, mensajeAmigable: mensaje });
+    // El usuario debe VER el motivo real. Antes, cualquier respuesta sin
+    // campo `mensaje` (por ejemplo las validaciones de express-validator, que
+    // llegan como { ok:false, errores:[{msg}] }) caía en el genérico "no
+    // pudimos conectarnos al servidor" — y parecía un problema de internet
+    // cuando en realidad era un dato mal escrito en el formulario.
+    const datos = error.response?.data;
+    const detalleValidacion = Array.isArray(datos?.errores) && datos.errores.length
+      ? datos.errores.map((e) => e.msg || e.mensaje || e.message).filter(Boolean).join('\n• ')
+      : null;
+
+    let mensaje;
+    if (datos?.mensaje) {
+      mensaje = datos.mensaje;
+    } else if (detalleValidacion) {
+      mensaje = datos.errores.length > 1 ? `• ${detalleValidacion}` : detalleValidacion;
+    } else if (error.response) {
+      // Hubo respuesta del servidor pero sin cuerpo entendible: se informa el
+      // código real en vez de culpar a la conexión.
+      mensaje = error.response.status >= 500
+        ? `El servidor tuvo un problema (error ${error.response.status}). Intenta de nuevo en un momento.`
+        : `El servidor rechazó la solicitud (error ${error.response.status}).`;
+    } else if (error.code === 'ECONNABORTED') {
+      mensaje = 'La conexión tardó demasiado. Revisa tu internet e intenta de nuevo.';
+    } else {
+      mensaje = `No pudimos conectarnos al servidor (${error.code || error.message || 'sin respuesta'}). Revisa tu internet.`;
+    }
+
+    return Promise.reject({
+      ...error,
+      mensajeAmigable: mensaje,
+      campoError: datos?.campo || null,
+      codigoError: datos?.codigo || null,
+    });
   }
 );
 
@@ -75,6 +102,10 @@ export const authAPI = {
   registro: (data) => api.post('/auth/registro', data),
   login:    (data) => api.post('/auth/login', data),
   yo:       ()     => api.get('/auth/perfil'),
+  // Recuperación de contraseña: pide código por SMS o correo, y luego lo canjea
+  // por una contraseña nueva (el backend devuelve token, se entra directo).
+  recuperarPassword:   (data) => api.post('/auth/recuperar-password', data),
+  restablecerPassword: (data) => api.post('/auth/restablecer-password', data),
 };
 
 export const negociosAPI = {

@@ -4,6 +4,7 @@ import {
   StyleSheet, Alert, ScrollView, StatusBar, Linking,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import CampoTelefono, { PAISES, validarTelefono } from '../../components/CampoTelefono';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const API_BASE = 'https://voycorriendo-backend-production.up.railway.app';
@@ -16,11 +17,12 @@ const ROLES = [
   { id: 'negocio',    emoji: '🏪', titulo: 'Soy negocio',    desc: 'Vendo en la app'  },
 ];
 
-export default function RegistroScreen() {
+export default function RegistroScreen({ navigation }) {
   const { registrarse } = useAuth();
   const [rol, setRol]                     = useState('cliente');
   const [nombre, setNombre]               = useState('');
   const [apellido, setApellido]           = useState('');
+  const [pais, setPais]                   = useState(PAISES[0]);   // México por defecto
   const [telefono, setTelefono]           = useState('');
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
@@ -32,6 +34,12 @@ export default function RegistroScreen() {
   const submit = async () => {
     if (!nombre || !apellido || !telefono || !password) {
       Alert.alert('Faltan datos', 'Completa nombre, apellido, celular y contraseña.');
+      return;
+    }
+    const errorTel = validarTelefono(telefono, pais);
+    if (errorTel) { Alert.alert('Revisa tu número', errorTel); return; }
+    if (email && !email.includes('@')) {
+      Alert.alert('Revisa tu correo', 'Escribe un correo válido o déjalo vacío (es opcional).');
       return;
     }
     if (password.length < 8) {
@@ -48,7 +56,9 @@ export default function RegistroScreen() {
     try {
       setCargando(true);
       await registrarse({
-        nombre, apellido, telefono, email, password, rol,
+        nombre, apellido, telefono, email: email || undefined, password, rol,
+        lada: pais.lada,
+        pais: pais.iso,
         acepto_terminos: true,
         acepta_marketing: aceptaMarketing,
       });
@@ -65,7 +75,23 @@ export default function RegistroScreen() {
         );
       }
     } catch (e) {
-      Alert.alert('No pudimos registrarte', e.mensajeAmigable || 'Revisa tus datos.');
+      // Mostrar el motivo EXACTO que devolvió el servidor (número ya
+      // registrado, correo duplicado, validación…). Antes cualquier error sin
+      // campo `mensaje` se veía como "no pudimos conectarnos al servidor" y
+      // parecía falla de internet cuando era un dato del formulario.
+      const codigo = e?.codigoError;
+      if (codigo === 'TELEFONO_YA_REGISTRADO' || (codigo === 'DUPLICADO' && e?.campoError !== 'email')) {
+        Alert.alert(
+          'Ese número ya tiene cuenta',
+          `${e.mensajeAmigable}`,
+          [
+            { text: 'Cambiar número', style: 'cancel' },
+            { text: 'Recuperar contraseña', onPress: () => navigation.navigate('RecuperarPassword', { telefono }) },
+          ],
+        );
+        return;
+      }
+      Alert.alert('No pudimos crear tu cuenta', e.mensajeAmigable || 'Revisa tus datos.');
     } finally {
       setCargando(false);
     }
@@ -139,17 +165,10 @@ export default function RegistroScreen() {
             </View>
           </View>
 
-          <Text style={estilos.label}>CELULAR (10 DÍGITOS)</Text>
-          <TextInput
-            style={estilos.input}
-            placeholder="9531234567"
-            placeholderTextColor="#A0A0A8"
-            keyboardType="phone-pad"
-            maxLength={10}
-            value={telefono}
-            onChangeText={setTelefono}
-            autoCapitalize="none"
-            autoCorrect={false}
+          <CampoTelefono
+            pais={pais} onChangePais={setPais}
+            telefono={telefono} onChangeTelefono={setTelefono}
+            label="CELULAR"
           />
 
           <Text style={estilos.label}>CORREO (OPCIONAL)</Text>

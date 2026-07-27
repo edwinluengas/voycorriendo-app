@@ -12,6 +12,7 @@ import { colors } from '../theme/colors';
 import BienvenidaScreen from '../screens/auth/BienvenidaScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegistroScreen from '../screens/auth/RegistroScreen';
+import RecuperarPasswordScreen from '../screens/auth/RecuperarPasswordScreen';
 
 // Pantallas Cliente
 import InicioClienteScreen from '../screens/cliente/InicioClienteScreen';
@@ -57,6 +58,7 @@ const AuthStack = () => (
     <Stack.Screen name="Bienvenida" component={BienvenidaScreen} />
     <Stack.Screen name="Login"      component={LoginScreen} />
     <Stack.Screen name="Registro"   component={RegistroScreen} />
+    <Stack.Screen name="RecuperarPassword" component={RecuperarPasswordScreen} />
     <Stack.Screen
       name="PoliticaPrivacidad"
       component={PoliticaPrivacidadScreen}

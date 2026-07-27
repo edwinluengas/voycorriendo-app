@@ -157,12 +157,49 @@ export default function NegocioScreen({ route, navigation }) {
 
   const secciones = useMemo(() => agruparPorCategoria(productos), [productos]);
 
+  // Salto a una sección del menú. Antes esto NO funcionaba: `scrollToLocation`
+  // lanza si la sección destino todavía no está renderizada (SectionList es
+  // virtualizada y no hay getItemLayout), el error se tragaba en el catch y el
+  // tap simplemente no hacía nada. Ahora se reintenta cuando la lista avisa
+  // que falló, hasta que la sección existe.
+  const scrollPendiente = useRef(null);
+
+  const scrollASeccion = (idx) => {
+    if (idx == null || idx < 0) return;
+    try {
+      sectionListRef.current?.scrollToLocation({
+        sectionIndex: idx,
+        itemIndex: 0,       // 0 = el encabezado de la sección
+        animated: true,
+        viewPosition: 0,
+        viewOffset: 0,
+      });
+    } catch (_) {
+      // Se reintenta desde onScrollToIndexFailed
+    }
+  };
+
   const irACategoria = (titulo, idx) => {
     setCategoriaActiva(titulo);
-    try {
-      sectionListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, animated: true, viewOffset: 48 });
-    } catch (_) {}
+    scrollPendiente.current = { idx, intentos: 0 };
+    scrollASeccion(idx);
   };
+
+  const reintentarScroll = () => {
+    const pendiente = scrollPendiente.current;
+    if (!pendiente || pendiente.intentos >= 4) { scrollPendiente.current = null; return; }
+    pendiente.intentos += 1;
+    setTimeout(() => scrollASeccion(pendiente.idx), 250);
+  };
+
+  // Mientras el usuario hace scroll a mano, la pestaña activa sigue a la
+  // sección visible (como UberEats). La referencia debe ser estable: React
+  // Native lanza si cambia la identidad de onViewableItemsChanged.
+  const alCambiarVisibles = useRef(({ viewableItems }) => {
+    const visible = viewableItems.find((v) => v?.section?.title);
+    if (visible) setCategoriaActiva(visible.section.title);
+  }).current;
+  const configVisibilidad = useRef({ itemVisiblePercentThreshold: 30, minimumViewTime: 80 }).current;
 
   // Abre el modal (o agrega directo si el producto no tiene opciones)
   const agregar = (p) => {
@@ -246,12 +283,42 @@ export default function NegocioScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
+      {/* ── Barra de secciones — SIEMPRE visible (antes vivía dentro del
+          encabezado de la lista y desaparecía al hacer scroll, así que solo
+          se podía saltar de sección estando hasta arriba) ── */}
+      {secciones.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={estilos.categoriasBar}
+          contentContainerStyle={estilos.categoriasBarContent}
+          keyboardShouldPersistTaps="always"
+        >
+          {secciones.map((sec, idx) => {
+            const activa = categoriaActiva === sec.title || (!categoriaActiva && idx === 0);
+            return (
+              <Pressable
+                key={sec.title}
+                style={[estilos.categoriaTab, activa && estilos.categoriaTabActiva]}
+                onPress={() => irACategoria(sec.title, idx)}
+              >
+                <Text style={[estilos.categoriaTabTxt, activa && estilos.categoriaTabTxtActiva]}>
+                  {sec.title}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
       <SectionList
         ref={sectionListRef}
         sections={secciones}
         keyExtractor={(p) => p.id}
         stickySectionHeadersEnabled
-        onScrollToIndexFailed={() => {}}
+        onScrollToIndexFailed={reintentarScroll}
+        onViewableItemsChanged={alCambiarVisibles}
+        viewabilityConfig={configVisibilidad}
         ListHeaderComponent={
           <View style={estilos.header}>
             {negocio.foto_portada ? (
@@ -293,30 +360,6 @@ export default function NegocioScreen({ route, navigation }) {
               />
             </View>
 
-            {/* ── Tabs de categoría estilo UberEats ── */}
-            {secciones.length > 1 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={estilos.categoriasBar}
-                contentContainerStyle={estilos.categoriasBarContent}
-              >
-                {secciones.map((sec, idx) => {
-                  const activa = categoriaActiva === sec.title || (!categoriaActiva && idx === 0);
-                  return (
-                    <Pressable
-                      key={sec.title}
-                      style={[estilos.categoriaTab, activa && estilos.categoriaTabActiva]}
-                      onPress={() => irACategoria(sec.title, idx)}
-                    >
-                      <Text style={[estilos.categoriaTabTxt, activa && estilos.categoriaTabTxtActiva]}>
-                        {sec.title}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
@@ -542,8 +585,9 @@ const estilos = StyleSheet.create({
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
   direccion:   { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
 
-  // Tabs categorías UberEats
+  // Tabs de secciones — barra fija arriba de la lista
   categoriasBar: {
+    flexGrow: 0,
     backgroundColor: colors.superficie,
     borderBottomWidth: 1,
     borderBottomColor: colors.borde,
