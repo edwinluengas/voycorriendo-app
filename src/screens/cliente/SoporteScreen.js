@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
+import { LIMITE_EFECTIVO } from '../../config/businessRules';
 
 const WHATSAPP = '529541234567';
 const EMAIL    = 'voycorriendoadmin@gmail.com';
@@ -30,7 +31,7 @@ export default function SoporteScreen({ navigation }) {
         />
         <Faq
           pregunta="¿Cuál es el límite para pagar en efectivo?"
-          respuesta="El máximo para pagar en efectivo es $500 MXN. Si tu pedido supera ese monto, puedes pagar con tarjeta o Mercado Pago."
+          respuesta={`El máximo son $${LIMITE_EFECTIVO} MXN en productos; el envío se suma encima. Si tu pedido pasa de ese monto, quita algo del carrito o haz dos pedidos.`}
         />
         <Faq
           pregunta="¿Cuánto tarda mi pedido?"
@@ -45,8 +46,12 @@ export default function SoporteScreen({ navigation }) {
           respuesta="Para productos con restricción de edad (alcohol, cigarros) la ley exige verificación de identidad. Tu INE solo se usa para ese fin."
         />
         <Faq
-          pregunta="¿Qué es la Transferencia bancaria?"
-          respuesta="La transferencia SPEI está disponible únicamente para compras en la Tienda Oficial VoyCorriendo Store. Para restaurantes y tiendas locales usa efectivo, tarjeta o Mercado Pago."
+          pregunta="¿Puedo recoger mi pedido en la tienda?"
+          respuesta="Sí. Al armar tu pedido elige “Recoger en tienda”: no pagas envío y te avisamos en cuanto esté listo. Muestra tu código de entrega al recogerlo."
+        />
+        <Faq
+          pregunta="¿Puedo pagar con tarjeta?"
+          respuesta="Por ahora estamos cobrando solo en efectivo al entregar. El pago con tarjeta se habilita muy pronto."
         />
 
         <Pressable

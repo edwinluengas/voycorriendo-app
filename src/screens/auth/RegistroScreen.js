@@ -32,14 +32,14 @@ export default function RegistroScreen({ navigation }) {
   const [cargando, setCargando]           = useState(false);
 
   const submit = async () => {
-    if (!nombre || !apellido || !telefono || !password) {
-      Alert.alert('Faltan datos', 'Completa nombre, apellido, celular y contraseña.');
+    if (!nombre || !apellido || !telefono || !password || !email) {
+      Alert.alert('Faltan datos', 'Completa nombre, apellido, celular, correo y contraseña.');
       return;
     }
     const errorTel = validarTelefono(telefono, pais);
     if (errorTel) { Alert.alert('Revisa tu número', errorTel); return; }
     if (email && !email.includes('@')) {
-      Alert.alert('Revisa tu correo', 'Escribe un correo válido o déjalo vacío (es opcional).');
+      Alert.alert('Revisa tu correo', 'Escribe un correo válido, por ejemplo nombre@correo.com.');
       return;
     }
     if (password.length < 8) {
@@ -56,7 +56,7 @@ export default function RegistroScreen({ navigation }) {
     try {
       setCargando(true);
       await registrarse({
-        nombre, apellido, telefono, email: email || undefined, password, rol,
+        nombre, apellido, telefono, email: email.trim().toLowerCase(), password, rol,
         lada: pais.lada,
         pais: pais.iso,
         acepto_terminos: true,
@@ -171,7 +171,7 @@ export default function RegistroScreen({ navigation }) {
             label="CELULAR"
           />
 
-          <Text style={estilos.label}>CORREO (OPCIONAL)</Text>
+          <Text style={estilos.label}>CORREO ELECTRÓNICO</Text>
           <TextInput
             style={estilos.input}
             placeholder="tu@correo.com"
@@ -182,6 +182,9 @@ export default function RegistroScreen({ navigation }) {
             value={email}
             onChangeText={setEmail}
           />
+          <Text style={estilos.ayudaCampo}>
+            Con tu correo recuperas tu contraseña si la olvidas.
+          </Text>
 
           <Text style={estilos.label}>CONTRASEÑA</Text>
           <View style={estilos.inputRow}>
@@ -322,6 +325,7 @@ const estilos = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   fila: { flexDirection: 'row' },
+  ayudaCampo: { fontSize: 11, color: '#6B7280', marginTop: -8, marginBottom: espacio.md, lineHeight: 15 },
   label: {
     fontSize: 11, fontWeight: '800',
     color: '#6B7280', marginBottom: 7,

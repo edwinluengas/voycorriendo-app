@@ -130,6 +130,13 @@ export const pedidosAPI = {
   // Cotiza costo de envío y zona antes de crear el pedido
   cotizar:     (negocio_id, lat, lng, tipo_envio = 'standard') =>
     api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng, tipo_envio } }),
+  // Qué tipos de entrega se pueden ofrecer ahora mismo (si no hay repartidor
+  // en línea con cupo, el backend responde solo pickup)
+  disponibilidadEnvio: (negocio_id) =>
+    api.get('/pedidos/disponibilidad', { params: { negocio_id } }),
+  // Reglas vigentes de la plataforma (métodos de pago activos, límites,
+  // tarifas). Permite prender/apagar cosas sin compilar un APK nuevo.
+  configPublica: () => api.get('/config-publica'),
   // Cancelar = transición de estado a 'cancelado' (solo el cliente puede hacerla mientras el pedido esté pendiente)
   cancelar:    (id, motivo)  => api.patch(`/pedidos/${id}/estado`, { estado: 'cancelado', nota: motivo }),
   calificar:   (id, data)    => api.post(`/pedidos/${id}/calificar`, data),

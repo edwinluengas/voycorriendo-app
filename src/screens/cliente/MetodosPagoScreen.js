@@ -2,14 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { usuariosAPI, tarjetasAPI } from '../../api/client';
+import { usuariosAPI, tarjetasAPI, pedidosAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, mpConfigurado } from '../../api/mercadoPago';
 import Boton from '../../components/Boton';
 import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
 import { colors, espacio, radio } from '../../theme/colors';
+import { LIMITE_EFECTIVO, METODOS_PAGO_ACTIVOS_DEFAULT } from '../../config/businessRules';
 
 const METODOS = [
-  { id: 'efectivo', icono: '💵', titulo: 'Efectivo', desc: 'Paga al repartidor al recibir tu pedido. Máx. $500.' },
+  { id: 'efectivo', icono: '💵', titulo: 'Efectivo', desc: `Paga al recibir tu pedido. Máx. $${LIMITE_EFECTIVO} en productos.` },
   { id: 'tarjeta',   icono: '💳', titulo: 'Tarjeta',  desc: '🔒 Débito o crédito — pago 100% seguro.' },
 ];
 
@@ -37,6 +38,22 @@ export default function MetodosPagoScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { cargarTarjetas(); }, [cargarTarjetas]));
+
+  // Métodos habilitados hoy por la plataforma. Si la tarjeta está apagada, se
+  // avisa arriba y se esconde el formulario en vez de dejar al cliente
+  // teclear una tarjeta completa para que el servidor la rechace al final.
+  const [metodosActivos, setMetodosActivos] = useState(METODOS_PAGO_ACTIVOS_DEFAULT);
+  useFocusEffect(useCallback(() => {
+    let vivo = true;
+    pedidosAPI.configPublica()
+      .then(({ data }) => {
+        const lista = data?.data?.metodos_pago_activos;
+        if (vivo && Array.isArray(lista) && lista.length) setMetodosActivos(lista);
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []));
+  const tarjetaActiva = metodosActivos.includes('tarjeta');
 
   useEffect(() => {
     (async () => {
@@ -117,7 +134,16 @@ export default function MetodosPagoScreen() {
           Elige tu método preferido. Siempre puedes cambiarlo al hacer un pedido.
         </Text>
 
-        {METODOS.map(m => {
+        {!tarjetaActiva && (
+          <View style={s.avisoSoloEfectivo}>
+            <Text style={s.avisoSoloEfectivoTxt}>
+              💵 Por ahora estamos cobrando solo en efectivo al entregar. El pago
+              con tarjeta se activa muy pronto.
+            </Text>
+          </View>
+        )}
+
+        {METODOS.filter((m) => tarjetaActiva || m.id !== 'tarjeta').map(m => {
           const activo = seleccionado === m.id;
           return (
             <Pressable
@@ -140,6 +166,11 @@ export default function MetodosPagoScreen() {
           );
         })}
 
+        {/* Con la tarjeta apagada, la sección solo se muestra si el cliente
+            ya tiene tarjetas guardadas (para que pueda verlas o borrarlas).
+            El botón de agregar se esconde: el servidor lo rechaza. */}
+        {(tarjetaActiva || tarjetas.length > 0) && (
+        <>
         <Text style={s.seccion}>Mis tarjetas</Text>
 
         {cargandoTarjetas ? (
@@ -192,18 +223,22 @@ export default function MetodosPagoScreen() {
               <Text style={s.cancelarTxt}>Cancelar</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : tarjetaActiva ? (
           <Pressable style={s.agregarBtn} onPress={() => setMostrarForm(true)}>
             <Text style={s.agregarTxt}>+ Agregar tarjeta</Text>
           </Pressable>
-        )}
+        ) : null}
 
-        <View style={s.aviso}>
-          <Text style={s.avisoTxt}>
-            🔒 El número y CVV de tu tarjeta se envían directo y cifrados a Mercado Pago —
-            VoyCorriendo nunca los recibe ni los almacena.
-          </Text>
-        </View>
+        {tarjetaActiva && (
+          <View style={s.aviso}>
+            <Text style={s.avisoTxt}>
+              🔒 El número y CVV de tu tarjeta se envían directo y cifrados a Mercado Pago —
+              VoyCorriendo nunca los recibe ni los almacena.
+            </Text>
+          </View>
+        )}
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -255,4 +290,11 @@ const s = StyleSheet.create({
 
   aviso:    { backgroundColor: '#F0FDF4', padding: espacio.md, borderRadius: radio.md, marginTop: espacio.md },
   avisoTxt: { fontSize: 13, color: '#166534', lineHeight: 19 },
+  // Aviso de "solo efectivo por ahora" — tono de información, no de error
+  avisoSoloEfectivo: {
+    backgroundColor: '#E8F5E9', borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#A5D6A7',
+    padding: espacio.md, marginBottom: espacio.md,
+  },
+  avisoSoloEfectivoTxt: { fontSize: 13, color: '#1B5E20', fontWeight: '700', lineHeight: 19 },
 });

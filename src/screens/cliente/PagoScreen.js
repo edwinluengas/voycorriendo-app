@@ -12,10 +12,10 @@ import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../ap
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
-import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO } from '../../config/businessRules';
+import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, METODOS_PAGO_ACTIVOS_DEFAULT } from '../../config/businessRules';
 
 const METODOS_BASE = [
-  { id: 'efectivo', nombre: 'Efectivo', emoji: '💵', desc: `Pagas al repartidor · máx. $${LIMITE_EFECTIVO} en productos + envío` },
+  { id: 'efectivo', nombre: 'Efectivo', emoji: '💵', desc: `Pagas al recibir · máx. $${LIMITE_EFECTIVO} en productos + envío` },
   { id: 'tarjeta',  nombre: 'Tarjeta',  emoji: '💳', desc: '🔒 Débito o crédito — pago 100% seguro' },
 ];
 const METODO_TRANSFERENCIA = {
@@ -35,8 +35,10 @@ export default function PagoScreen({ route, navigation }) {
   useFocusEffect(useCallback(() => { refrescarUsuario(); }, [refrescarUsuario]));
   const carrito   = getCarrito();
   const tipoEnvio = route.params?.tipo_envio || 'standard';
+  const esPickup  = tipoEnvio === 'pickup';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
-  const feeEnvio  = FEE_ENVIO[tipoEnvio] || 35;
+  // Pickup: el cliente pasa por su pedido, no paga envío.
+  const feeEnvio  = esPickup ? 0 : (FEE_ENVIO[tipoEnvio] || FEE_ENVIO.standard);
 
   const requiereINE = carrito.items.some((it) => it.requiere_id);
 
@@ -47,7 +49,21 @@ export default function PagoScreen({ route, navigation }) {
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
   const [pagaCon, setPagaCon]           = useState('');
 
-  const [metodo, setMetodo]     = useState(subtotal > LIMITE_EFECTIVO ? 'tarjeta' : 'efectivo');
+  // Métodos de pago habilitados por la plataforma. Se consultan al backend
+  // para poder prender/apagar la tarjeta sin compilar un APK nuevo.
+  const [metodosActivos, setMetodosActivos] = useState(METODOS_PAGO_ACTIVOS_DEFAULT);
+  useFocusEffect(useCallback(() => {
+    let vivo = true;
+    pedidosAPI.configPublica()
+      .then(({ data }) => {
+        const lista = data?.data?.metodos_pago_activos;
+        if (vivo && Array.isArray(lista) && lista.length) setMetodosActivos(lista);
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []));
+
+  const [metodo, setMetodo]     = useState('efectivo');
   // Propina en el CHECKOUT (solo tarjeta): se cobra dentro del mismo cargo
   // a la tarjeta. En efectivo se da en mano al entregar.
   const [propinaSel, setPropinaSel] = useState(0);
@@ -116,8 +132,16 @@ export default function PagoScreen({ route, navigation }) {
     }
   };
 
-  // Auto-detectar ubicación y cotizar al entrar
+  // Auto-detectar ubicación y cotizar al entrar.
+  // En PICKUP no se pide ubicación ni se cotiza: el cliente pasa por su
+  // pedido al negocio, no hay envío que calcular ni GPS que pedirle.
   useEffect(() => {
+    if (esPickup) {
+      setCostoEnvio(0);
+      setCobertura({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
+      setCotizando(false);
+      return;
+    }
     (async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync();
@@ -203,7 +227,12 @@ export default function PagoScreen({ route, navigation }) {
 
   const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
   const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
-  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && subtotal > LIMITE_EFECTIVO));
+  const metodosDisponibles = METODOS
+    // Métodos apagados por la plataforma (fase de prueba real: solo efectivo).
+    // El backend manda la lista real en /api/config-publica; mientras
+    // responde se usa el valor por defecto de businessRules.
+    .filter((m) => metodosActivos.includes(m.id))
+    .filter((m) => !(m.id === 'efectivo' && subtotal > LIMITE_EFECTIVO));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
 
   // ── Sube la foto del INE a Supabase Storage y guarda la URL pública ──
@@ -270,7 +299,9 @@ export default function PagoScreen({ route, navigation }) {
   };
 
   const confirmar = async () => {
-    if (!direccion) {
+    // En PICKUP no hay dirección que pedir: el cliente pasa por su pedido y
+    // el backend guarda la dirección del negocio en el pedido.
+    if (!esPickup && !direccion) {
       Alert.alert('Dirección', 'Por favor escribe dónde quieres que te entreguemos.');
       return;
     }
@@ -363,9 +394,11 @@ export default function PagoScreen({ route, navigation }) {
           opcion_elegida: it.opcion_elegida || null,
           notas: it.notas || null,
         })),
-        direccion_entrega: direccion,
-        latitud_entrega:  ubicacion?.lat  || null,
-        longitud_entrega: ubicacion?.lng  || null,
+        // Pickup: el backend rellena la dirección con la del negocio y no
+        // valida cobertura (no hay reparto que cubrir).
+        direccion_entrega: esPickup ? undefined : direccion,
+        latitud_entrega:  esPickup ? null : (ubicacion?.lat || null),
+        longitud_entrega: esPickup ? null : (ubicacion?.lng || null),
         notas_entrega: notas,
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
@@ -493,7 +526,9 @@ export default function PagoScreen({ route, navigation }) {
             </View>
             <View style={estilos.resumenLinea}>
               <Text style={estilos.resumenSub}>
-                Envío {cotizando ? '(calculando…)' : tipoEnvio === 'express' ? 'Express' : 'Estándar'}
+                {esPickup
+                  ? 'Recoges en tienda 🛍️'
+                  : `Envío ${cotizando ? '(calculando…)' : tipoEnvio === 'express' ? 'Express' : 'Estándar'}`}
               </Text>
               <Text style={estilos.resumenSub}>${costoEnvio.toFixed(2)}</Text>
             </View>
@@ -557,34 +592,60 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
-        <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
-
-        {/* Ubicación GPS */}
-        <Pressable
-          style={[estilos.ubicacionBtn, detectandoUbicacion && estilos.ubicacionBtnCargando]}
-          onPress={detectarUbicacion}
-          disabled={detectandoUbicacion}
-        >
-          {detectandoUbicacion
-            ? <ActivityIndicator size="small" color={colors.primario} />
-            : <Text style={estilos.ubicacionBtnTxt}>
-                {ubicacion ? '📍 Ubicación detectada · Actualizar' : '📍 Detectar mi ubicación'}
+        {/* PICKUP: no se pide dirección ni GPS — se le dice dónde recoger */}
+        {esPickup ? (
+          <>
+            <Text style={estilos.seccion}>¿Dónde recoges tu pedido?</Text>
+            <View style={estilos.pickupCaja}>
+              <Text style={estilos.pickupNegocio}>🛍️ {carrito.negocio?.nombre}</Text>
+              {!!(carrito.negocio?.direccion || carrito.negocio?.colonia) && (
+                <Text style={estilos.pickupDir}>
+                  📍 {[carrito.negocio?.direccion, carrito.negocio?.colonia].filter(Boolean).join(', ')}
+                </Text>
+              )}
+              <Text style={estilos.pickupNota}>
+                Te avisamos en cuanto esté listo. Muestra tu código de entrega al recogerlo.
               </Text>
-          }
-        </Pressable>
+            </View>
+            <Campo
+              placeholder="Notas para el negocio (opcional)"
+              multiline
+              value={notas}
+              onChangeText={setNotas}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
 
-        <Campo
-          placeholder="Ej. Hotel Olas Altas, detrás de la farmacia…"
-          multiline
-          value={direccion}
-          onChangeText={setDir}
-        />
-        <Campo
-          placeholder="Notas para el repartidor (opcional)"
-          multiline
-          value={notas}
-          onChangeText={setNotas}
-        />
+            {/* Ubicación GPS */}
+            <Pressable
+              style={[estilos.ubicacionBtn, detectandoUbicacion && estilos.ubicacionBtnCargando]}
+              onPress={detectarUbicacion}
+              disabled={detectandoUbicacion}
+            >
+              {detectandoUbicacion
+                ? <ActivityIndicator size="small" color={colors.primario} />
+                : <Text style={estilos.ubicacionBtnTxt}>
+                    {ubicacion ? '📍 Ubicación detectada · Actualizar' : '📍 Detectar mi ubicación'}
+                  </Text>
+              }
+            </Pressable>
+
+            <Campo
+              placeholder="Ej. Hotel Olas Altas, detrás de la farmacia…"
+              multiline
+              value={direccion}
+              onChangeText={setDir}
+            />
+            <Campo
+              placeholder="Notas para el repartidor (opcional)"
+              multiline
+              value={notas}
+              onChangeText={setNotas}
+            />
+          </>
+        )}
 
         <Text style={estilos.seccion}>¿Cómo quieres pagar?</Text>
         {metodosDisponibles.map((m) => (
@@ -839,6 +900,15 @@ const estilos = StyleSheet.create({
   seccion: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md, marginBottom: espacio.sm },
 
   // Botón detectar ubicación
+  // Pickup: dónde recoger (tono de confirmación, no de aviso)
+  pickupCaja: {
+    backgroundColor: '#E8F5E9', borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#A5D6A7',
+    padding: espacio.md, marginBottom: espacio.md,
+  },
+  pickupNegocio: { fontSize: 16, fontWeight: '800', color: '#1B5E20' },
+  pickupDir:     { fontSize: 13, color: '#2E7D32', marginTop: 4 },
+  pickupNota:    { fontSize: 12, color: '#388E3C', marginTop: espacio.sm, lineHeight: 17 },
   ubicacionBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
+import { LIMITE_EFECTIVO } from '../../config/businessRules';
 
 const EMAIL = 'voycorriendoadmin@gmail.com';
 
@@ -21,7 +22,7 @@ export default function PoliticaPrivacidadScreen() {
         </Seccion>
 
         <Seccion titulo="2. Datos que recopilamos">
-          {`• Nombre y número de teléfono\n• Correo electrónico (opcional)\n• Ubicación GPS durante pedidos\n• Fotos de INE para verificación de edad\n• Token de dispositivo para notificaciones push\n• Historial de pedidos y calificaciones`}
+          {`• Nombre y número de teléfono (con su país)\n• Correo electrónico — obligatorio, es con lo que recuperas tu contraseña\n• Ubicación GPS durante pedidos a domicilio\n• Fotos de INE para verificación de edad\n• Token de dispositivo para notificaciones push\n• Historial de pedidos y calificaciones`}
         </Seccion>
 
         <Seccion titulo="3. Uso de los datos">
@@ -31,19 +32,15 @@ export default function PoliticaPrivacidadScreen() {
         <View style={estilos.seccionDestacada}>
           <Text style={estilos.seccionTituloDestacado}>4. Métodos de pago y límites</Text>
           <Text style={estilos.itemDestacado}>
-            💵 Efectivo — <Text style={estilos.negrita}>máximo $500 MXN</Text>. Pedidos mayores requieren pago digital.
+            💵 Efectivo — <Text style={estilos.negrita}>máximo ${LIMITE_EFECTIVO} MXN en productos</Text> (el envío se suma encima). Pagas al recibir tu pedido.
           </Text>
           <Text style={estilos.itemDestacado}>
-            💳 Tarjeta de débito/crédito — vía Mercado Pago
-          </Text>
-          <Text style={estilos.itemDestacado}>
-            📱 Mercado Pago (cuenta o billetera digital)
-          </Text>
-          <Text style={estilos.itemDestacado}>
-            🏦 Transferencia SPEI — <Text style={estilos.negrita}>exclusiva para Tienda VoyCorriendo Store</Text>
+            💳 Tarjeta de débito/crédito — <Text style={estilos.negrita}>temporalmente no disponible</Text>, se habilita muy pronto
           </Text>
           <View style={estilos.avisoEfectivo}>
-            <Text style={estilos.avisoTxt}>⚠️ Pedidos en efectivo: máximo $500 pesos</Text>
+            <Text style={estilos.avisoTxt}>
+              💵 Por ahora aceptamos solo efectivo al entregar, hasta ${LIMITE_EFECTIVO} pesos en productos
+            </Text>
           </View>
         </View>
 

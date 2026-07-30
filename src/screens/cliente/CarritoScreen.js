@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { getCarrito, carritoRequiereINE, vaciarCarrito } from './NegocioScreen';
+import { pedidosAPI } from '../../api/client';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, TIPOS_ENVIO } from '../../config/businessRules';
@@ -10,9 +12,38 @@ export default function CarritoScreen({ navigation }) {
   const carrito = getCarrito();
   const [items, setItems]         = useState(carrito.items);
   const [tipoEnvio, setTipoEnvio] = useState('standard');
+  // Qué tipos de entrega se pueden ofrecer AHORA. Si no hay ningún repartidor
+  // en línea con cupo, el backend responde solo 'pickup' + un mensaje que lo
+  // presenta como beneficio (te ahorras el envío), nunca como una falla.
+  const [tiposDisponibles, setTiposDisponibles] = useState(null);   // null = aún no se sabe
+  const [avisoEnvio, setAvisoEnvio]             = useState(null);
+
+  useFocusEffect(useCallback(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data } = await pedidosAPI.disponibilidadEnvio(carrito.negocio?.id);
+        if (!vivo) return;
+        const tipos = data?.data?.tipos_disponibles || null;
+        setTiposDisponibles(tipos);
+        setAvisoEnvio(data?.data?.mensaje || null);
+        // Si el tipo elegido ya no se ofrece, se mueve solo a pickup
+        if (tipos && !tipos.includes(tipoEnvio)) setTipoEnvio(tipos[0] || 'pickup');
+      } catch (_) {
+        // Sin respuesta: se ofrecen todos y el candado real queda en el
+        // backend al crear el pedido.
+        if (vivo) setTiposDisponibles(null);
+      }
+    })();
+    return () => { vivo = false; };
+  }, [carrito.negocio?.id, tipoEnvio]));
+
+  const opcionesEnvio = tiposDisponibles
+    ? TIPOS_ENVIO.filter((t) => tiposDisponibles.includes(t.id))
+    : TIPOS_ENVIO;
 
   const subtotal = items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
-  const feeEnvio = FEE_ENVIO[tipoEnvio];
+  const feeEnvio = tipoEnvio === 'pickup' ? 0 : FEE_ENVIO[tipoEnvio];
   const total    = subtotal + feeEnvio;
   const debajo   = subtotal < PEDIDO_MINIMO;
   const requiereINE = items.some((it) => it.requiere_id);
@@ -137,8 +168,13 @@ export default function CarritoScreen({ navigation }) {
       <View style={estilos.panel}>
         {/* Selector de tipo de envío */}
         <Text style={estilos.panelLabel}>Tipo de entrega</Text>
+        {!!avisoEnvio && (
+          <View style={estilos.avisoPickup}>
+            <Text style={estilos.avisoPickupTxt}>{avisoEnvio}</Text>
+          </View>
+        )}
         <View style={estilos.tipoFila}>
-          {TIPOS_ENVIO.map((t) => {
+          {opcionesEnvio.map((t) => {
             const activo = tipoEnvio === t.id;
             return (
               <Pressable
@@ -164,7 +200,12 @@ export default function CarritoScreen({ navigation }) {
         {/* Desglose de costos */}
         <View style={estilos.costos}>
           <Linea label="Subtotal" valor={subtotal} />
-          <Linea label={`Envío ${tipoEnvio === 'express' ? 'Express ⚡' : 'Estándar'}`} valor={feeEnvio} />
+          <Linea
+            label={tipoEnvio === 'pickup'
+              ? 'Recoges en tienda 🛍️'
+              : `Envío ${tipoEnvio === 'express' ? 'Express ⚡' : 'Estándar'}`}
+            valor={feeEnvio}
+          />
           <View style={estilos.separadorTotal} />
           <Linea label="Total" valor={total} fuerte />
         </View>
@@ -378,6 +419,15 @@ const estilos = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   avisoTxt: { fontSize: 12, color: '#78350F', lineHeight: 18 },
+  // Aviso de "solo pickup": verde y en tono de oferta, no de error
+  avisoPickup: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: radio.sm,
+    borderWidth: 1, borderColor: '#A5D6A7',
+    paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    marginBottom: espacio.sm,
+  },
+  avisoPickupTxt: { fontSize: 13, color: '#1B5E20', fontWeight: '700', lineHeight: 19 },
 
   progresoBarra: {
     height: 6, borderRadius: 3, backgroundColor: '#FDE68A',

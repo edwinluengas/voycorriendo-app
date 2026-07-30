@@ -26,7 +26,15 @@ export const FEE_PLATAFORMA = 35;
 export const PEDIDO_MINIMO = 150;
 
 // ─── Efectivo: subtotal máximo (el fee de envío se suma encima) ──────
-export const LIMITE_EFECTIVO = 500;
+// $700 desde 2026-07-29 (fase de prueba real).
+export const LIMITE_EFECTIVO = 700;
+
+// ─── Métodos de pago habilitados ─────────────────────────────────────
+// FASE DE PRUEBA REAL: solo efectivo. El pago con tarjeta NO se borró —
+// queda completo y probado, solo apagado. El backend manda la verdad en
+// /api/config-publica (métodos activos), así que se puede reactivar sin
+// compilar un APK nuevo; esto es el valor por defecto mientras responde.
+export const METODOS_PAGO_ACTIVOS_DEFAULT = ['efectivo'];
 
 // ─── Radio máximo de entrega desde el restaurante ────────────────────
 export const RADIO_MAXIMO_KM = 5;
@@ -43,6 +51,9 @@ export const AVISO_PEDIDOS_DEUDA = 12;
 export const PCT_DESCUENTO_PAGO_DIARIO = 0.05;
 
 // ─── Tipos de envío con etiquetas y precios ───────────────────────────
+// `pickup` = el cliente pasa por su pedido al negocio: no paga envío. Si no
+// hay ningún repartidor en línea con cupo, el backend
+// (/api/pedidos/disponibilidad) responde que solo se ofrezca pickup.
 export const TIPOS_ENVIO = [
   {
     id:     'standard',
@@ -57,5 +68,12 @@ export const TIPOS_ENVIO = [
     emoji:  '⚡',
     sub:    'Prioritario — llega primero',
     precio: FEE_ENVIO.express,
+  },
+  {
+    id:     'pickup',
+    label:  'Recoger en tienda',
+    emoji:  '🛍️',
+    sub:    'Sin costo de envío',
+    precio: 0,
   },
 ];
