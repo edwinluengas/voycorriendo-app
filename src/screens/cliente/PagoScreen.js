@@ -11,17 +11,27 @@ import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, METODOS_PAGO_ACTIVOS_DEFAULT } from '../../config/businessRules';
 
 const METODOS_BASE = [
-  { id: 'efectivo', nombre: 'Efectivo', emoji: '💵', desc: `Pagas al recibir · máx. $${LIMITE_EFECTIVO} en productos + envío` },
-  { id: 'tarjeta',  nombre: 'Tarjeta',  emoji: '💳', desc: '🔒 Débito o crédito — pago 100% seguro' },
+  { id: 'efectivo', nombre: 'Efectivo', desc: `Pagas al recibir · máx. $${LIMITE_EFECTIVO} en productos + envío` },
+  { id: 'tarjeta',  nombre: 'Tarjeta',  desc: 'Débito o crédito — pago 100% seguro' },
 ];
+
+// Iconos vectoriales en lugar de emoji: mismo tamaño, mismo peso, mismo color
+// que el resto de la interfaz. Con emoji cada uno se dibujaba con la fuente
+// del sistema y la columna quedaba desalineada.
+function IconoMetodo({ id, activo }) {
+  const color = activo ? colors.primario : colors.textoSuave;
+  if (id === 'transferencia') return <Ionicons name="business-outline" size={22} color={color} />;
+  if (id === 'tarjeta')       return <Ionicons name={activo ? 'card' : 'card-outline'} size={22} color={color} />;
+  return <MaterialCommunityIcons name="cash" size={23} color={color} />;
+}
 const METODO_TRANSFERENCIA = {
   id: 'transferencia',
   nombre: 'Transferencia SPEI',
-  emoji: '🏦',
   desc: 'Exclusivo Voy Store® · Transferencia bancaria SPEI',
   esExclusivo: true,
 };
@@ -654,7 +664,9 @@ export default function PagoScreen({ route, navigation }) {
             style={[estilos.metodo, metodo === m.id && estilos.metodoActivo, m.esExclusivo && estilos.metodoStore]}
             onPress={() => setMetodo(m.id)}
           >
-            <Text style={estilos.metodoEmoji}>{m.emoji}</Text>
+            <View style={[estilos.metodoIcono, metodo === m.id && estilos.metodoIconoActivo]}>
+              <IconoMetodo id={m.id} activo={metodo === m.id} />
+            </View>
             <View style={{ flex: 1, marginLeft: espacio.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacio.xs, flexWrap: 'wrap' }}>
                 <Text style={estilos.metodoNombre}>{m.nombre}</Text>
@@ -1004,7 +1016,12 @@ const estilos = StyleSheet.create({
   },
   metodoActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
   metodoStore: { borderStyle: 'dashed', borderColor: colors.acento },
-  metodoEmoji: { fontSize: 28 },
+  metodoIcono: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.fondo,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  metodoIconoActivo: { backgroundColor: '#FFE8D9' },
   metodoNombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
   metodoDesc: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
   metodoBadgeStore: {

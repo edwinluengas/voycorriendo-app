@@ -14,9 +14,20 @@ const ESTADOS_LOCAL = [
   { id: 'pendiente',  label: 'Recibimos tu pedido',        emoji: '📝' },
   { id: 'confirmado', label: 'El negocio lo aceptó',        emoji: '✅' },
   { id: 'preparando', label: 'Lo están preparando',          emoji: '👨‍🍳' },
-  { id: 'listo',      label: 'Listo para recoger',           emoji: '📦' },
+  { id: 'listo',      label: 'Listo — el repartidor lo recoge', emoji: '📦' },
   { id: 'en_camino',  label: 'Tu repartidor va en camino',   emoji: '🛵' },
   { id: 'entregado',  label: '¡Entregado! Buen provecho',    emoji: '🎉' },
+];
+
+// PICKUP: el cliente pasa por su pedido, no hay repartidor. Mostrarle los
+// pasos "el repartidor va en camino" era mentira y lo dejaba esperando en
+// casa un pedido que nadie iba a llevarle.
+const ESTADOS_PICKUP = [
+  { id: 'pendiente',  label: 'Recibimos tu pedido',           emoji: '📝' },
+  { id: 'confirmado', label: 'El negocio lo aceptó',          emoji: '✅' },
+  { id: 'preparando', label: 'Lo están preparando',           emoji: '👨‍🍳' },
+  { id: 'listo',      label: '¡Listo! Pasa por él',           emoji: '🏪' },
+  { id: 'entregado',  label: '¡Recogido! Buen provecho',      emoji: '🎉' },
 ];
 
 const ESTADOS_PAQUETERIA = [
@@ -39,13 +50,26 @@ const NOTIF_ESTADO = {
   cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
 };
 
-const notificarCambioEstado = (nuevoEstado, pedidoId, codigoEntrega) => {
-  const n = NOTIF_ESTADO[nuevoEstado];
+// En pickup los avisos cambian: nadie va a llevárselo, y el momento
+// importante es "ya está listo, pasa por él" con su código a la mano.
+const NOTIF_ESTADO_PICKUP = {
+  confirmado: { titulo: '✅ ¡Pedido confirmado!',   cuerpo: 'El negocio aceptó tu pedido y lo está preparando.' },
+  preparando: { titulo: '👨‍🍳 Preparando tu pedido', cuerpo: 'Tu pedido está en la cocina. ¡Ya casi puedes pasar por él!' },
+  listo:      { titulo: '🏪 ¡Listo para recoger!',  cuerpo: 'Tu pedido ya te espera. Pasa por él y muestra tu código de entrega.' },
+  entregado:  { titulo: '🎉 ¡Pedido recogido!',     cuerpo: '¡Buen provecho! No olvides calificarnos.' },
+  cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
+};
+
+const notificarCambioEstado = (nuevoEstado, pedidoId, codigoEntrega, esPickup = false) => {
+  const n = (esPickup ? NOTIF_ESTADO_PICKUP : NOTIF_ESTADO)[nuevoEstado];
   if (!n) return;
   Vibration.vibrate([0, 200, 100, 200]);
-  const cuerpo = nuevoEstado === 'en_camino' && codigoEntrega
-    ? `Ya va en camino. Tu código de entrega es: ${codigoEntrega}. Tenlo listo.`
-    : n.cuerpo;
+  let cuerpo = n.cuerpo;
+  if (!esPickup && nuevoEstado === 'en_camino' && codigoEntrega) {
+    cuerpo = `Ya va en camino. Tu código de entrega es: ${codigoEntrega}. Tenlo listo.`;
+  } else if (esPickup && nuevoEstado === 'listo' && codigoEntrega) {
+    cuerpo = `Ya te espera en el negocio. Tu código para recogerlo es: ${codigoEntrega}.`;
+  }
   Notifications.scheduleNotificationAsync({
     content: {
       title: n.titulo,
@@ -138,7 +162,13 @@ export default function SeguimientoScreen({ route, navigation }) {
       const nuevoEstado = data.estado;
       setPedido((p) => {
         if (p && p.estado !== nuevoEstado) {
-          notificarCambioEstado(nuevoEstado, pedidoId, data.codigo_entrega);
+          // El código del cliente ya está en el pedido cargado; en pickup el
+          // aviso de "listo" lo incluye para que lo tenga a la mano al llegar.
+          notificarCambioEstado(
+            nuevoEstado, pedidoId,
+            data.codigo_entrega || p.codigo_entrega,
+            p.tipo_envio === 'pickup',
+          );
         }
         const update = { ...p, estado: nuevoEstado };
         if (data.codigo_entrega) update.codigo_entrega = data.codigo_entrega;
@@ -195,7 +225,8 @@ export default function SeguimientoScreen({ route, navigation }) {
 
   const esPaqueteria   = pedido.negocio?.tipo_entrega === 'paqueteria';
   const esAhivoy       = pedido.negocio?.categoria === 'ahivoy store';
-  const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : ESTADOS_LOCAL;
+  const esPickup       = pedido.tipo_envio === 'pickup';
+  const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : esPickup ? ESTADOS_PICKUP : ESTADOS_LOCAL;
   const estadoActual   = ESTADOS.findIndex((e) => e.id === pedido.estado);
   const yaCalificado   = pedido.calificacion_negocio !== null && pedido.calificacion_negocio !== undefined;
 
@@ -220,6 +251,32 @@ export default function SeguimientoScreen({ route, navigation }) {
             destino={{ lat: parseFloat(pedido.latitud_entrega), lng: parseFloat(pedido.longitud_entrega) }}
             tituloDestino="Tu dirección"
           />
+        )}
+
+        {/* PICKUP y ya está LISTO: es el momento importante del flujo — hay
+            comida esperándolo. Se le dice dónde recoger y su código, en
+            grande, sin hablar de repartidores (no hay ninguno). */}
+        {esPickup && pedido.estado === 'listo' && (
+          <View style={estilos.pickupListo}>
+            <Text style={estilos.pickupListoTitulo}>🏪 ¡Tu pedido ya te espera!</Text>
+            <Text style={estilos.pickupListoNegocio}>{pedido.negocio?.nombre}</Text>
+            {!!(pedido.negocio?.direccion || pedido.negocio?.colonia) && (
+              <Text style={estilos.pickupListoDir}>
+                📍 {[pedido.negocio?.direccion, pedido.negocio?.colonia].filter(Boolean).join(', ')}
+              </Text>
+            )}
+            {!!pedido.codigo_entrega && (
+              <>
+                <Text style={estilos.pickupListoLabel}>Tu código para recogerlo</Text>
+                <Text style={estilos.pickupListoCodigo}>{pedido.codigo_entrega}</Text>
+              </>
+            )}
+            <Text style={estilos.pickupListoSub}>
+              Muéstralo en el mostrador. {pedido.metodo_pago === 'efectivo'
+                ? `Pagas ahí $${parseFloat(pedido.total).toFixed(2)} en efectivo.`
+                : ''}
+            </Text>
+          </View>
         )}
 
         {/* Código de entrega — LO PRIMERO que ve el cliente cuando el
@@ -641,6 +698,20 @@ const estilos = StyleSheet.create({
   codigoLabel: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.92)', letterSpacing: 2, textTransform: 'uppercase' },
   codigoNum: { fontSize: 72, fontWeight: '900', color: '#FFFFFF', letterSpacing: 12, marginVertical: espacio.xs },
   codigoSub: { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', lineHeight: 18 },
+
+  // Pickup listo: verde (es una buena noticia, no una alerta) y con el
+  // código igual de grande que en la entrega a domicilio.
+  pickupListo: {
+    backgroundColor: colors.secundario,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
+  },
+  pickupListoTitulo:  { fontSize: 20, fontWeight: '900', color: '#FFFFFF', textAlign: 'center' },
+  pickupListoNegocio: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', marginTop: espacio.xs },
+  pickupListoDir:     { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginTop: 2 },
+  pickupListoLabel:   { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.92)', letterSpacing: 2, textTransform: 'uppercase', marginTop: espacio.md },
+  pickupListoCodigo:  { fontSize: 64, fontWeight: '900', color: '#FFFFFF', letterSpacing: 10, marginVertical: 2 },
+  pickupListoSub:     { fontSize: 13, color: 'rgba(255,255,255,0.95)', textAlign: 'center', lineHeight: 18, marginTop: espacio.xs },
 
   propinaRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs, marginTop: espacio.xs, flexWrap: 'wrap' },
   propinaChip: {

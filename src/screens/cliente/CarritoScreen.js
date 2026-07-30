@@ -6,7 +6,19 @@ import { getCarrito, carritoRequiereINE, vaciarCarrito } from './NegocioScreen';
 import { pedidosAPI } from '../../api/client';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, TIPOS_ENVIO } from '../../config/businessRules';
+
+// Iconos vectoriales, no emoji. Los emoji se renderizan con el tipo de letra
+// del sistema: cada uno trae su propio tamaño, peso y color, y una fila de
+// tres queda visualmente desalineada. Se usa la misma familia que la barra de
+// tabs (Ionicons) y solo se sale de ella la moto, que Ionicons no tiene.
+function IconoEnvio({ tipo, activo }) {
+  const color = activo ? colors.primario : colors.textoSuave;
+  if (tipo === 'express') return <Ionicons name="flash" size={22} color={color} />;
+  if (tipo === 'pickup')  return <Ionicons name={activo ? 'storefront' : 'storefront-outline'} size={22} color={color} />;
+  return <MaterialCommunityIcons name="motorbike" size={23} color={color} />;
+}
 
 export default function CarritoScreen({ navigation }) {
   const carrito = getCarrito();
@@ -173,25 +185,37 @@ export default function CarritoScreen({ navigation }) {
             <Text style={estilos.avisoPickupTxt}>{avisoEnvio}</Text>
           </View>
         )}
-        <View style={estilos.tipoFila}>
+
+        {/* Una fila por opción — mismo patrón que el selector de método de
+            pago de la pantalla siguiente, para que el checkout se lea como
+            una sola pieza. Iconos vectoriales (no emoji): a 3 opciones los
+            emoji se veían de tamaños distintos y el bloque quedaba sucio. */}
+        <View style={estilos.tipoLista}>
           {opcionesEnvio.map((t) => {
             const activo = tipoEnvio === t.id;
+            const gratis = t.precio === 0;
             return (
               <Pressable
                 key={t.id}
-                style={[estilos.tipoBtn, activo && estilos.tipoBtnActivo]}
+                style={[estilos.tipoFila2, activo && estilos.tipoFilaActiva]}
                 onPress={() => setTipoEnvio(t.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: activo }}
+                accessibilityLabel={`${t.label}. ${t.sub}. ${gratis ? 'Sin costo' : `$${t.precio} pesos`}`}
               >
-                <Text style={estilos.tipoEmoji}>{t.emoji}</Text>
-                <View>
-                  <Text style={[estilos.tipoLabel, activo && estilos.tipoLabelActivo]}>
-                    {t.label}
-                  </Text>
-                  <Text style={estilos.tipoSub}>{t.sub}</Text>
+                <View style={[estilos.tipoIcono, activo && estilos.tipoIconoActivo]}>
+                  <IconoEnvio tipo={t.id} activo={activo} />
                 </View>
-                <Text style={[estilos.tipoPrecio, activo && estilos.tipoLabelActivo]}>
-                  ${t.precio}
+
+                <View style={{ flex: 1 }}>
+                  <Text style={[estilos.tipoNombre, activo && estilos.tipoNombreActivo]}>{t.label}</Text>
+                  <Text style={estilos.tipoDesc}>{t.sub}</Text>
+                </View>
+
+                <Text style={[estilos.tipoPrecio2, gratis && estilos.tipoPrecioGratis]}>
+                  {gratis ? 'Gratis' : `$${t.precio}`}
                 </Text>
+                <View style={[estilos.radio, activo && estilos.radioActivo]} />
               </Pressable>
             );
           })}
@@ -380,27 +404,39 @@ const estilos = StyleSheet.create({
     letterSpacing: 0.8, textTransform: 'uppercase',
     marginBottom: espacio.sm,
   },
-  tipoFila: { flexDirection: 'row', gap: espacio.sm, marginBottom: espacio.md },
-  tipoBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: espacio.sm,
-    padding: espacio.sm,
+  // ── Selector de tipo de entrega ──
+  // Una fila por opción (no tres tarjetas apretadas): con tres opciones el
+  // texto se cortaba y el precio quedaba encimado. Mismo idioma visual que
+  // el selector de método de pago de la pantalla siguiente.
+  tipoLista: { marginBottom: espacio.md, gap: espacio.xs },
+  tipoFila2: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    backgroundColor: colors.superficie,
     borderRadius: radio.md,
-    borderWidth: 1.5,
-    borderColor: colors.borde,
+    borderWidth: 1.5, borderColor: colors.borde,
+    paddingVertical: espacio.sm + 2, paddingHorizontal: espacio.md,
+  },
+  tipoFilaActiva: { borderColor: colors.primario, backgroundColor: '#FFF7F2' },
+  tipoIcono: {
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.fondo,
+    alignItems: 'center', justifyContent: 'center',
   },
-  tipoBtnActivo: {
-    borderColor: colors.primario,
-    backgroundColor: '#FFF3E8',
+  tipoIconoActivo: { backgroundColor: '#FFE8D9' },
+  tipoNombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
+  tipoNombreActivo: { color: colors.primario },
+  tipoDesc: { fontSize: 12, color: colors.textoSuave, marginTop: 1 },
+  tipoPrecio2: {
+    fontSize: 15, fontWeight: '800', color: colors.texto,
+    fontVariant: ['tabular-nums'],
   },
-  tipoEmoji: { fontSize: 20 },
-  tipoLabel: { fontSize: 13, fontWeight: '800', color: colors.textoSuave },
-  tipoLabelActivo: { color: colors.primario },
-  tipoSub: { fontSize: 10, color: colors.textoSuave },
-  tipoPrecio: { fontSize: 14, fontWeight: '800', color: colors.textoSuave, marginLeft: 'auto' },
+  tipoPrecioGratis: { color: colors.secundario, fontSize: 13, fontWeight: '800' },
+  radio: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 2, borderColor: colors.bordeOscuro,
+  },
+  radioActivo: { borderColor: colors.primario, backgroundColor: colors.primario },
+
 
   costos: { marginBottom: espacio.sm },
   linea: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },

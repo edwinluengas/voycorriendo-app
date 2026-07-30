@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { negociosAPI } from '../../api/client';
+import { negociosAPI, pedidosAPI } from '../../api/client';
 import { FEE_ENVIO } from '../../config/businessRules';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -55,6 +55,52 @@ const EMOJI_POR_CATEGORIA = {
   'ahivoy store':       '🛍️',
   distribuidora:        '📦',
   otro:                 '🏪',
+};
+
+// ─── Textos del banner de pedido en curso ─────────────────────────────
+// En PICKUP nunca se habla de repartidor: no hay ninguno y decirle "tu
+// repartidor va en camino" lo dejaría esperando en su casa.
+const esPickup = (p) => p?.tipo_envio === 'pickup';
+const esPickupListo = (p) => esPickup(p) && p?.estado === 'listo';
+
+const emojiEstado = (p) => ({
+  pendiente:  '📝',
+  confirmado: '✅',
+  preparando: '👨‍🍳',
+  listo:      esPickup(p) ? '🏪' : '📦',
+  en_camino:  '🛵',
+  en_envio:   '🚚',
+}[p?.estado] || '🧾');
+
+const tituloEstado = (p) => {
+  if (esPickup(p)) {
+    return {
+      pendiente:  'Esperando al negocio',
+      confirmado: 'Tu pedido fue aceptado',
+      preparando: 'Preparando tu pedido',
+      listo:      '¡Listo para recoger!',
+    }[p.estado] || 'Pedido en curso';
+  }
+  return {
+    pendiente:  'Esperando al negocio',
+    confirmado: 'Tu pedido fue aceptado',
+    preparando: 'Preparando tu pedido',
+    listo:      'Listo — buscando repartidor',
+    en_camino:  '¡Tu pedido va en camino!',
+    en_envio:   'En camino desde México',
+  }[p.estado] || 'Pedido en curso';
+};
+
+const subtituloEstado = (p) => {
+  const negocio = p?.negocio?.nombre ? ` · ${p.negocio.nombre}` : '';
+  if (esPickupListo(p)) {
+    return `Pasa por él${negocio}${p.codigo_entrega ? ` · código ${p.codigo_entrega}` : ''}`;
+  }
+  if (esPickup(p)) return `Recoges en tienda${negocio}`;
+  if (p?.estado === 'en_camino' && p?.codigo_entrega) {
+    return `Ten listo tu código: ${p.codigo_entrega}`;
+  }
+  return `${p?.numero || ''}${negocio}`;
 };
 
 // Formatea tiempo_entrega a texto amigable
@@ -112,7 +158,28 @@ export default function InicioClienteScreen({ navigation, route }) {
     }
   }, []);
 
-  // useFocusEffect ya dispara en el primer render — no duplicar con useEffect
+  // ── Estado del pedido en curso, SIEMPRE visible en el inicio ──
+  // El push puede no llegar (permiso denegado, token sin registrar, celular
+  // en silencio), y entonces el cliente no se enteraba de nada: quedaba
+  // esperando sin saber que su pedido ya estaba listo. Este banner no
+  // depende de notificaciones — se consulta al abrir y cada 20 s.
+  const [pedidoActivo, setPedidoActivo] = useState(null);
+
+  const cargarPedidoActivo = useCallback(async () => {
+    try {
+      const { data } = await pedidosAPI.misPedidos();
+      const enCurso = (data.data?.pedidos || []).find(
+        (p) => !['entregado', 'cancelado', 'rechazado'].includes(p.estado),
+      );
+      setPedidoActivo(enCurso || null);
+    } catch (_) { /* sin conexión: se reintenta al siguiente ciclo */ }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    cargarPedidoActivo();
+    const t = setInterval(cargarPedidoActivo, 20000);
+    return () => clearInterval(t);
+  }, [cargarPedidoActivo]));
 
   const destacados   = negocios.filter((n) => n.destacado);
   const porCategoria = categoria === 'todos'
@@ -144,6 +211,27 @@ export default function InicioClienteScreen({ navigation, route }) {
               <Text style={estilos.hola}>¡Hola! 👋</Text>
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
             </View>
+
+            {/* Estado del pedido en curso — SIEMPRE visible aquí, sin
+                depender de que llegue el push */}
+            {pedidoActivo && (
+              <Pressable
+                style={[
+                  estilos.estadoPedido,
+                  esPickupListo(pedidoActivo) && estilos.estadoPedidoListo,
+                ]}
+                onPress={() => navigation.navigate('Seguimiento', { pedidoId: pedidoActivo.id })}
+              >
+                <Text style={estilos.estadoPedidoEmoji}>{emojiEstado(pedidoActivo)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.estadoPedidoTitulo}>{tituloEstado(pedidoActivo)}</Text>
+                  <Text style={estilos.estadoPedidoSub} numberOfLines={2}>
+                    {subtituloEstado(pedidoActivo)}
+                  </Text>
+                </View>
+                <Text style={estilos.estadoPedidoIr}>Ver ›</Text>
+              </Pressable>
+            )}
 
             {/* Banner Tienda VoyCorriendo — alto impacto */}
             {tiendaAhivoy && categoria === 'todos' && (
@@ -337,6 +425,21 @@ const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
 
   // Header oscuro al estilo Uber Eats
+  // Banner de pedido en curso — naranja normal, verde cuando ya se puede
+  // recoger (es la unica accion que el cliente debe notar de inmediato).
+  estadoPedido: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    backgroundColor: colors.primario,
+    marginHorizontal: espacio.md, marginTop: -espacio.md, marginBottom: espacio.sm,
+    borderRadius: radio.md, padding: espacio.md,
+    elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  estadoPedidoListo: { backgroundColor: colors.secundario },
+  estadoPedidoEmoji: { fontSize: 28 },
+  estadoPedidoTitulo: { fontSize: 15, fontWeight: '900', color: '#FFFFFF' },
+  estadoPedidoSub: { fontSize: 12, color: 'rgba(255,255,255,0.92)', marginTop: 2 },
+  estadoPedidoIr: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
   headerOscuro: {
     backgroundColor: colors.oscuro,
     paddingHorizontal: espacio.lg,
