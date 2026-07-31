@@ -6,37 +6,38 @@ import { pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
 import MapaSeguimiento from '../../components/MapaSeguimiento';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const WA_VOYCORRIENDO = '527542462564';
 
 const ESTADOS_LOCAL = [
-  { id: 'pendiente',  label: 'Recibimos tu pedido',        emoji: '📝' },
-  { id: 'confirmado', label: 'El negocio lo aceptó',        emoji: '✅' },
-  { id: 'preparando', label: 'Lo están preparando',          emoji: '👨‍🍳' },
-  { id: 'listo',      label: 'Listo — el repartidor lo recoge', emoji: '📦' },
-  { id: 'en_camino',  label: 'Tu repartidor va en camino',   emoji: '🛵' },
-  { id: 'entregado',  label: '¡Entregado! Buen provecho',    emoji: '🎉' },
+  { id: 'pendiente',  label: 'Recibimos tu pedido',        icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'El negocio lo aceptó',        icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Lo están preparando',          icono: 'restaurant-outline' },
+  { id: 'listo',      label: 'Listo — el repartidor lo recoge', icono: 'cube-outline' },
+  { id: 'en_camino',  label: 'Tu repartidor va en camino',   icono: 'navigate-outline' },
+  { id: 'entregado',  label: '¡Entregado! Buen provecho',    icono: 'happy-outline' },
 ];
 
 // PICKUP: el cliente pasa por su pedido, no hay repartidor. Mostrarle los
 // pasos "el repartidor va en camino" era mentira y lo dejaba esperando en
 // casa un pedido que nadie iba a llevarle.
 const ESTADOS_PICKUP = [
-  { id: 'pendiente',  label: 'Recibimos tu pedido',           emoji: '📝' },
-  { id: 'confirmado', label: 'El negocio lo aceptó',          emoji: '✅' },
-  { id: 'preparando', label: 'Lo están preparando',           emoji: '👨‍🍳' },
-  { id: 'listo',      label: '¡Listo! Pasa por él',           emoji: '🏪' },
-  { id: 'entregado',  label: '¡Recogido! Buen provecho',      emoji: '🎉' },
+  { id: 'pendiente',  label: 'Recibimos tu pedido',           icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'El negocio lo aceptó',          icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Lo están preparando',           icono: 'restaurant-outline' },
+  { id: 'listo',      label: '¡Listo! Pasa por él',           icono: 'storefront-outline' },
+  { id: 'entregado',  label: '¡Recogido! Buen provecho',      icono: 'happy-outline' },
 ];
 
 const ESTADOS_PAQUETERIA = [
-  { id: 'pendiente',  label: 'Pedido recibido',             emoji: '📝' },
-  { id: 'confirmado', label: 'Pedido confirmado',            emoji: '✅' },
-  { id: 'preparando', label: 'Empacando tu pedido',          emoji: '📦' },
-  { id: 'listo',      label: 'Listo para enviar',            emoji: '🏷️' },
-  { id: 'en_envio',   label: 'En camino desde México 🚚',   emoji: '🚚' },
-  { id: 'entregado',  label: '¡Llegó tu pedido!',            emoji: '🎉' },
+  { id: 'pendiente',  label: 'Pedido recibido',             icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'Pedido confirmado',            icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Empacando tu pedido',          icono: 'cube-outline' },
+  { id: 'listo',      label: 'Listo para enviar',            icono: 'pricetag-outline' },
+  { id: 'en_envio',   label: 'En camino desde México',      icono: 'airplane-outline' },
+  { id: 'entregado',  label: '¡Llegó tu pedido!',            icono: 'happy-outline' },
 ];
 
 // Mensajes de notificación para cada cambio de estado
@@ -426,19 +427,34 @@ export default function SeguimientoScreen({ route, navigation }) {
 
         {/* Timeline de estados */}
         <View style={estilos.timeline}>
-          {ESTADOS.map((e, i) => (
-            <View key={e.id} style={estilos.paso}>
-              <View style={[estilos.circulo, i <= estadoActual && estilos.circuloActivo]}>
-                <Text style={estilos.circuloEmoji}>{e.emoji}</Text>
+          {ESTADOS.map((e, i) => {
+            const cumplido = i < estadoActual;
+            const actual   = i === estadoActual;
+            return (
+              <View key={e.id} style={estilos.paso}>
+                <View style={[
+                  estilos.circulo,
+                  cumplido && estilos.circuloCumplido,
+                  actual && estilos.circuloActual,
+                ]}>
+                  {/* Los pasos ya cumplidos se marcan con una palomita: no
+                      hace falta repetir su icono, y así el paso ACTUAL es lo
+                      único que destaca en la columna. */}
+                  <Ionicons
+                    name={cumplido ? 'checkmark' : e.icono}
+                    size={cumplido ? 17 : 18}
+                    color={cumplido || actual ? '#FFFFFF' : colors.textoSuave}
+                  />
+                </View>
+                <Text style={[estilos.pasoLabel, actual && estilos.pasoLabelActivo]}>
+                  {e.label}
+                </Text>
+                {i < ESTADOS.length - 1 && (
+                  <View style={[estilos.linea, cumplido && estilos.lineaActiva]} />
+                )}
               </View>
-              <Text style={[estilos.pasoLabel, i === estadoActual && estilos.pasoLabelActivo]}>
-                {e.label}
-              </Text>
-              {i < ESTADOS.length - 1 && (
-                <View style={[estilos.linea, i < estadoActual && estilos.lineaActiva]} />
-              )}
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {pedido.repartidor_id && (
@@ -605,19 +621,25 @@ const estilos = StyleSheet.create({
 
   timeline: { padding: espacio.lg },
   paso: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.md, position: 'relative' },
+  // Timeline: discos más chicos que antes (48 → 38). El paso ACTUAL es el
+  // único en color de marca; los cumplidos van en verde con palomita y los
+  // pendientes en gris. Así se lee de un vistazo en qué punto va el pedido,
+  // en vez de una columna de círculos todos iguales.
   circulo: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: colors.borde, alignItems: 'center', justifyContent: 'center', marginRight: espacio.md,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.oscuroCard,
+    borderWidth: 1.5, borderColor: colors.borde,
+    alignItems: 'center', justifyContent: 'center', marginRight: espacio.md,
   },
-  circuloActivo: { backgroundColor: colors.primario },
-  circuloEmoji: { fontSize: 22 },
+  circuloCumplido: { backgroundColor: colors.secundario, borderColor: colors.secundario },
+  circuloActual:   { backgroundColor: colors.primario,   borderColor: colors.primario },
   pasoLabel: { fontSize: 15, color: colors.textoSuave, flex: 1 },
   pasoLabelActivo: { fontSize: 16, color: colors.texto, fontWeight: '700' },
   linea: {
-    position: 'absolute', left: 23, top: 48,
+    position: 'absolute', left: 18, top: 38,
     width: 2, height: espacio.md + 8, backgroundColor: colors.borde,
   },
-  lineaActiva: { backgroundColor: colors.primario },
+  lineaActiva: { backgroundColor: colors.secundario },
 
   repartidor: {
     flexDirection: 'row', alignItems: 'center',

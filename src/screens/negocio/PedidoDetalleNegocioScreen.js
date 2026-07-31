@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
+import { Ionicons } from '@expo/vector-icons';
 import { pedidosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import MapaSeguimiento from '../../components/MapaSeguimiento';
@@ -52,6 +53,10 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
   const [mostrarINE, setMostrarINE] = useState(false);
   const [modalGuia, setModalGuia]   = useState(false);
   const [guia, setGuia]             = useState('');
+  // Entrega de pedidos para recoger (pickup): código que muestra el cliente
+  const [modalCodigo, setModalCodigo]     = useState(false);
+  const [codigoEntrega, setCodigoEntrega] = useState('');
+  const [errorCodigo, setErrorCodigo]     = useState('');
   const [repartidorPos, setRepartidorPos] = useState(null);
 
   const cargar = useCallback(async () => {
@@ -126,6 +131,34 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
         onPress: () => cambiarEstado(nuevoEstado),
       },
     ]);
+  };
+
+  // ── Entregar un pedido PICKUP ──
+  // El cliente pasa por su pedido y muestra su código de 4 dígitos. Sin ese
+  // código el pedido NO se cierra: es la única prueba de que se le entregó a
+  // quien lo hizo y no a cualquiera que dio un nombre. El negocio nunca ve el
+  // código en su pantalla (el servidor se lo oculta) — tiene que pedírselo.
+  const entregarPickup = async () => {
+    const codigo = codigoEntrega.trim();
+    if (codigo.length !== 4) {
+      setErrorCodigo('El código son 4 dígitos. Pídeselo al cliente.');
+      return;
+    }
+    setEnviando(true);
+    setErrorCodigo('');
+    try {
+      await pedidosAPI.actualizarEstado(pedidoId, 'entregado', null, { codigo_entrega: codigo });
+      setModalCodigo(false);
+      setCodigoEntrega('');
+      await cargar();
+    } catch (e) {
+      // El error del servidor se muestra DENTRO del modal, no en un alert que
+      // lo cierre: el negocio tiene al cliente enfrente y necesita reintentar
+      // sin volver a empezar.
+      setErrorCodigo(e.mensajeAmigable || 'No se pudo confirmar la entrega.');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const marcarEnviado = async () => {
@@ -357,6 +390,8 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
         estado={pedido.estado}
         enviando={enviando}
         esPaqueteria={pedido.negocio?.tipo_entrega === 'paqueteria'}
+        esPickup={pedido.tipo_envio === 'pickup'}
+        onEntregarPickup={() => { setErrorCodigo(''); setCodigoEntrega(''); setModalCodigo(true); }}
         onAceptar={() => confirmarAccion(
           'Aceptar pedido',
           `¿Aceptas el pedido #${pedido.numero}? El cliente será notificado.`,
@@ -377,6 +412,57 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
           'entregado'
         )}
       />
+
+      {/* Entrega de un pedido para RECOGER: el cliente muestra su código */}
+      <Modal visible={modalCodigo} transparent animationType="slide" onRequestClose={() => setModalCodigo(false)}>
+        <KeyboardAvoidingView
+          style={estilos.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <View style={estilos.modalCaja}>
+            <View style={estilos.codigoIconoCaja}>
+              <Ionicons name="bag-check" size={26} color={colors.secundario} />
+            </View>
+            <Text style={estilos.modalTitulo}>Entregar al cliente</Text>
+            <Text style={estilos.modalSub}>
+              Pídele su código de 4 dígitos — lo tiene en su app. Sin él el pedido no se cierra.
+            </Text>
+
+            <TextInput
+              style={[estilos.codigoInput, !!errorCodigo && estilos.codigoInputError]}
+              placeholder="0000"
+              placeholderTextColor={colors.bordeOscuro}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={codigoEntrega}
+              onChangeText={(v) => { setCodigoEntrega(v.replace(/\D/g, '')); setErrorCodigo(''); }}
+              autoFocus
+              onSubmitEditing={entregarPickup}
+            />
+            {!!errorCodigo && <Text style={estilos.codigoError}>{errorCodigo}</Text>}
+
+            <View style={{ flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md }}>
+              <Pressable
+                style={[estilos.btnModal, { flex: 1, backgroundColor: colors.fondo, borderWidth: 1, borderColor: colors.borde }]}
+                onPress={() => { setModalCodigo(false); setCodigoEntrega(''); setErrorCodigo(''); }}
+              >
+                <Text style={{ fontWeight: '700', color: colors.texto }}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={[estilos.btnModal, { flex: 2, backgroundColor: colors.secundario },
+                  codigoEntrega.length !== 4 && { opacity: 0.5 }]}
+                onPress={entregarPickup}
+                disabled={enviando || codigoEntrega.length !== 4}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800' }}>
+                  {enviando ? 'Confirmando…' : 'Confirmar entrega'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Modal para ingresar número de guía */}
       <Modal visible={modalGuia} transparent animationType="slide">
@@ -446,7 +532,7 @@ function FilaMonto({ etiqueta, monto }) {
   );
 }
 
-function BarraAcciones({ estado, enviando, esPaqueteria, onAceptar, onRechazar, onPreparando, onListo, onMarcarEnviado, onConfirmarEntrega }) {
+function BarraAcciones({ estado, enviando, esPaqueteria, esPickup, onAceptar, onRechazar, onPreparando, onListo, onMarcarEnviado, onConfirmarEntrega, onEntregarPickup }) {
   if (estado === 'pendiente') {
     return (
       <View style={estilos.barra}>
@@ -477,11 +563,31 @@ function BarraAcciones({ estado, enviando, esPaqueteria, onAceptar, onRechazar, 
       </View>
     );
   }
+  // PICKUP listo: el cliente viene por él. Es el ÚNICO camino para cerrarlo,
+  // y exige su código — sin esto el pedido se quedaba atorado en "listo"
+  // para siempre porque esta barra no mostraba ninguna acción.
+  if (estado === 'listo' && esPickup) {
+    return (
+      <View style={estilos.barra}>
+        <Pressable
+          style={[estilos.btn, estilos.btnAceptar, { flex: 1, backgroundColor: colors.secundario }]}
+          disabled={enviando}
+          onPress={onEntregarPickup}
+        >
+          <Ionicons name="bag-check-outline" size={18} color="#FFF" />
+          <Text style={estilos.btnAceptarTxt}>
+            {enviando ? 'Actualizando…' : 'Entregar al cliente'}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (estado === 'listo' && esPaqueteria) {
     return (
       <View style={estilos.barra}>
         <Pressable style={[estilos.btn, estilos.btnAceptar, { flex: 1 }]} disabled={enviando} onPress={onMarcarEnviado}>
-          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : '🚚 Marcar como enviado'}</Text>
+          <Ionicons name="cube-outline" size={18} color="#FFF" />
+          <Text style={estilos.btnAceptarTxt}>{enviando ? 'Actualizando…' : 'Marcar como enviado'}</Text>
         </Pressable>
       </View>
     );
@@ -576,7 +682,11 @@ const estilos = StyleSheet.create({
     padding: espacio.md, backgroundColor: colors.superficie,
     borderTopWidth: 1, borderTopColor: colors.borde,
   },
-  btn:        { flex: 1, paddingVertical: espacio.md, borderRadius: radio.md, alignItems: 'center' },
+  // flexDirection/gap: los botones ahora llevan icono + texto en línea
+  btn: {
+    flex: 1, paddingVertical: espacio.md, borderRadius: radio.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espacio.xs,
+  },
   btnAceptar: { backgroundColor: colors.primario },
   btnAceptarTxt: { color: '#FFF', fontSize: 16, fontWeight: '800' },
   btnRechazar:{ backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: colors.error },
@@ -601,4 +711,28 @@ const estilos = StyleSheet.create({
     fontSize: 15, color: colors.texto, backgroundColor: colors.fondo,
   },
   btnModal: { paddingVertical: 14, borderRadius: radio.md, alignItems: 'center' },
+
+  // ── Entrega de pickup ──
+  // El código es el protagonista del modal: cifras grandes y separadas para
+  // que se lea de un vistazo mientras el cliente lo dicta en el mostrador.
+  codigoIconoCaja: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center', marginBottom: espacio.sm,
+  },
+  codigoInput: {
+    borderWidth: 1.5, borderColor: colors.borde, borderRadius: radio.md,
+    backgroundColor: colors.fondo,
+    paddingVertical: espacio.sm,
+    marginTop: espacio.md,
+    fontSize: 34, fontWeight: '900', letterSpacing: 14,
+    textAlign: 'center', color: colors.texto,
+    fontVariant: ['tabular-nums'],
+  },
+  codigoInputError: { borderColor: colors.error, backgroundColor: '#FEF2F2' },
+  codigoError: {
+    marginTop: espacio.xs, fontSize: 13, color: colors.error,
+    textAlign: 'center', lineHeight: 18,
+  },
 });

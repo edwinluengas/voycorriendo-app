@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { negociosAPI, pedidosAPI } from '../../api/client';
 import { FEE_ENVIO } from '../../config/businessRules';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const CATEGORIAS = [
@@ -63,14 +64,14 @@ const EMOJI_POR_CATEGORIA = {
 const esPickup = (p) => p?.tipo_envio === 'pickup';
 const esPickupListo = (p) => esPickup(p) && p?.estado === 'listo';
 
-const emojiEstado = (p) => ({
-  pendiente:  '📝',
-  confirmado: '✅',
-  preparando: '👨‍🍳',
-  listo:      esPickup(p) ? '🏪' : '📦',
-  en_camino:  '🛵',
-  en_envio:   '🚚',
-}[p?.estado] || '🧾');
+const iconoEstado = (p) => ({
+  pendiente:  'receipt-outline',
+  confirmado: 'checkmark-circle-outline',
+  preparando: 'restaurant-outline',
+  listo:      esPickup(p) ? 'storefront' : 'cube-outline',
+  en_camino:  'navigate',
+  en_envio:   'airplane-outline',
+}[p?.estado] || 'receipt-outline');
 
 const tituloEstado = (p) => {
   if (esPickup(p)) {
@@ -222,14 +223,16 @@ export default function InicioClienteScreen({ navigation, route }) {
                 ]}
                 onPress={() => navigation.navigate('Seguimiento', { pedidoId: pedidoActivo.id })}
               >
-                <Text style={estilos.estadoPedidoEmoji}>{emojiEstado(pedidoActivo)}</Text>
+                <View style={estilos.estadoPedidoIconoCaja}>
+                  <Ionicons name={iconoEstado(pedidoActivo)} size={20} color="#FFFFFF" />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.estadoPedidoTitulo}>{tituloEstado(pedidoActivo)}</Text>
                   <Text style={estilos.estadoPedidoSub} numberOfLines={2}>
                     {subtituloEstado(pedidoActivo)}
                   </Text>
                 </View>
-                <Text style={estilos.estadoPedidoIr}>Ver ›</Text>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
               </Pressable>
             )}
 
@@ -436,7 +439,11 @@ const estilos = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   estadoPedidoListo: { backgroundColor: colors.secundario },
-  estadoPedidoEmoji: { fontSize: 28 },
+  estadoPedidoIconoCaja: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   estadoPedidoTitulo: { fontSize: 15, fontWeight: '900', color: '#FFFFFF' },
   estadoPedidoSub: { fontSize: 12, color: 'rgba(255,255,255,0.92)', marginTop: 2 },
   estadoPedidoIr: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
