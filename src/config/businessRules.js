@@ -45,7 +45,12 @@ export const METODOS_PAGO_ACTIVOS_DEFAULT = ['efectivo'];
 export const CANALES_RECUPERACION_DEFAULT = ['email', 'telegram'];
 
 // ─── Radio máximo de entrega desde el restaurante ────────────────────
-export const RADIO_MAXIMO_KM = 5;
+// 6.5 km desde 2026-07-31. NO es que se haya ampliado la zona: la
+// distancia dejo de medirse en linea recta y ahora se corrige por la
+// traza urbana (x1.3), asi que los 5 km "rectos" de antes son ~6.5 km
+// de recorrido real. El area atendida es la misma; el numero es honesto.
+// El valor real lo manda el backend en /api/config-publica.
+export const RADIO_MAXIMO_KM = 6.5;
 
 // ─── Tope de deuda de restaurante (bloqueo automático) ───────────────
 // Ya no es por monto acumulado — es por CANTIDAD de pedidos en efectivo
