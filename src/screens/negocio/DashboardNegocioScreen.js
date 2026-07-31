@@ -334,6 +334,7 @@ function TarjetaPedido({ pedido, onPress }) {
   const totalItems = Array.isArray(pedido.items)
     ? pedido.items.reduce((a, it) => a + (it.cantidad || 0), 0) : 0;
   const requiereID = Array.isArray(pedido.items) && pedido.items.some((it) => it.requiere_id);
+  const esPickup   = pedido.tipo_envio === 'pickup';
 
   return (
     <Pressable
@@ -349,12 +350,25 @@ function TarjetaPedido({ pedido, onPress }) {
           </View>
         </View>
 
+        {/* Distinguir PICKUP de una entrega a domicilio: sin esta marca el
+            negocio no sabía si esperar a un repartidor o al cliente, y un
+            pedido para recoger podía quedarse listo en el mostrador sin que
+            nadie supiera que alguien iba a pasar por él. */}
+        {esPickup && (
+          <View style={estilos.pickupPill}>
+            <Ionicons name="storefront" size={13} color="#1B5E20" />
+            <Text style={estilos.pickupPillTxt}>El cliente pasa por él</Text>
+          </View>
+        )}
+
         <Text style={estilos.tarjetaCliente} numberOfLines={1}>
           👤 {pedido.cliente?.nombre || 'Cliente'}
         </Text>
-        <Text style={estilos.tarjetaDireccion} numberOfLines={2}>
-          📍 {pedido.direccion_entrega}
-        </Text>
+        {!esPickup && (
+          <Text style={estilos.tarjetaDireccion} numberOfLines={2}>
+            📍 {pedido.direccion_entrega}
+          </Text>
+        )}
 
         <View style={estilos.tarjetaMeta}>
           <Text style={estilos.tarjetaItems}>
@@ -507,6 +521,13 @@ const estilos = StyleSheet.create({
   tarjetaDireccion: { fontSize: 12, color: colors.textoSuave, marginBottom: espacio.sm },
   tarjetaMeta: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm, marginBottom: espacio.sm, flexWrap: 'wrap' },
   tarjetaItems: { fontSize: 13, color: colors.texto, fontWeight: '600' },
+  pickupPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: '#A5D6A7',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: radio.full,
+    marginTop: espacio.xs,
+  },
+  pickupPillTxt: { fontSize: 11, color: '#1B5E20', fontWeight: '800' },
   edadBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radio.full },
   edadBadgeTxt: { fontSize: 11, color: '#991B1B', fontWeight: '700' },
   tarjetaPie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
