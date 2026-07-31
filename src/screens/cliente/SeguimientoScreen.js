@@ -6,6 +6,7 @@ import { pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
 import MapaSeguimiento from '../../components/MapaSeguimiento';
+import useRutaPedido from '../../hooks/useRutaPedido';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -94,6 +95,8 @@ export default function SeguimientoScreen({ route, navigation }) {
   const [cancelando, setCancelando]     = useState(false);
   const [repartidorPos, setRepartidorPos] = useState(null);
   const estadoAnteriorRef               = useRef(null);
+  // Ruta por calles para el mapa (null si Google no esta disponible).
+  const rutaPolyline = useRutaPedido(pedidoId, repartidorPos, !!pedido?.repartidor);
 
   const cargar = useCallback(async () => {
     try {
@@ -242,14 +245,21 @@ export default function SeguimientoScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Mapa en vivo — solo mientras el repartidor va EN CAMINO a la
-            dirección de entrega (destino = coords del propio pedido). Antes
-            de esto (recogiendo en el negocio) el que necesita verlo es el
-            negocio, no el cliente — ver PedidoDetalleNegocioScreen. */}
-        {pedido.estado === 'en_camino' && pedido.latitud_entrega && pedido.longitud_entrega && (
+        {/* Mapa en vivo del viaje COMPLETO: el repartidor, el restaurante
+            donde recoge y la dirección de entrega. Se muestra desde que hay
+            repartidor asignado —no solo al salir— porque la pregunta del
+            cliente ("¿dónde va mi pedido?") empieza en la cocina, no en la
+            calle. Se oculta cuando el pedido ya terminó. */}
+        {pedido.repartidor && !['entregado', 'cancelado', 'rechazado'].includes(pedido.estado)
+          && pedido.latitud_entrega && pedido.longitud_entrega && (
           <MapaSeguimiento
             repartidorPos={repartidorPos}
-            destino={{ lat: parseFloat(pedido.latitud_entrega), lng: parseFloat(pedido.longitud_entrega) }}
+            rutaPolyline={rutaPolyline}
+            origen={pedido.negocio?.latitud && pedido.negocio?.longitud
+              ? { lat: pedido.negocio.latitud, lng: pedido.negocio.longitud }
+              : null}
+            destino={{ lat: pedido.latitud_entrega, lng: pedido.longitud_entrega }}
+            tituloOrigen={pedido.negocio?.nombre || 'Restaurante'}
             tituloDestino="Tu dirección"
           />
         )}

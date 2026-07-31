@@ -1,25 +1,44 @@
 /**
  * RecuperarPasswordScreen — "olvidé mi contraseña"
  *
- * Paso 1: elegir a dónde mandar el código (SMS al celular o correo).
+ * Paso 1: elegir a dónde mandar el código (correo, Telegram o SMS).
  * Paso 2: escribir el código de 6 dígitos + la contraseña nueva.
  * Al terminar, el backend devuelve un token y se entra directo a la app.
+ *
+ * Los canales NO están fijos en el código: el servidor dice cuáles pueden
+ * entregar hoy (/api/config-publica). Ofrecer uno apagado sería mandar al
+ * usuario a esperar un mensaje que nadie va a enviarle.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ScrollView, StatusBar, ActivityIndicator,
 } from 'react-native';
-import { authAPI } from '../../api/client';
+import { authAPI, pedidosAPI } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import CampoTelefono, { PAISES, validarTelefono } from '../../components/CampoTelefono';
+import { Ionicons } from '@expo/vector-icons';
+import { CANALES_RECUPERACION_DEFAULT } from '../../config/businessRules';
 import { colors, espacio, radio } from '../../theme/colors';
+
+// Catálogo completo. Lo que se muestra es la intersección con lo que el
+// servidor reporta como activo — el orden de aquí manda en la pantalla.
+const CANALES = [
+  { id: 'email',    icono: 'mail-outline',                label: 'Correo' },
+  { id: 'telegram', icono: 'paper-plane-outline',         label: 'Telegram' },
+  { id: 'sms',      icono: 'chatbubble-ellipses-outline', label: 'SMS' },
+];
+
+// Los que piden número de celular para identificar la cuenta (el correo se
+// identifica con el correo).
+const CANALES_POR_TELEFONO = ['sms', 'telegram'];
 
 export default function RecuperarPasswordScreen({ navigation, route }) {
   const { entrarConToken } = useAuth();
 
   const [paso, setPaso]         = useState(1);
-  const [canal, setCanal]       = useState('sms');           // 'sms' | 'email'
+  const [canalesActivos, setCanalesActivos] = useState(CANALES_RECUPERACION_DEFAULT);
+  const [canal, setCanal]       = useState(CANALES_RECUPERACION_DEFAULT[0]);
   const [pais, setPais]         = useState(PAISES[0]);
   const [telefono, setTelefono] = useState(route?.params?.telefono || '');
   const [email, setEmail]       = useState('');
@@ -30,12 +49,33 @@ export default function RecuperarPasswordScreen({ navigation, route }) {
   const [cargando, setCargando] = useState(false);
   const [destino, setDestino]   = useState(null);
 
-  const identidad = () => (canal === 'email'
-    ? { email: email.trim().toLowerCase() }
-    : { telefono, lada: pais.lada });
+  // Qué canales puede entregar el servidor HOY. Si no contesta se queda con
+  // el default compilado — mejor ofrecer algo razonable que una pantalla vacía.
+  useEffect(() => {
+    let vivo = true;
+    pedidosAPI.configPublica()
+      .then(({ data }) => {
+        const lista = data?.data?.canales_recuperacion;
+        if (!vivo || !Array.isArray(lista) || !lista.length) return;
+        setCanalesActivos(lista);
+        // Si el canal preseleccionado resultó estar apagado, moverse al
+        // primero que sí sirva: si no, el usuario pide un código que el
+        // servidor va a rechazar con 503.
+        setCanal((actual) => (lista.includes(actual) ? actual : lista[0]));
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  const canalesVisibles = CANALES.filter((c) => canalesActivos.includes(c.id));
+  const porTelefono = CANALES_POR_TELEFONO.includes(canal);
+
+  const identidad = () => (porTelefono
+    ? { telefono, lada: pais.lada }
+    : { email: email.trim().toLowerCase() });
 
   const pedirCodigo = async () => {
-    if (canal === 'sms') {
+    if (porTelefono) {
       const err = validarTelefono(telefono, pais);
       if (err) { Alert.alert('Revisa tu número', err); return; }
     } else if (!email.includes('@')) {
@@ -110,27 +150,41 @@ export default function RecuperarPasswordScreen({ navigation, route }) {
         <View style={estilos.tarjeta}>
           {paso === 1 ? (
             <>
-              <Text style={estilos.label}>¿CÓMO QUIERES RECIBIRLO?</Text>
+              {/* Con un solo canal disponible no hay nada que elegir: se
+                  ahorra el paso y se dice a secas por dónde va a llegar. */}
+              <Text style={estilos.label}>
+                {canalesVisibles.length > 1 ? '¿CÓMO QUIERES RECIBIRLO?' : 'TE LO MANDAMOS ASÍ'}
+              </Text>
               <View style={estilos.canales}>
-                <TouchableOpacity
-                  style={[estilos.canal, canal === 'sms' && estilos.canalActivo]}
-                  onPress={() => setCanal('sms')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={estilos.canalEmoji}>💬</Text>
-                  <Text style={[estilos.canalTxt, canal === 'sms' && estilos.canalTxtActivo]}>SMS al celular</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[estilos.canal, canal === 'email' && estilos.canalActivo]}
-                  onPress={() => setCanal('email')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={estilos.canalEmoji}>✉️</Text>
-                  <Text style={[estilos.canalTxt, canal === 'email' && estilos.canalTxtActivo]}>Correo</Text>
-                </TouchableOpacity>
+                {canalesVisibles.map((c) => {
+                  const activo = canal === c.id;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[estilos.canal, activo && estilos.canalActivo]}
+                      onPress={() => setCanal(c.id)}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: activo }}
+                    >
+                      <Ionicons
+                        name={c.icono}
+                        size={20}
+                        color={activo ? colors.primario : colors.textoSuave}
+                      />
+                      <Text style={[estilos.canalTxt, activo && estilos.canalTxtActivo]}>{c.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {canal === 'sms' ? (
+              {canal === 'telegram' && (
+                <Text style={estilos.ayudaCanal}>
+                  Te llega al chat con @Voycorriendobot. Necesitas haberlo vinculado antes desde tu perfil.
+                </Text>
+              )}
+
+              {porTelefono ? (
                 <CampoTelefono
                   pais={pais} onChangePais={setPais}
                   telefono={telefono} onChangeTelefono={setTelefono}
@@ -252,7 +306,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#E5E7EB', paddingVertical: 14,
   },
   canalActivo: { borderColor: colors.primario, backgroundColor: '#FFF4ED' },
-  canalEmoji: { fontSize: 20 },
+  ayudaCanal: { fontSize: 12, color: colors.textoSuave, marginBottom: espacio.md, lineHeight: 17 },
   canalTxt: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
   canalTxtActivo: { color: colors.primario },
   input: {

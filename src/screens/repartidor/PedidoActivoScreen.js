@@ -7,6 +7,8 @@ import { repartidoresAPI, pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
+import MapaSeguimiento from '../../components/MapaSeguimiento';
+import useRutaPedido from '../../hooks/useRutaPedido';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const WA_VOYCORRIENDO = '527542462564';
@@ -27,6 +29,10 @@ export default function PedidoActivoScreen({ route, navigation }) {
   const [codigoEntrega, setCodigo]    = useState('');
   const [codigoError, setCodigoError] = useState(false);
   const [marcandoRecogido, setMarcandoRecogido] = useState(false);
+  // Su propia posición, para dibujarse en el mapa del recorrido.
+  const [miPos, setMiPos]             = useState(null);
+  // Ruta por calles para el mapa (null si Google no esta disponible).
+  const rutaPolyline = useRutaPedido(pedidoId, miPos);
   const scrollRef = useRef(null);
 
   const cargar = useCallback(async () => {
@@ -72,16 +78,23 @@ export default function PedidoActivoScreen({ route, navigation }) {
     return () => { socket.off('estado_pedido', onEstado); };
   }, [pedidoId]);
 
-  // Tracking de ubicación: envía cada 15s mientras hay pedido activo
+  // Tracking de ubicación: envía cada 15s mientras hay pedido activo.
+  // La misma lectura alimenta su propio mapa (`miPos`), así no hace falta
+  // pedir el GPS dos veces. La primera lectura es inmediata: esperar 15s
+  // para que aparezca su moto en el mapa se siente como que no funciona.
   useEffect(() => {
     let interval;
+    let vivo = true;
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
       const socket = conectarSocket();
-      interval = setInterval(async () => {
+
+      const reportar = async () => {
         try {
           const pos = await Location.getCurrentPositionAsync({});
+          if (!vivo) return;
+          setMiPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           socket.emit('actualizar_ubicacion', {
             pedido_id: pedidoId,
             lat: pos.coords.latitude,
@@ -89,9 +102,12 @@ export default function PedidoActivoScreen({ route, navigation }) {
           });
           repartidoresAPI.ubicacion(pos.coords.latitude, pos.coords.longitude).catch(() => {});
         } catch (_) {}
-      }, 15000);
+      };
+
+      await reportar();
+      interval = setInterval(reportar, 15000);
     })();
-    return () => clearInterval(interval);
+    return () => { vivo = false; clearInterval(interval); };
   }, [pedidoId]);
 
   // `aceptarPedido` salta directo a estado='en_camino' en el mismo instante
@@ -205,6 +221,24 @@ export default function PedidoActivoScreen({ route, navigation }) {
       >
         <Text style={estilos.numero}>{pedido.numero}</Text>
 
+        {/* Su recorrido de un vistazo: dónde está él, el restaurante donde
+            recoge y la casa del cliente. Antes esta pantalla no tenía mapa
+            —solo un botón que sacaba a Google Maps— así que el repartidor
+            no podía ver de un golpe qué tan lejos le queda cada tramo. */}
+        <MapaSeguimiento
+          repartidorPos={miPos}
+          rutaPolyline={rutaPolyline}
+          origen={pedido.negocio?.latitud && pedido.negocio?.longitud
+            ? { lat: pedido.negocio.latitud, lng: pedido.negocio.longitud }
+            : null}
+          destino={pedido.latitud_entrega && pedido.longitud_entrega
+            ? { lat: pedido.latitud_entrega, lng: pedido.longitud_entrega }
+            : null}
+          tituloOrigen={pedido.negocio?.nombre || 'Recoger aquí'}
+          tituloDestino="Entregar aquí"
+          altura={240}
+        />
+
         {/* Recoger en */}
         <View style={estilos.seccion}>
           <Text style={estilos.seccionTit}>🏪 Recoger en</Text>
@@ -228,6 +262,18 @@ export default function PedidoActivoScreen({ route, navigation }) {
           <Text style={estilos.seccionDir}>{pedido.direccion_entrega}</Text>
           {!!pedido.notas_entrega && (
             <Text style={estilos.notas}>📝 {pedido.notas_entrega}</Text>
+          )}
+          {/* El tramo largo es este y no tenía botón de navegación: solo el
+              restaurante lo traía. Sin esto había que copiar la dirección
+              a mano en Google Maps a media entrega. */}
+          {!!pedido.latitud_entrega && !!pedido.longitud_entrega && (
+            <Boton
+              titulo="Abrir en Google Maps"
+              variante="secundario"
+              onPress={() =>
+                Linking.openURL(`https://maps.google.com/?q=${pedido.latitud_entrega},${pedido.longitud_entrega}`)
+              }
+            />
           )}
           <Boton
             titulo="💬 Contactar cliente vía VoyCorriendo"

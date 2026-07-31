@@ -36,6 +36,14 @@ export const LIMITE_EFECTIVO = 700;
 // compilar un APK nuevo; esto es el valor por defecto mientras responde.
 export const METODOS_PAGO_ACTIVOS_DEFAULT = ['efectivo'];
 
+// ─── Canales que pueden entregar un código de recuperación ───────────
+// El SMS está apagado mientras Twilio siga en cuenta de prueba (solo
+// entrega a números verificados a mano, así que a un cliente real nunca le
+// llegaba). El backend manda la verdad en /api/config-publica, así que se
+// reactiva sin compilar un APK nuevo; esto es el valor por defecto mientras
+// responde — y el fallback si el servidor no contesta.
+export const CANALES_RECUPERACION_DEFAULT = ['email', 'telegram'];
+
 // ─── Radio máximo de entrega desde el restaurante ────────────────────
 export const RADIO_MAXIMO_KM = 5;
 

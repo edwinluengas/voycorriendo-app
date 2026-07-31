@@ -127,6 +127,10 @@ export const pedidosAPI = {
   crear:       (data)        => api.post('/pedidos', data),
   misPedidos:  ()            => api.get('/pedidos'),
   detalle:     (id)          => api.get(`/pedidos/${id}`),
+  // Ruta por calles para el mapa en vivo (repartidor → negocio → entrega).
+  // `ruta` viene null si Google no está disponible: el mapa dibuja entonces
+  // la línea recta, no se queda sin nada.
+  ruta:        (id, lat, lng) => api.get(`/pedidos/${id}/ruta`, { params: { lat, lng } }),
   // Cotiza costo de envío y zona antes de crear el pedido
   cotizar:     (negocio_id, lat, lng, tipo_envio = 'standard') =>
     api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng, tipo_envio } }),

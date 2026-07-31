@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { pedidosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import MapaSeguimiento from '../../components/MapaSeguimiento';
+import useRutaPedido from '../../hooks/useRutaPedido';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const METODO_PAGO_TXT = {
@@ -58,6 +59,8 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
   const [codigoEntrega, setCodigoEntrega] = useState('');
   const [errorCodigo, setErrorCodigo]     = useState('');
   const [repartidorPos, setRepartidorPos] = useState(null);
+  // Ruta por calles para el mapa (null si Google no esta disponible).
+  const rutaPolyline = useRutaPedido(pedidoId, repartidorPos, !!pedido?.repartidor);
 
   const cargar = useCallback(async () => {
     try {
@@ -349,13 +352,18 @@ export default function PedidoDetalleNegocioScreen({ route, navigation }) {
             `estado` del pedido a 'en_camino' desde el instante mismo de
             aceptar, así que NO sirve para distinguir esta ventana — el
             gate real es recogido_en. Destino = ubicación del negocio. */}
-        {!pedido.recogido_en && pedido.repartidor
+        {pedido.repartidor
           && !['entregado', 'cancelado', 'rechazado'].includes(pedido.estado)
           && pedido.negocio?.latitud && pedido.negocio?.longitud && (
           <MapaSeguimiento
             repartidorPos={repartidorPos}
-            destino={{ lat: parseFloat(pedido.negocio.latitud), lng: parseFloat(pedido.negocio.longitud) }}
-            tituloDestino="Tu negocio"
+            rutaPolyline={rutaPolyline}
+            origen={{ lat: pedido.negocio.latitud, lng: pedido.negocio.longitud }}
+            destino={pedido.latitud_entrega && pedido.longitud_entrega
+              ? { lat: pedido.latitud_entrega, lng: pedido.longitud_entrega }
+              : null}
+            tituloOrigen="Tu negocio"
+            tituloDestino="Entrega al cliente"
           />
         )}
 
