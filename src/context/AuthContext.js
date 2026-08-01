@@ -9,31 +9,62 @@ import { vaciarCarrito } from '../screens/cliente/NegocioScreen';
 
 const AuthContext = createContext(null);
 
-// Canales de Android — uno por tipo de notificación
+// Canales de Android — uno por tipo de notificación.
+//
+// PALETA: el acento NO repite el naranja de la app a propósito. En la barra
+// de estado y en la bandeja, la notificación compite con el fondo del
+// sistema —blanco en tema claro, casi negro en oscuro— y el naranja de
+// marca se pierde contra ambos. Cada canal usa un color que además SIGNIFICA
+// algo, así el color trabaja en vez de decorar:
+//
+//   verde  #00B341 → algo avanza (tu pedido se movió)
+//   azul   #0B84FF → hay trabajo para ti (pedido disponible, asignación)
+//   ámbar  #FFB020 → aviso que puede esperar
+//   rojo   #E5484D → algo se rompió y hay que actuar
+//
+// La luz del LED, el color del icono pequeño y el tinte de la tarjeta salen
+// de aquí, así que el mismo código de color se repite en los tres lugares
+// donde el usuario lo puede ver.
 const CANALES_ANDROID = [
   {
     id: 'pedidos',
-    name: 'Pedidos',
+    name: 'Mi pedido',
+    description: 'Avisos de tu pedido: confirmado, en preparación, en camino y entregado.',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 300, 200, 300],
-    lightColor: '#FF5C00',
+    lightColor: '#00B341',
     sound: 'default',
+    showBadge: true,
   },
   {
     id: 'repartidor',
-    name: 'Repartidor',
+    name: 'Trabajo disponible',
+    description: 'Pedidos que puedes tomar y avisos de tus entregas en curso.',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 400, 200, 400],
-    lightColor: '#00B341',
+    lightColor: '#0B84FF',
     sound: 'default',
+    showBadge: true,
+  },
+  {
+    id: 'alertas',
+    name: 'Requiere tu atención',
+    description: 'Pagos rechazados, pedidos con problema y avisos de tu cuenta.',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 200, 100, 200, 100, 200],
+    lightColor: '#E5484D',
+    sound: 'default',
+    showBadge: true,
   },
   {
     id: 'general',
     name: 'VoyCorriendo',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#FF5C00',
+    description: 'Novedades y mensajes de la plataforma.',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 250],
+    lightColor: '#FFB020',
     sound: 'default',
+    showBadge: false,
   },
 ];
 

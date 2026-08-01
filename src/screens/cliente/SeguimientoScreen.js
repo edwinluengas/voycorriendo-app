@@ -77,7 +77,10 @@ const notificarCambioEstado = (nuevoEstado, pedidoId, codigoEntrega, esPickup = 
       title: n.titulo,
       body: cuerpo,
       sound: true,
-      channelId: 'pedidos',
+      // Cancelado y rechazado van al canal de alertas (rojo, patrón de
+      // vibración distinto): son las dos únicas que piden actuar, y mezclarlas
+      // con "ya salió tu pedido" hacía que se leyeran igual de rutinarias.
+      channelId: ['cancelado', 'rechazado'].includes(nuevoEstado) ? 'alertas' : 'pedidos',
       data: { tipo: 'estado_pedido', pedidoId },
     },
     trigger: null,
