@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { pedirImagen } from '../../utils/imagenes';
 import * as Location from 'expo-location';
 import { negocioOnboardingAPI } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -140,25 +141,10 @@ export default function OnboardingNegocioScreen({ navigation }) {
   };
 
   const seleccionarYSubir = (tipo, columnaLocal) => {
-    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
-      {
-        text: '📷 Tomar foto',
-        onPress: async () => {
-          const r = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, allowsEditing: false });
-          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      {
-        text: '🖼️ Elegir de galería',
-        onPress: async () => {
-          const r = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'], base64: true, quality: 0.6, allowsEditing: false,
-          });
-          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    (async () => {
+      const asset = await pedirImagen();
+      if (asset) await _subirDocConAsset(tipo, columnaLocal, asset);
+    })();
   };
 
   // ── Avanzar / retroceder ───────────────────────────────

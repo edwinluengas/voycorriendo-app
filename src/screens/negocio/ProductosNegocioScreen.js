@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { elegirDeGaleria, tomarFoto } from '../../utils/imagenes';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { negocioOnboardingAPI } from '../../api/client';
@@ -193,21 +194,16 @@ export default function ProductosNegocioScreen() {
     }
   };
 
+  // Pasan por utils/imagenes: ahí se pide el permiso y el error se ve.
+  // Sin permiso de galería, Android no abre nada ni avisa.
   const subirFotoDesdeGaleria = async (prod) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false, quality: 0.85, base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return;
-    await procesarSubidaFoto(prod, result.assets[0]);
+    const asset = await elegirDeGaleria({ quality: 0.85 });
+    if (asset) await procesarSubidaFoto(prod, asset);
   };
 
   const subirFotoDesdeCamara = async (prod) => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false, quality: 0.85, base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return;
-    await procesarSubidaFoto(prod, result.assets[0]);
+    const asset = await tomarFoto({ quality: 0.85 });
+    if (asset) await procesarSubidaFoto(prod, asset);
   };
 
   const subirFoto = (prod) => {

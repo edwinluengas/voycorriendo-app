@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -43,7 +43,16 @@ export default function PagoScreen({ route, navigation }) {
   // saldo desactualizado (el objeto `usuario` del contexto solo se llena
   // una vez, al hacer login).
   useFocusEffect(useCallback(() => { refrescarUsuario(); }, [refrescarUsuario]));
-  const carrito   = getCarrito();
+
+  // El carrito vive fuera de React (módulo de NegocioScreen), así que si el
+  // cliente vuelve atrás, agrega otro producto y regresa aquí, esta pantalla
+  // seguiría mostrando el resumen viejo: los productos nuevos no aparecían y
+  // el total no cuadraba con lo que acababa de agregar. Este contador fuerza
+  // la relectura cada vez que la pantalla toma el foco.
+  const [refrescoCarrito, setRefrescoCarrito] = useState(0);
+  useFocusEffect(useCallback(() => { setRefrescoCarrito((n) => n + 1); }, []));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const carrito   = useMemo(() => getCarrito(), [refrescoCarrito]);
   const tipoEnvio = route.params?.tipo_envio || 'standard';
   const esPickup  = tipoEnvio === 'pickup';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
@@ -491,7 +500,14 @@ export default function PagoScreen({ route, navigation }) {
       // efectivo) — refrescar el saldo mostrado sin importar cuál se usó.
       if (usarCredito) refrescarUsuario();
       vaciarCarrito();
-      navigation.replace('Seguimiento', { pedidoId: pedido.id });
+      // `replace` dejaba debajo la pantalla del carrito, así que el botón
+      // atrás desde el seguimiento devolvía a un checkout de un pedido que
+      // ya se hizo — con el carrito vacío y datos viejos. Se rehace el stack
+      // para que atrás lleve al inicio: el pedido ya está cerrado.
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'Inicio' }, { name: 'Seguimiento', params: { pedidoId: pedido.id } }],
+      });
     } catch (e) {
       Alert.alert('Error al crear pedido', e?.mensajeAmigable || 'No pudimos registrar tu pedido. Intenta de nuevo.');
     } finally {

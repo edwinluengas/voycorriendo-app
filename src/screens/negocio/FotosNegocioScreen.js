@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { elegirDeGaleria, tomarFoto as tomarFotoUtil } from '../../utils/imagenes';
 import { negocioOnboardingAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -47,28 +48,16 @@ export default function FotosNegocioScreen({ navigation }) {
   useEffect(() => { cargar(); }, [cargar]);
 
   // ── Picker: galería sin recorte (imagen completa) ────────
+  // Delegan en utils/imagenes, que pide el permiso y hace visible el error.
+  // Sin el permiso de galería, Android no abre nada y no avisa: el usuario
+  // tocaba el botón y no pasaba nada.
   const elegirImagen = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 0.85,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return null;
-    const asset = result.assets[0];
-    if (!asset.base64) { Alert.alert('Error', 'No se pudo leer la imagen.'); return null; }
+    const asset = await elegirDeGaleria({ quality: 0.85 });
+    if (asset && !asset.base64) { Alert.alert('Error', 'No se pudo leer la imagen.'); return null; }
     return asset;
   };
 
-  const tomarFoto = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      quality: 0.85,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return null;
-    return result.assets[0];
-  };
+  const tomarFoto = () => tomarFotoUtil({ quality: 0.85 });
 
   // ── Muestra opciones galería / cámara → preview modal ───
   const elegirOTomarFoto = (onConfirm) => {
