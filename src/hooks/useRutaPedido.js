@@ -27,20 +27,47 @@ const metros = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(x));
 };
 
+/**
+ * ¿Toca recalcular la ruta? Función PURA y exportada a propósito: es la
+ * regla que decide si se gasta una llamada facturable a Google, así que
+ * tiene que poder probarse sin montar React ni tocar la red.
+ *
+ * Regla: la primera vez siempre; después solo si se movió al menos
+ * MIN_METROS **y** pasó al menos MIN_MS. Las dos condiciones, no una.
+ *
+ * @param {{pos: {lat,lng}|null, ts: number}} ultimo  último INTENTO hecho
+ */
+export const debeRecalcular = (ultimo, pos, ahora) => {
+  if (!pos) return false;
+  // El centinela de "no hay intento previo" es la POSICIÓN, no el ts: un
+  // timestamp de 0 es un valor válido y usarlo como falsy hacía que la
+  // segunda lectura se tomara otra vez por la primera (y se llamara doble).
+  if (!ultimo?.pos) return true;
+
+  const seMovio    = metros(ultimo.pos, pos) >= MIN_METROS;
+  const pasoTiempo = ahora - ultimo.ts >= MIN_MS;
+  return seMovio && pasoTiempo;
+};
+
 export default function useRutaPedido(pedidoId, repartidorPos, activo = true) {
   const [polyline, setPolyline] = useState(null);
+  // Guarda el último INTENTO, no la última ruta exitosa. Esa distinción es
+  // el bug que tenía antes: el guard exigía `polyline !== null` para
+  // aplicar, y como con Google apagado la respuesta es SIEMPRE null, el
+  // freno no entraba nunca y se llamaba en cada lectura de GPS (cada 15 s,
+  // por cada una de las 3 pantallas que montan el mapa).
   const ultima = useRef({ pos: null, ts: 0 });
 
   useEffect(() => {
     if (!activo || !pedidoId || !repartidorPos) return;
 
     const ahora = Date.now();
-    const { pos, ts } = ultima.current;
-    const yaHayRuta = polyline !== null;
-    // La primera vez siempre se pide; después, solo si se movió y pasó tiempo.
-    if (yaHayRuta && metros(pos, repartidorPos) < MIN_METROS && ahora - ts < MIN_MS) return;
+    if (!debeRecalcular(ultima.current, repartidorPos, ahora)) return;
 
     let vivo = true;
+    // Se marca el intento ANTES de la petición: si se marcara al responder,
+    // varias lecturas seguidas dispararían llamadas en paralelo antes de
+    // que la primera termine.
     ultima.current = { pos: repartidorPos, ts: ahora };
     pedidosAPI.ruta(pedidoId, repartidorPos.lat, repartidorPos.lng)
       .then(({ data }) => {
