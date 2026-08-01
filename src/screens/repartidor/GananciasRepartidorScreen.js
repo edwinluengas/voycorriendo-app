@@ -243,7 +243,7 @@ export default function GananciasRepartidorScreen({ navigation }) {
               }
             </Pressable>
 
-            {/* Retiro diario — con fee de $10 */}
+            {/* Retiro diario — se descuenta un % del saldo, no un monto fijo */}
             {!esDiaViernes && (
               <Pressable
                 style={[estilos.btnRetiroDiario, retirando && { opacity: 0.7 }]}
@@ -254,8 +254,13 @@ export default function GananciasRepartidorScreen({ navigation }) {
                   ? <ActivityIndicator color={colors.primario} />
                   : (
                     <View>
-                      <Text style={estilos.btnRetiroDiarioTxt}>⚡ Retiro diario — fee $10</Text>
-                      <Text style={estilos.btnRetiroDiarioSub}>Recibirás {fmt(parseFloat(d.fondo_efectivo || 0) * (1 - PCT_DESCUENTO_PAGO_DIARIO))} hoy (5% menos que el viernes gratis)</Text>
+                      <Text style={estilos.btnRetiroDiarioTxt}>
+                        ⚡ Cobrar hoy — {Math.round(PCT_DESCUENTO_PAGO_DIARIO * 100)}% de descuento
+                      </Text>
+                      <Text style={estilos.btnRetiroDiarioSub}>
+                        Recibes {fmt(parseFloat(d.fondo_efectivo || 0) * (1 - PCT_DESCUENTO_PAGO_DIARIO))} ahora
+                        {' · te descuentan '}{fmt(parseFloat(d.fondo_efectivo || 0) * PCT_DESCUENTO_PAGO_DIARIO)}
+                      </Text>
                     </View>
                   )
                 }
@@ -263,7 +268,7 @@ export default function GananciasRepartidorScreen({ navigation }) {
             )}
 
             <Text style={estilos.depositoSub}>
-              Los depósitos del viernes son gratuitos. El retiro diario tiene un fee de $10 MXN.
+              El corte del viernes es gratis. Cobrar cualquier otro día cuesta el {Math.round(PCT_DESCUENTO_PAGO_DIARIO * 100)}% de lo que retires.
             </Text>
           </View>
         )}

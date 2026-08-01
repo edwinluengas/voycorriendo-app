@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { negocioOnboardingAPI, telegramAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
-import { LIMITE_PEDIDOS_DEUDA } from '../../config/businessRules';
+import { LIMITE_PEDIDOS_DEUDA, FEE_PLATAFORMA } from '../../config/businessRules';
 
 const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtFecha = (iso) => {
@@ -185,7 +185,7 @@ export default function GananciasNegocioScreen({ navigation }) {
             <Text style={[estilos.deudaValor, { color: colorDeuda }]}>{fmt(deudaActual)}</Text>
           </View>
           <Text style={estilos.deudaSub}>
-            Fee de $35 por cada pedido en efectivo entregado. Se netea del depósito del viernes.
+            Comisión de {fmt(FEE_PLATAFORMA)} por cada pedido en efectivo entregado. Se netea del depósito del viernes.
           </Text>
           {/* Barra de progreso hacia el límite de pedidos sin liquidar */}
           <View style={estilos.barraBg}>
