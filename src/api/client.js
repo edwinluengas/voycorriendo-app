@@ -81,8 +81,13 @@ api.interceptors.response.use(
       mensaje = error.response.status >= 500
         ? `El servidor tuvo un problema (error ${error.response.status}). Intenta de nuevo en un momento.`
         : `El servidor rechazó la solicitud (error ${error.response.status}).`;
-    } else if (error.code === 'ECONNABORTED') {
-      mensaje = 'La conexión tardó demasiado. Revisa tu internet e intenta de nuevo.';
+    } else if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+      // Se agotó NUESTRO tiempo de espera: la petición salió bien, el
+      // servidor simplemente no contestó a tiempo. Culpar al internet del
+      // usuario lo manda a revisar su wifi por un problema que no es suyo
+      // — pasó de verdad con el correo de recuperación, donde el servidor
+      // tardaba dos minutos esperando al proveedor de correo.
+      mensaje = 'El servidor está tardando más de lo normal. Espera un momento y vuelve a intentar.';
     } else {
       mensaje = `No pudimos conectarnos al servidor (${error.code || error.message || 'sin respuesta'}). Revisa tu internet.`;
     }
