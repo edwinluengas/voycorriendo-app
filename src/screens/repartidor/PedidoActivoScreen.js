@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, Linking, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, Linking, TextInput, Image, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -31,6 +31,7 @@ export default function PedidoActivoScreen({ route, navigation }) {
   const [marcandoRecogido, setMarcandoRecogido] = useState(false);
   // Su propia posición, para dibujarse en el mapa del recorrido.
   const [miPos, setMiPos]             = useState(null);
+  const [verINE, setVerINE]           = useState(false);
   // Ruta por calles para el mapa (null si Google no esta disponible).
   const rutaPolyline = useRutaPedido(pedidoId, miPos);
   const scrollRef = useRef(null);
@@ -255,6 +256,30 @@ export default function PedidoActivoScreen({ route, navigation }) {
           )}
         </View>
 
+        {/* Verificación de edad. Solo aparece si el pedido lleva algo
+            restringido: el backend manda la foto únicamente en ese caso y
+            mientras el pedido esté en curso. El repartidor es quien entrega,
+            así que es quien tiene que comparar la cara con el documento. */}
+        {!!pedido.ine_foto_url && (
+          <View style={[estilos.seccion, { borderColor: '#E5484D', borderWidth: 2 }]}>
+            <Text style={[estilos.seccionTit, { color: '#E5484D' }]}>🔞 Verifica la edad antes de entregar</Text>
+            <Text style={estilos.seccionDir}>
+              Este pedido lleva producto con restricción de edad. Compara esta identificación
+              con la persona que recibe. Si no coincide o es menor de edad, NO entregues.
+            </Text>
+            <Pressable onPress={() => setVerINE(true)}>
+              <Image
+                source={{ uri: pedido.ine_foto_url }}
+                style={{ width: '100%', height: 200, borderRadius: radio.md, marginTop: espacio.sm }}
+                resizeMode="contain"
+              />
+              <Text style={[estilos.seccionDir, { textAlign: 'center', marginTop: 6 }]}>
+                Toca para verla en grande
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* Entregar a */}
         <View style={estilos.seccion}>
           <Text style={estilos.seccionTit}>🏠 Entregar a</Text>
@@ -371,6 +396,31 @@ export default function PedidoActivoScreen({ route, navigation }) {
           />
         )}
       </ScrollView>
+
+      {/* Visor a pantalla completa: una INE en 200 px no se lee, y aquí de eso
+          depende decidir si se entrega o no. */}
+      <Modal visible={verINE} transparent animationType="fade" onRequestClose={() => setVerINE(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' }}
+          onPress={() => setVerINE(false)}
+        >
+          <ScrollView
+            maximumZoomScale={4}
+            minimumZoomScale={1}
+            centerContent
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          >
+            <Image
+              source={{ uri: pedido?.ine_foto_url }}
+              style={{ width: '100%', height: 500 }}
+              resizeMode="contain"
+            />
+          </ScrollView>
+          <Text style={{ color: '#FFF', textAlign: 'center', padding: espacio.md }}>
+            Toca para cerrar
+          </Text>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
