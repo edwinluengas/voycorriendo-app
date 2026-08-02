@@ -35,7 +35,7 @@ export default function SoporteScreen({ navigation }) {
         />
         <Faq
           pregunta="¿Cuánto tarda mi pedido?"
-          respuesta="La mayoría de pedidos llegan entre 20 y 45 minutos, dependiendo del negocio y de dónde estés en Puerto Escondido."
+          respuesta="La mayoría de pedidos llegan entre 20 y 45 minutos, dependiendo del negocio y de qué tan lejos estés."
         />
         <Faq
           pregunta="¿Cómo me vuelvo repartidor?"

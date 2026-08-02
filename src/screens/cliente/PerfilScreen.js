@@ -6,9 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
+import usePlaza from '../../hooks/usePlaza';
 
 export default function PerfilScreen({ navigation }) {
   const { usuario, roles, cerrarSesion, cambiarModo, cargarRoles } = useAuth();
+  const plaza = usePlaza(usuario?.ciudad);
   const [cambiando, setCambiando] = useState(false);
 
   useEffect(() => { cargarRoles(); }, []);
@@ -145,7 +147,7 @@ export default function PerfilScreen({ navigation }) {
           <Text style={estilos.btnSalirTxt}>Cerrar sesión</Text>
         </Pressable>
 
-        <Text style={estilos.version}>VoyCorriendo v1.0 · Puerto Escondido, Oaxaca</Text>
+        <Text style={estilos.version}>{plaza.marca}{plaza.nombre ? ` · ${plaza.nombre}, ${plaza.estado}` : ''}</Text>
       </ScrollView>
     </SafeAreaView>
   );

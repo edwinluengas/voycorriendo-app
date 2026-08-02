@@ -2,10 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
+import usePlaza from '../../hooks/usePlaza';
 
 const { height } = Dimensions.get('window');
 
 export default function BienvenidaScreen({ navigation }) {
+  // Sin sesion todavia: se muestra la plaza por defecto del backend.
+  const plaza = usePlaza(null);
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
 
@@ -30,7 +33,7 @@ export default function BienvenidaScreen({ navigation }) {
         </View>
 
         <Text style={estilos.marca}>VoyCorriendo</Text>
-        <Text style={estilos.ciudad}>Puerto Escondido · Oaxaca</Text>
+        <Text style={estilos.ciudad}>{plaza.nombre ? `${plaza.nombre} · ${plaza.estado}` : 'Oaxaca'}</Text>
 
         <View style={estilos.divisor} />
 

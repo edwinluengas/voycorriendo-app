@@ -15,7 +15,7 @@ export default function PoliticaPrivacidadScreen() {
         <Text style={estilos.fecha}>Última actualización: Junio 2026</Text>
 
         <Seccion titulo="1. Quiénes somos">
-          VoyCorriendo es un servicio de entregas a domicilio con sede en Puerto Escondido,
+          VoyCorriendo es un servicio de entregas a domicilio con sede en el estado de
           Oaxaca, México. Operamos como intermediario entre negocios locales, repartidores y
           clientes finales. Contacto oficial:{' '}
           <Text style={estilos.enlace} onPress={() => Linking.openURL(`mailto:${EMAIL}`)}>{EMAIL}</Text>
