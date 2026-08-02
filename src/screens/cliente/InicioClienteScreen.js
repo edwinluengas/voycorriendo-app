@@ -6,6 +6,7 @@ import { negociosAPI, pedidosAPI } from '../../api/client';
 import { FEE_ENVIO } from '../../config/businessRules';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
+import usePlaza from '../../hooks/usePlaza';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
@@ -115,6 +116,9 @@ const formatoTiempoEntrega = (n) => {
 };
 
 export default function InicioClienteScreen({ navigation, route }) {
+  // La plaza decide qué catálogo se ve. Sin esto, un cliente de Putla
+  // abría la app y veía restaurantes de Puerto Escondido, a 200 km.
+  const plaza = usePlaza(null);   // sin cuenta ligada a plaza: se detecta por GPS
   const [negocios, setNegocios]             = useState([]);
   const [cargando, setCargando]             = useState(true);
   const [categoria, setCategoria]           = useState('todos');
@@ -142,7 +146,7 @@ export default function InicioClienteScreen({ navigation, route }) {
 
   const cargarNegocios = useCallback(async () => {
     try {
-      const { data } = await negociosAPI.listar();
+      const { data } = await negociosAPI.listar(plaza?.slug);
       const ts = Date.now();
       const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
       const negs = (data.data?.negocios || []).map((n) => ({

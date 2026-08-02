@@ -116,7 +116,10 @@ export const authAPI = {
 };
 
 export const negociosAPI = {
-  listar:     ()      => api.get('/negocios'),
+  // La ciudad decide QUÉ catálogo se ve: son pueblos distintos y a decenas
+  // de km, así que sin este parámetro un cliente de Putla veía restaurantes
+  // de Puerto Escondido a los que jamás podría pedir.
+  listar:     (ciudad) => api.get('/negocios', { params: ciudad ? { ciudad } : {} }),
   detalle:    (id)    => api.get(`/negocios/${id}`),
   productos:  async (id) => {
     const resp = await api.get(`/negocios/${id}`);
