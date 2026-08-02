@@ -145,6 +145,9 @@ export default function InicioClienteScreen({ navigation, route }) {
   );
 
   const cargarNegocios = useCallback(async () => {
+    // Fuera de las plazas donde operamos no se pide catálogo: mostrar
+    // restaurantes a 500 km sería invitar a un pedido imposible.
+    if (plaza?.fueraDeCobertura) { setNegocios([]); setCargando(false); return; }
     try {
       const { data } = await negociosAPI.listar(plaza?.slug);
       const ts = Date.now();
@@ -377,13 +380,31 @@ export default function InicioClienteScreen({ navigation, route }) {
         ListEmptyComponent={
           cargando
             ? <ActivityIndicator size="large" color={colors.primario} style={{ marginTop: 60 }} />
-            : (
-              <View style={estilos.vacio}>
-                <Text style={estilos.vacioEmoji}>📭</Text>
-                <Text style={estilos.vacioTxt}>Todavía no hay negocios en esta categoría.</Text>
-                <Text style={estilos.vacioSub}>Pronto sumamos más. ¡Gracias por tu paciencia!</Text>
-              </View>
-            )
+            : plaza?.fueraDeCobertura
+              // Fuera de las plazas donde operamos. Se dice claro y se nombra
+              // dónde SÍ hay servicio: alguien de paso puede estar cerca de
+              // una, y quien vive lejos merece saberlo de una vez en lugar de
+              // buscar restaurantes que nunca van a aparecer.
+              ? (
+                <View style={estilos.vacio}>
+                  <Text style={estilos.vacioEmoji}>📍</Text>
+                  <Text style={estilos.vacioTxt}>No contamos con servicio en esta área</Text>
+                  <Text style={estilos.vacioSub}>
+                    Por ahora entregamos en Puerto Escondido, Putla Villa de Guerrero
+                    y Santa María Zacatepec, Oaxaca.
+                    {plaza?.kmALaMasCercana ? `
+
+Estás a unos ${plaza.kmALaMasCercana} km de la más cercana.` : ''}
+                  </Text>
+                </View>
+              )
+              : (
+                <View style={estilos.vacio}>
+                  <Text style={estilos.vacioEmoji}>📭</Text>
+                  <Text style={estilos.vacioTxt}>Todavía no hay negocios en esta categoría.</Text>
+                  <Text style={estilos.vacioSub}>Pronto sumamos más. ¡Gracias por tu paciencia!</Text>
+                </View>
+              )
         }
       />
     </SafeAreaView>

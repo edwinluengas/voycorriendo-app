@@ -16,8 +16,24 @@ import { pedidosAPI } from '../api/client';
 
 const CLAVE_GUARDADA = 'plaza_elegida';
 
-// Distancia aproximada, solo para ordenar cuál queda más cerca.
-const cerca = (a, b) => Math.hypot(a.lat - Number(b.latitud), a.lng - Number(b.longitud));
+// Distancia real en km (haversine). Se usa para dos cosas: ordenar cuál
+// plaza queda más cerca y —sobre todo— decidir si el usuario está DENTRO
+// de alguna. Con grados no se puede: 0.5° son 55 km en latitud y menos en
+// longitud, así que un umbral en grados daría distinto según dónde estés.
+const distanciaKm = (a, b) => {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (Number(b.latitud) - a.lat) * rad;
+  const dLng = (Number(b.longitud) - a.lng) * rad;
+  const x = Math.sin(dLat / 2) ** 2
+    + Math.cos(a.lat * rad) * Math.cos(Number(b.latitud) * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+};
+
+// Hasta dónde llega una plaza. No es la cobertura de reparto (6.5 km desde
+// cada negocio) sino el área que razonablemente pertenece al pueblo y sus
+// alrededores. Más allá de esto NO hay servicio, y hay que decirlo en vez
+// de mostrar restaurantes a los que nadie podría pedir.
+const RADIO_PLAZA_KM = 25;
 
 // Mientras responde el servidor se usa la marca a secas: es preferible a
 // mostrar el nombre de una localidad que quizá no es la del usuario.
@@ -59,7 +75,18 @@ export default function usePlaza(ciudadUsuario) {
             || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
           if (pos && vivo) {
             const punto = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            const cercana = [...lista].sort((a, b) => cerca(punto, a) - cerca(punto, b))[0];
+            const ordenadas = [...lista].sort((a, b) => distanciaKm(punto, a) - distanciaKm(punto, b));
+            const cercana = ordenadas[0];
+            const km = cercana ? distanciaKm(punto, cercana) : Infinity;
+
+            // FUERA DE COBERTURA. Antes se asignaba la plaza más cercana sin
+            // importar la distancia: alguien en Ciudad de México veía los
+            // restaurantes de Putla, a 500 km, y podía intentar pedir. Ahora
+            // se dice que no hay servicio, que es la verdad.
+            if (km > RADIO_PLAZA_KM) {
+              setPlaza({ ...MARCA_NEUTRA, fueraDeCobertura: true, kmALaMasCercana: Math.round(km), masCercana: cercana });
+              return;
+            }
             if (cercana) { setPlaza(cercana); return; }
           }
         }
