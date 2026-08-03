@@ -148,13 +148,6 @@ export default function InicioClienteScreen({ navigation, route }) {
     }, [route?.params?.filtroCategoria])
   );
 
-  // Refresca negocios (con logos actualizados) cada vez que el usuario vuelve a esta pantalla
-  useFocusEffect(
-    useCallback(() => {
-      cargarNegocios();
-    }, [cargarNegocios])
-  );
-
   // OJO con las dependencias: esta función DEBE volver a crearse cuando
   // cambia la plaza. Con `[]` se quedaba con el primer valor —cuando todavía
   // no se sabía cuál era— y pedía el catálogo sin ciudad; el servidor
@@ -189,6 +182,15 @@ export default function InicioClienteScreen({ navigation, route }) {
   // Al cambiar de plaza el catálogo se recarga solo, sin esperar a que la
   // pantalla pierda y recupere el foco.
   useEffect(() => { cargarNegocios(); }, [cargarNegocios]);
+
+  // Y se refresca (logos al día) cada vez que el usuario vuelve a esta
+  // pantalla. Este bloque va DESPUÉS de definir `cargarNegocios`: antes
+  // estaba arriba, y su arreglo de dependencias se armaba con la variable
+  // todavía sin inicializar — quedaba fija en `undefined`, así que el efecto
+  // no volvía a correr nunca aunque la función cambiara.
+  useFocusEffect(
+    useCallback(() => { cargarNegocios(); }, [cargarNegocios]),
+  );
 
   // ── Estado del pedido en curso, SIEMPRE visible en el inicio ──
   // El push puede no llegar (permiso denegado, token sin registrar, celular
