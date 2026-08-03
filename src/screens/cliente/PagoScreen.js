@@ -11,6 +11,7 @@ import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
+import { usePlaza } from '../../context/PlazaContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, METODOS_PAGO_ACTIVOS_DEFAULT } from '../../config/businessRules';
@@ -38,6 +39,7 @@ const METODO_TRANSFERENCIA = {
 
 export default function PagoScreen({ route, navigation }) {
   const { usuario, refrescarUsuario } = useAuth();
+  const plaza = usePlaza();
   // El saldo de crédito puede haberlo otorgado un admin en cualquier
   // momento de la sesión — refrescar al entrar a pagar para no mostrar un
   // saldo desactualizado (el objeto `usuario` del contexto solo se llena
@@ -159,6 +161,18 @@ export default function PagoScreen({ route, navigation }) {
       setCostoEnvio(0);
       setCobertura({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
       setCotizando(false);
+      // Sin pedir permisos ni bloquear nada: si la ubicación YA está
+      // concedida se toma la última conocida y se manda con el pedido, para
+      // que el servidor pueda comprobar que el cliente y el negocio están en
+      // la misma localidad. Si no hay permiso, el pickup sigue igual de fácil.
+      (async () => {
+        try {
+          const permiso = await Location.getForegroundPermissionsAsync();
+          if (!permiso.granted) return;
+          const pos = await Location.getLastKnownPositionAsync();
+          if (pos) setUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        } catch { /* el pickup no depende del GPS */ }
+      })();
       return;
     }
     (async () => {
@@ -414,10 +428,14 @@ export default function PagoScreen({ route, navigation }) {
           notas: it.notas || null,
         })),
         // Pickup: el backend rellena la dirección con la del negocio y no
-        // valida cobertura (no hay reparto que cubrir).
+        // valida cobertura de reparto (no hay reparto que cubrir). La
+        // ubicación SÍ se manda aunque sea pickup —si se tiene— para que el
+        // servidor pueda comprobar que el cliente y el negocio están en la
+        // misma localidad: sin eso se colaba un pickup a un pueblo a 200 km
+        // y el negocio cocinaba para alguien que nunca iba a llegar.
         direccion_entrega: esPickup ? undefined : direccion,
-        latitud_entrega:  esPickup ? null : (ubicacion?.lat || null),
-        longitud_entrega: esPickup ? null : (ubicacion?.lng || null),
+        latitud_entrega:  ubicacion?.lat || null,
+        longitud_entrega: ubicacion?.lng || null,
         notas_entrega: notas,
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
@@ -425,6 +443,10 @@ export default function PagoScreen({ route, navigation }) {
         propina: propina > 0 ? propina : undefined,
         paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
         usar_credito: usarCredito ? true : undefined,
+        // La localidad en la que la app se está usando. El servidor la
+        // compara con la del negocio para no dejar pasar un pedido a otro
+        // pueblo entrado por enlace directo o carrito viejo.
+        ciudad_cliente: plaza?.slug || undefined,
       });
       const pedido = data.data?.pedido;
 

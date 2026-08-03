@@ -6,12 +6,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
-import usePlaza from '../../hooks/usePlaza';
+import { usePlaza } from '../../context/PlazaContext';
+import SelectorPlaza from '../../components/SelectorPlaza';
 
 export default function PerfilScreen({ navigation }) {
   const { usuario, roles, cerrarSesion, cambiarModo, cargarRoles } = useAuth();
-  const plaza = usePlaza(usuario?.ciudad);
+  const plaza = usePlaza();
   const [cambiando, setCambiando] = useState(false);
+  const [verSelector, setVerSelector] = useState(false);
 
   useEffect(() => { cargarRoles(); }, []);
 
@@ -132,6 +134,12 @@ export default function PerfilScreen({ navigation }) {
         {/* Opciones de cuenta */}
         <Text style={[estilos.seccionTit, { marginTop: espacio.lg }]}>Mi cuenta</Text>
         <View style={estilos.menuCard}>
+          <MenuItem
+            icono="🏘️"
+            titulo={plaza.nombre ? `Mi localidad: ${plaza.nombre}` : 'Elegir mi localidad'}
+            onPress={() => setVerSelector(true)}
+          />
+          <View style={estilos.divider} />
           <MenuItem icono="📍" titulo="Mis direcciones" onPress={() => navigation.navigate('Direcciones')} />
           <View style={estilos.divider} />
           <MenuItem icono="💳" titulo="Métodos de pago" onPress={() => navigation.navigate('MetodosPago')} />
@@ -149,6 +157,8 @@ export default function PerfilScreen({ navigation }) {
 
         <Text style={estilos.version}>{plaza.marca}{plaza.nombre ? ` · ${plaza.nombre}, ${plaza.estado}` : ''}</Text>
       </ScrollView>
+
+      <SelectorPlaza visible={verSelector} onCerrar={() => setVerSelector(false)} />
     </SafeAreaView>
   );
 }

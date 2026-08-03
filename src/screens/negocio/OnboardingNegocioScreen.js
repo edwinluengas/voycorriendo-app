@@ -23,6 +23,7 @@ import { pedirImagen } from '../../utils/imagenes';
 import * as Location from 'expo-location';
 import { negocioOnboardingAPI } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { usePlaza, plazaDePunto } from '../../context/PlazaContext';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -388,6 +389,15 @@ function PasoDireccion({ datos, setDatos }) {
 
   const ubicacionConfirmada = !!(datos.latitud && datos.longitud);
 
+  // En qué plaza va a quedar el negocio. La decide el servidor a partir de
+  // estas mismas coordenadas, así que se le dice AQUÍ: es la diferencia entre
+  // enterarse ahora o hasta el final del wizard con un error rojo. Y si queda
+  // fuera de toda plaza hay que decirlo claro — no hay servicio ahí.
+  const { plazas, radioKm } = usePlaza();
+  const destino = ubicacionConfirmada
+    ? plazaDePunto(plazas, datos.latitud, datos.longitud, radioKm)
+    : null;
+
   return (
     <View>
       <Text style={estilos.tituloPaso}>📍 Tu direccion</Text>
@@ -415,10 +425,19 @@ function PasoDireccion({ datos, setDatos }) {
         estilo={{ marginTop: espacio.md }}
       />
 
-      {ubicacionConfirmada ? (
+      {ubicacionConfirmada && destino?.plaza && !destino.dentro ? (
+        <View style={[estilos.aviso, { backgroundColor: '#FEE2E2' }]}>
+          <Text style={[estilos.avisoTxt, { color: colors.error }]}>
+            🚫 Sin cobertura en este lugar. La localidad más cercana donde operamos
+            ({destino.plaza.nombre}) queda a unos {Math.round(destino.km)} km, y damos
+            servicio hasta {radioKm} km. Todavía no podemos dar de alta tu negocio aquí.
+          </Text>
+        </View>
+      ) : ubicacionConfirmada ? (
         <View style={[estilos.aviso, { backgroundColor: '#E8F8EE' }]}>
           <Text style={[estilos.avisoTxt, { color: colors.secundario }]}>
             ✅ Ubicación confirmada ({datos.latitud.toFixed(5)}, {datos.longitud.toFixed(5)}). Los repartidores podrán encontrarte con precisión.
+            {destino?.plaza ? `\n\n🏘️ Tu negocio aparecerá en ${destino.plaza.nombre} (${destino.plaza.marca}). Solo lo verán —y le pedirán— los clientes de esa localidad.` : ''}
           </Text>
         </View>
       ) : (

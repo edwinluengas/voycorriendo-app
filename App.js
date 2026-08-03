@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { AuthProvider } from './src/context/AuthContext';
+import { PlazaProvider } from './src/context/PlazaContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 export const navigationRef = createNavigationContainerRef();
@@ -75,10 +76,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer ref={navigationRef}>
-          <StatusBar style="dark" backgroundColor="transparent" translucent />
-          <RootNavigator />
-        </NavigationContainer>
+        <PlazaProvider>
+          <NavigationContainer ref={navigationRef}>
+            <StatusBar style="dark" backgroundColor="transparent" translucent />
+            <RootNavigator />
+          </NavigationContainer>
+        </PlazaProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

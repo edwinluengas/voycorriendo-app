@@ -27,6 +27,8 @@ import { colors, espacio, radio } from '../../theme/colors';
 export default function InicioRepartidorScreen({ navigation }) {
   const { usuario, roles, cargarRoles, cambiarModo, cerrarSesion } = useAuth();
   const [conectado, setConectado]   = useState(false);
+  // Localidad en la que quedó al conectarse — la decide el servidor con su GPS.
+  const [plazaNombre, setPlazaNombre] = useState(null);
   const [pedidos, setPedidos]       = useState([]);
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
@@ -185,6 +187,7 @@ export default function InicioRepartidorScreen({ navigation }) {
 
       const { data } = await repartidoresAPI.conectarse(nuevoEstado, lat, lng);
       setConectado(data.data?.conectado);
+      setPlazaNombre(data.data?.ciudad_nombre || null);
       if (nuevoEstado) cargarPedidos();
     } catch (e) {
       Alert.alert('No se pudo cambiar', e.mensajeAmigable || 'Intenta de nuevo.');
@@ -260,7 +263,9 @@ export default function InicioRepartidorScreen({ navigation }) {
           </Text>
           <Text style={estilos.subtitulo}>
             {conectado
-              ? `Hola ${usuario?.nombre?.split(' ')[0]}, esperando pedidos cercanos`
+              // La plaza va en el encabezado: el repartidor SOLO ve pedidos de
+              // la localidad desde donde se conectó, y tiene que saber cual es.
+              ? `Hola ${usuario?.nombre?.split(' ')[0]}, esperando pedidos${plazaNombre ? ` en ${plazaNombre}` : ' cercanos'}`
               : 'Conectate para empezar a recibir pedidos'}
           </Text>
         </View>

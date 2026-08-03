@@ -6,7 +6,8 @@ import { negociosAPI, pedidosAPI } from '../../api/client';
 import { FEE_ENVIO } from '../../config/businessRules';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
-import usePlaza from '../../hooks/usePlaza';
+import { usePlaza } from '../../context/PlazaContext';
+import SelectorPlaza from '../../components/SelectorPlaza';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
@@ -115,15 +116,25 @@ const formatoTiempoEntrega = (n) => {
   return `🕒 ${n.tiempo_entrega_min}-${n.tiempo_entrega_max} min`;
 };
 
+// "A, B y C" — con las plazas que el servidor diga hoy, no con una lista
+// escrita a mano que se queda vieja en cuanto se abre una localidad nueva.
+const listaPlazas = (plazas) => {
+  const nombres = (plazas || []).map((p) => p.nombre).filter(Boolean);
+  if (!nombres.length) return 'las localidades donde operamos';
+  if (nombres.length === 1) return nombres[0];
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+};
+
 export default function InicioClienteScreen({ navigation, route }) {
   // La plaza decide qué catálogo se ve. Sin esto, un cliente de Putla
   // abría la app y veía restaurantes de Puerto Escondido, a 200 km.
-  const plaza = usePlaza(null);   // sin cuenta ligada a plaza: se detecta por GPS
+  const plaza = usePlaza();
   const [negocios, setNegocios]             = useState([]);
   const [cargando, setCargando]             = useState(true);
   const [categoria, setCategoria]           = useState('todos');
   const [subcat, setSubcat]                 = useState('todas');
   const [refrescando, setRefrescar]         = useState(false);
+  const [verSelector, setVerSelector]       = useState(false);
 
   // Si llegamos con un filtro (p.ej. desde la sugerencia "pide una bebida"),
   // lo aplicamos automáticamente. useFocusEffect dispara cada vez que el tab
@@ -144,12 +155,21 @@ export default function InicioClienteScreen({ navigation, route }) {
     }, [cargarNegocios])
   );
 
+  // OJO con las dependencias: esta función DEBE volver a crearse cuando
+  // cambia la plaza. Con `[]` se quedaba con el primer valor —cuando todavía
+  // no se sabía cuál era— y pedía el catálogo sin ciudad; el servidor
+  // respondía con el de la plaza por defecto, así que un cliente de Zacatepec
+  // veía restaurantes de Puerto Escondido pasara lo que pasara. Ése era EL
+  // bug: el filtro por plaza estaba bien en el servidor, nunca le llegaba.
   const cargarNegocios = useCallback(async () => {
+    // Todavía no se sabe en qué plaza estamos: no se pide nada. Pedir sin
+    // slug devuelve el catálogo de la plaza por defecto.
+    if (!plaza?.lista) return;
     // Fuera de las plazas donde operamos no se pide catálogo: mostrar
     // restaurantes a 500 km sería invitar a un pedido imposible.
-    if (plaza?.fueraDeCobertura) { setNegocios([]); setCargando(false); return; }
+    if (plaza?.fueraDeCobertura || !plaza?.slug) { setNegocios([]); setCargando(false); return; }
     try {
-      const { data } = await negociosAPI.listar(plaza?.slug);
+      const { data } = await negociosAPI.listar(plaza.slug);
       const ts = Date.now();
       const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
       const negs = (data.data?.negocios || []).map((n) => ({
@@ -164,7 +184,11 @@ export default function InicioClienteScreen({ navigation, route }) {
       setCargando(false);
       setRefrescar(false);
     }
-  }, []);
+  }, [plaza?.slug, plaza?.lista, plaza?.fueraDeCobertura]);
+
+  // Al cambiar de plaza el catálogo se recarga solo, sin esperar a que la
+  // pantalla pierda y recupere el foco.
+  useEffect(() => { cargarNegocios(); }, [cargarNegocios]);
 
   // ── Estado del pedido en curso, SIEMPRE visible en el inicio ──
   // El push puede no llegar (permiso denegado, token sin registrar, celular
@@ -218,6 +242,17 @@ export default function InicioClienteScreen({ navigation, route }) {
             <View style={estilos.headerOscuro}>
               <Text style={estilos.hola}>¡Hola! 👋</Text>
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
+
+              {/* La plaza, visible y cambiable. Es la respuesta a "¿por qué
+                  veo estos negocios?" y la salida cuando el GPS se equivoca
+                  o está apagado — antes no había ninguna forma de cambiarla. */}
+              <Pressable style={estilos.chipPlaza} onPress={() => setVerSelector(true)}>
+                <Ionicons name="location" size={14} color={colors.primario} />
+                <Text style={estilos.chipPlazaTxt} numberOfLines={1}>
+                  {plaza?.nombre || (plaza?.lista ? 'Elige tu localidad' : 'Buscando tu localidad…')}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="#FFFFFFAA" />
+              </Pressable>
             </View>
 
             {/* Estado del pedido en curso — SIEMPRE visible aquí, sin
@@ -388,25 +423,35 @@ export default function InicioClienteScreen({ navigation, route }) {
               ? (
                 <View style={estilos.vacio}>
                   <Text style={estilos.vacioEmoji}>📍</Text>
-                  <Text style={estilos.vacioTxt}>No contamos con servicio en esta área</Text>
+                  <Text style={estilos.vacioTxt}>Sin cobertura en este lugar</Text>
                   <Text style={estilos.vacioSub}>
-                    Por ahora entregamos en Puerto Escondido, Putla Villa de Guerrero
-                    y Santa María Zacatepec, Oaxaca.
+                    {/* La lista sale del servidor: abrir una plaza nueva no
+                        debe obligar a corregir este texto ni sacar un APK. */}
+                    Por ahora entregamos en {listaPlazas(plaza?.plazas)}.
                     {plaza?.kmALaMasCercana ? `
 
 Estás a unos ${plaza.kmALaMasCercana} km de la más cercana.` : ''}
                   </Text>
+                  <Pressable style={estilos.btnElegirPlaza} onPress={() => setVerSelector(true)}>
+                    <Text style={estilos.btnElegirPlazaTxt}>Elegir localidad</Text>
+                  </Pressable>
                 </View>
               )
               : (
                 <View style={estilos.vacio}>
                   <Text style={estilos.vacioEmoji}>📭</Text>
-                  <Text style={estilos.vacioTxt}>Todavía no hay negocios en esta categoría.</Text>
+                  <Text style={estilos.vacioTxt}>
+                    {plaza?.nombre
+                      ? `Todavía no hay negocios de esta categoría en ${plaza.nombre}.`
+                      : 'Todavía no hay negocios en esta categoría.'}
+                  </Text>
                   <Text style={estilos.vacioSub}>Pronto sumamos más. ¡Gracias por tu paciencia!</Text>
                 </View>
               )
         }
       />
+
+      <SelectorPlaza visible={verSelector} onCerrar={() => setVerSelector(false)} />
     </SafeAreaView>
   );
 }
@@ -480,6 +525,20 @@ const estilos = StyleSheet.create({
   },
   hola: { fontSize: 14, color: '#8E8E93', fontWeight: '600' },
   pregunta: { fontSize: 26, fontWeight: '900', color: colors.textoInverso, marginTop: 2, letterSpacing: -0.3 },
+
+  chipPlaza: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: espacio.sm,
+    paddingVertical: 6,
+    paddingHorizontal: espacio.sm,
+    borderRadius: radio.full,
+    backgroundColor: '#FFFFFF14',
+    maxWidth: '100%',
+  },
+  chipPlazaTxt: { color: colors.textoInverso, fontSize: 13, fontWeight: '700', flexShrink: 1 },
 
   // Subcategorías restaurante
   subcatContenedor: {
@@ -642,4 +701,12 @@ const estilos = StyleSheet.create({
   vacioEmoji: { fontSize: 56 },
   vacioTxt: { fontSize: 16, color: colors.texto, marginTop: espacio.md, textAlign: 'center' },
   vacioSub: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center' },
+  btnElegirPlaza: {
+    marginTop: espacio.md,
+    paddingVertical: espacio.sm,
+    paddingHorizontal: espacio.lg,
+    borderRadius: radio.full,
+    backgroundColor: colors.primario,
+  },
+  btnElegirPlazaTxt: { color: colors.textoInverso, fontWeight: '800', fontSize: 14 },
 });
