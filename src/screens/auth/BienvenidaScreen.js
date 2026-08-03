@@ -2,13 +2,10 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
-import { usePlaza } from '../../context/PlazaContext';
 
 const { height } = Dimensions.get('window');
 
 export default function BienvenidaScreen({ navigation }) {
-  // Sin sesion todavia: se muestra la plaza por defecto del backend.
-  const plaza = usePlaza();
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
 
@@ -32,15 +29,11 @@ export default function BienvenidaScreen({ navigation }) {
           <View style={estilos.logoDot} />
         </View>
 
-        {/* La marca es la de la plaza: "VoyCorriendo Putla" para quien está
-            en Putla. En Puerto Escondido va sin apellido —"VoyCorriendo" a
-            secas— porque ahí la marca local ES la marca general.
-            `adjustsFontSizeToFit` porque "VoyCorriendo Pinotepa" no cabe a
-            38 px en un teléfono angosto y no queremos que se parta. */}
-        <Text style={estilos.marca} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-          {plaza.marca || 'VoyCorriendo'}
-        </Text>
-        <Text style={estilos.ciudad}>{plaza.nombre ? `${plaza.nombre} · ${plaza.estado}` : 'Oaxaca'}</Text>
+        {/* Solo la marca, sin localidad (decisión del dueño, 2026-08-03).
+            Esta pantalla se ve ANTES de entrar y antes de saber dónde está
+            el usuario: nombrar aquí un pueblo era, en el mejor caso, un dato
+            que nadie pidió y, en el peor, el pueblo equivocado. */}
+        <Text style={estilos.marca}>VoyCorriendo</Text>
 
         <View style={estilos.divisor} />
 

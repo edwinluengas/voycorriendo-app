@@ -6,8 +6,7 @@ import { negociosAPI, pedidosAPI } from '../../api/client';
 import { FEE_ENVIO } from '../../config/businessRules';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
-import { usePlaza } from '../../context/PlazaContext';
-import SelectorPlaza from '../../components/SelectorPlaza';
+import { usePlaza, PLAZA_ESTADO } from '../../context/PlazaContext';
 
 const CATEGORIAS = [
   { id: 'todos',                nombre: 'Para ti',        emoji: '⚡' },
@@ -116,15 +115,6 @@ const formatoTiempoEntrega = (n) => {
   return `🕒 ${n.tiempo_entrega_min}-${n.tiempo_entrega_max} min`;
 };
 
-// "A, B y C" — con las plazas que el servidor diga hoy, no con una lista
-// escrita a mano que se queda vieja en cuanto se abre una localidad nueva.
-const listaPlazas = (plazas) => {
-  const nombres = (plazas || []).map((p) => p.nombre).filter(Boolean);
-  if (!nombres.length) return 'las localidades donde operamos';
-  if (nombres.length === 1) return nombres[0];
-  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
-};
-
 export default function InicioClienteScreen({ navigation, route }) {
   // La plaza decide qué catálogo se ve. Sin esto, un cliente de Putla
   // abría la app y veía restaurantes de Puerto Escondido, a 200 km.
@@ -134,7 +124,6 @@ export default function InicioClienteScreen({ navigation, route }) {
   const [categoria, setCategoria]           = useState('todos');
   const [subcat, setSubcat]                 = useState('todas');
   const [refrescando, setRefrescar]         = useState(false);
-  const [verSelector, setVerSelector]       = useState(false);
 
   // Si llegamos con un filtro (p.ej. desde la sugerencia "pide una bebida"),
   // lo aplicamos automáticamente. useFocusEffect dispara cada vez que el tab
@@ -155,12 +144,13 @@ export default function InicioClienteScreen({ navigation, route }) {
   // veía restaurantes de Puerto Escondido pasara lo que pasara. Ése era EL
   // bug: el filtro por plaza estaba bien en el servidor, nunca le llegaba.
   const cargarNegocios = useCallback(async () => {
-    // Todavía no se sabe en qué plaza estamos: no se pide nada. Pedir sin
-    // slug devuelve el catálogo de la plaza por defecto.
+    // Todavía no se sabe dónde estamos: no se pide nada. Pedir sin localidad
+    // devolvía el catálogo de la localidad por defecto — ése era el bug.
     if (!plaza?.lista) return;
-    // Fuera de las plazas donde operamos no se pide catálogo: mostrar
-    // restaurantes a 500 km sería invitar a un pedido imposible.
-    if (plaza?.fueraDeCobertura || !plaza?.slug) { setNegocios([]); setCargando(false); return; }
+    // Sin cobertura (fuera del área, sin permiso de ubicación o sin GPS) no
+    // hay catálogo: mostrar restaurantes a los que nadie puede pedir sería
+    // invitar a un pedido imposible.
+    if (!plaza?.hayCobertura || !plaza?.slug) { setNegocios([]); setCargando(false); setRefrescar(false); return; }
     try {
       const { data } = await negociosAPI.listar(plaza.slug);
       const ts = Date.now();
@@ -177,7 +167,7 @@ export default function InicioClienteScreen({ navigation, route }) {
       setCargando(false);
       setRefrescar(false);
     }
-  }, [plaza?.slug, plaza?.lista, plaza?.fueraDeCobertura]);
+  }, [plaza?.slug, plaza?.lista, plaza?.hayCobertura]);
 
   // Al cambiar de plaza el catálogo se recarga solo, sin esperar a que la
   // pantalla pierda y recupere el foco.
@@ -230,6 +220,27 @@ export default function InicioClienteScreen({ navigation, route }) {
 
   const tiendaAhivoy = negocios.find((n) => n.categoria === 'ahivoy store');
 
+  // ── Sin ubicación no hay app ──────────────────────────────────────
+  // La pantalla entera es el aviso: ni categorías, ni destacados, ni
+  // buscador. Mostrar la interfaz completa con el catálogo vacío hacía
+  // pensar que el servicio estaba caído, cuando lo que falta es saber
+  // dónde está el usuario.
+  if (!plaza?.lista) {
+    return (
+      <SafeAreaView style={[estilos.contenedor, estilos.centrado]} edges={['bottom']}>
+        <ActivityIndicator size="large" color={colors.primario} />
+        <Text style={estilos.buscandoTxt}>Buscando tu ubicación…</Text>
+      </SafeAreaView>
+    );
+  }
+  if (!plaza.hayCobertura) {
+    return (
+      <SafeAreaView style={[estilos.contenedor, estilos.centrado]} edges={['bottom']}>
+        <SinCobertura plaza={plaza} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
       <FlatList
@@ -245,16 +256,15 @@ export default function InicioClienteScreen({ navigation, route }) {
               <Text style={estilos.hola}>¡Hola! 👋</Text>
               <Text style={estilos.pregunta}>¿Qué se te antoja hoy?</Text>
 
-              {/* La plaza, visible y cambiable. Es la respuesta a "¿por qué
-                  veo estos negocios?" y la salida cuando el GPS se equivoca
-                  o está apagado — antes no había ninguna forma de cambiarla. */}
-              <Pressable style={estilos.chipPlaza} onPress={() => setVerSelector(true)}>
-                <Ionicons name="location" size={14} color={colors.primario} />
-                <Text style={estilos.chipPlazaTxt} numberOfLines={1}>
-                  {plaza?.nombre || (plaza?.lista ? 'Elige tu localidad' : 'Buscando tu localidad…')}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color="#FFFFFFAA" />
-              </Pressable>
+              {/* La localidad detectada, solo informativa: no se puede tocar
+                  ni cambiar. La app muestra lo del lugar donde se está
+                  usando y nada más. */}
+              {plaza?.hayCobertura && plaza?.nombre && (
+                <View style={estilos.chipPlaza}>
+                  <Ionicons name="location" size={14} color={colors.primario} />
+                  <Text style={estilos.chipPlazaTxt} numberOfLines={1}>{plaza.nombre}</Text>
+                </View>
+              )}
             </View>
 
             {/* Estado del pedido en curso — SIEMPRE visible aquí, sin
@@ -417,44 +427,68 @@ export default function InicioClienteScreen({ navigation, route }) {
         ListEmptyComponent={
           cargando
             ? <ActivityIndicator size="large" color={colors.primario} style={{ marginTop: 60 }} />
-            : plaza?.fueraDeCobertura
-              // Fuera de las plazas donde operamos. Se dice claro y se nombra
-              // dónde SÍ hay servicio: alguien de paso puede estar cerca de
-              // una, y quien vive lejos merece saberlo de una vez en lugar de
-              // buscar restaurantes que nunca van a aparecer.
-              ? (
-                <View style={estilos.vacio}>
-                  <Text style={estilos.vacioEmoji}>📍</Text>
-                  <Text style={estilos.vacioTxt}>Sin cobertura en este lugar</Text>
-                  <Text style={estilos.vacioSub}>
-                    {/* La lista sale del servidor: abrir una plaza nueva no
-                        debe obligar a corregir este texto ni sacar un APK. */}
-                    Por ahora entregamos en {listaPlazas(plaza?.plazas)}.
-                    {plaza?.kmALaMasCercana ? `
-
-Estás a unos ${plaza.kmALaMasCercana} km de la más cercana.` : ''}
-                  </Text>
-                  <Pressable style={estilos.btnElegirPlaza} onPress={() => setVerSelector(true)}>
-                    <Text style={estilos.btnElegirPlazaTxt}>Elegir localidad</Text>
-                  </Pressable>
-                </View>
-              )
-              : (
-                <View style={estilos.vacio}>
-                  <Text style={estilos.vacioEmoji}>📭</Text>
-                  <Text style={estilos.vacioTxt}>
-                    {plaza?.nombre
-                      ? `Todavía no hay negocios de esta categoría en ${plaza.nombre}.`
-                      : 'Todavía no hay negocios en esta categoría.'}
-                  </Text>
-                  <Text style={estilos.vacioSub}>Pronto sumamos más. ¡Gracias por tu paciencia!</Text>
-                </View>
-              )
+            : (
+              <View style={estilos.vacio}>
+                <Text style={estilos.vacioEmoji}>📭</Text>
+                <Text style={estilos.vacioTxt}>
+                  {plaza?.nombre
+                    ? `Todavía no hay negocios de esta categoría en ${plaza.nombre}.`
+                    : 'Todavía no hay negocios en esta categoría.'}
+                </Text>
+                <Text style={estilos.vacioSub}>Pronto sumamos más. ¡Gracias por tu paciencia!</Text>
+              </View>
+            )
         }
       />
-
-      <SelectorPlaza visible={verSelector} onCerrar={() => setVerSelector(false)} />
     </SafeAreaView>
+  );
+}
+
+/**
+ * Lo único que se ve cuando no se puede saber dónde está el usuario o está
+ * fuera del área. El mensaje cambia según el motivo, porque la acción que
+ * resuelve cada caso es distinta: dar el permiso no es lo mismo que encender
+ * el GPS, ni que estar sencillamente lejos.
+ */
+function SinCobertura({ plaza }) {
+  const porMotivo = {
+    [PLAZA_ESTADO.SIN_PERMISO]: {
+      emoji: '📍',
+      titulo: 'Sin cobertura en este lugar',
+      texto: 'Para saber si llegamos hasta donde estás necesitamos tu ubicación. Actívala y vuelve a intentar.',
+      accion: 'Permitir ubicación',
+    },
+    [PLAZA_ESTADO.SIN_GPS]: {
+      emoji: '📡',
+      titulo: 'Sin cobertura en este lugar',
+      texto: 'No pudimos leer tu ubicación. Revisa que el GPS esté encendido y vuelve a intentar.',
+      accion: 'Reintentar',
+    },
+    [PLAZA_ESTADO.SIN_RED]: {
+      emoji: '🌐',
+      titulo: 'Sin conexión',
+      texto: 'No pudimos conectarnos. Revisa tu internet y vuelve a intentar.',
+      accion: 'Reintentar',
+    },
+  };
+  const info = porMotivo[plaza.estado] || {
+    emoji: '📍',
+    titulo: 'Sin cobertura en este lugar',
+    texto: plaza.kmALaMasCercana
+      ? `Todavía no llegamos hasta aquí. La localidad más cercana donde entregamos está a unos ${plaza.kmALaMasCercana} km.`
+      : 'Todavía no llegamos hasta aquí.',
+    accion: 'Reintentar',
+  };
+
+  return (
+    <View style={estilos.vacio}>
+      <Text style={estilos.vacioEmoji}>{info.emoji}</Text>
+      <Text style={estilos.vacioTxt}>{info.titulo}</Text>
+      <Text style={estilos.vacioSub}>{info.texto}</Text>
+      <Pressable style={estilos.btnReintentar} onPress={plaza.reintentar}>
+        <Text style={estilos.btnReintentarTxt}>{info.accion}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -703,12 +737,14 @@ const estilos = StyleSheet.create({
   vacioEmoji: { fontSize: 56 },
   vacioTxt: { fontSize: 16, color: colors.texto, marginTop: espacio.md, textAlign: 'center' },
   vacioSub: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center' },
-  btnElegirPlaza: {
-    marginTop: espacio.md,
-    paddingVertical: espacio.sm,
-    paddingHorizontal: espacio.lg,
+  btnReintentar: {
+    marginTop: espacio.lg,
+    paddingVertical: espacio.md,
+    paddingHorizontal: espacio.xl,
     borderRadius: radio.full,
     backgroundColor: colors.primario,
   },
-  btnElegirPlazaTxt: { color: colors.textoInverso, fontWeight: '800', fontSize: 14 },
+  btnReintentarTxt: { color: colors.textoInverso, fontWeight: '800', fontSize: 15 },
+  centrado: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: espacio.lg },
+  buscandoTxt: { marginTop: espacio.md, color: colors.textoSuave, fontSize: 14, fontWeight: '600' },
 });

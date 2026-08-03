@@ -1,32 +1,28 @@
 /**
- * La plaza (localidad) en la que se está usando la app.
+ * La localidad en la que se está usando la app — SIEMPRE por ubicación real.
  *
- * VoyCorriendo opera en pueblos distintos y separados —Puerto Escondido,
- * Putla, Zacatepec, Pinotepa— y quien vive en Putla no quiere pedirle a una
- * app "de Puerto Escondido". Es el mismo servicio, pero el nombre local es lo
- * que lo hace propio, así que la marca se arma con la plaza.
+ * VoyCorriendo opera en pueblos distintos y separados. Qué negocios y qué
+ * repartidores se ven depende de dónde esté físicamente el teléfono, y de
+ * nada más: no hay lista de localidades que elegir ni forma de "ponerse" en
+ * otro pueblo. Si no se puede saber dónde está, no se muestra catálogo — se
+ * dice que no hay cobertura, que es la verdad.
  *
- * Vive en un CONTEXTO, no en un hook suelto, por dos razones:
- *   1. Cada pantalla que llamaba al hook abría su propia detección (API + GPS)
- *      y tenía su propio estado, así que cambiar de plaza en una no se veía en
- *      las demás — el catálogo seguía siendo el de antes.
- *   2. La detección cuesta un permiso de ubicación y una llamada al servidor:
- *      hacerla una vez y compartirla es lo correcto.
+ * Por qué así (decisión del dueño, 2026-08-03): un selector manual invita a
+ * mirar el catálogo de un pueblo al que no se puede pedir, y una plaza "por
+ * defecto" hace que quien no comparte ubicación vea siempre la misma —que es
+ * exactamente el bug que se acaba de corregir.
  *
- * La lista viene del backend (/api/config-publica), no escrita a mano: abrir
- * una plaza nueva no debe exigir un APK nuevo.
+ * La lista de localidades y el radio vienen del backend
+ * (/api/config-publica): abrir una plaza nueva no debe exigir un APK nuevo.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { AppState } from 'react-native';
 import * as Location from 'expo-location';
-import * as SecureStore from 'expo-secure-store';
 import { pedidosAPI } from '../api/client';
 
-const CLAVE_GUARDADA = 'plaza_elegida';
-
-// Distancia real en km (haversine). Se usa para dos cosas: ordenar cuál plaza
-// queda más cerca y —sobre todo— decidir si el usuario está DENTRO de alguna.
-// Con grados no se puede: 0.5° son 55 km en latitud y menos en longitud, así
-// que un umbral en grados daría un área distinta según dónde estés.
+// Distancia real en km (haversine). Con grados no se puede: 0.5° son 55 km en
+// latitud y bastante menos en longitud, así que un umbral en grados daría un
+// área distinta según dónde estés.
 const distanciaKm = (a, b) => {
   const R = 6371, rad = Math.PI / 180;
   const dLat = (Number(b.latitud) - a.lat) * rad;
@@ -36,28 +32,36 @@ const distanciaKm = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(x));
 };
 
-// Hasta dónde llega una plaza si el servidor no lo dice (APK viejo contra
-// backend nuevo, o respuesta incompleta). No es la cobertura de reparto
-// (6.5 km desde cada negocio) sino el área que pertenece al pueblo.
+// Hasta dónde llega una localidad si el servidor no lo dice. No es la
+// cobertura de reparto (6.5 km desde cada negocio) sino el área que
+// pertenece al pueblo y sus alrededores.
 const RADIO_PLAZA_KM_FALLBACK = 25;
 
-// Mientras responde el servidor se usa la marca a secas: es preferible a
-// mostrar el nombre de una localidad que quizá no es la del usuario.
-const MARCA_NEUTRA = { slug: null, marca: 'VoyCorriendo', nombre: null, estado: 'Oaxaca' };
+// Estados posibles. `motivo` explica POR QUÉ no hay cobertura, para poder
+// ofrecer la acción correcta (dar permiso, encender el GPS, reintentar).
+export const PLAZA_ESTADO = {
+  BUSCANDO:    'buscando',      // todavía no se sabe
+  DENTRO:      'dentro',        // hay localidad y sí hay servicio
+  FUERA:       'fuera',         // ubicación conocida, pero lejos de toda plaza
+  SIN_PERMISO: 'sin_permiso',   // el usuario no concedió la ubicación
+  SIN_GPS:     'sin_gps',       // permiso dado pero no se pudo leer posición
+  SIN_RED:     'sin_red',       // no se pudo consultar al servidor
+};
+
+const INICIAL = { estado: PLAZA_ESTADO.BUSCANDO, marca: 'VoyCorriendo', slug: null, nombre: null };
+
+const PlazaContext = createContext(null);
 
 /**
- * A qué plaza pertenece un punto, con la lista que hoy da el servidor.
- * Devuelve `{ plaza, km, dentro }`. Lo usan los onboardings para decirle al
- * dueño del negocio en qué plaza va a quedar ANTES de mandar nada, en vez de
- * que se entere por un error del servidor al final del wizard.
+ * A qué localidad pertenece un punto. Devuelve `{ plaza, km, dentro }`.
+ * Lo usa el onboarding del negocio para decirle al dueño dónde va a quedar
+ * ANTES de mandar nada, en vez de que se entere por un error al final.
  */
 export const plazaDePunto = (plazas, lat, lng, radioKm = RADIO_PLAZA_KM_FALLBACK) => {
   // OJO: `Number(null)` y `Number('')` son 0, así que isFinite por sí solo
   // daba por buenas unas coordenadas ausentes y las ubicaba en el mar.
   const falta = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v));
-  if (!plazas?.length || falta(lat) || falta(lng)) {
-    return { plaza: null, km: null, dentro: false };
-  }
+  if (!plazas?.length || falta(lat) || falta(lng)) return { plaza: null, km: null, dentro: false };
   const punto = { lat: Number(lat), lng: Number(lng) };
   let mejor = null, menor = Infinity;
   for (const p of plazas) {
@@ -67,122 +71,101 @@ export const plazaDePunto = (plazas, lat, lng, radioKm = RADIO_PLAZA_KM_FALLBACK
   return { plaza: mejor, km: menor, dentro: menor <= radioKm };
 };
 
-const PlazaContext = createContext(null);
-
 export function PlazaProvider({ children }) {
-  const [plaza, setPlaza]       = useState(MARCA_NEUTRA);
-  const [plazas, setPlazas]     = useState([]);
-  // `false` hasta que se sabe cuál es la plaza. El catálogo NO debe pedirse
-  // antes: sin slug el servidor devuelve el de la plaza por defecto, que es
-  // justo el bug que hacía ver restaurantes de Puerto Escondido en Zacatepec.
-  const [lista, setLista]       = useState(false);
-  // Radio de plaza que dice el servidor. Los onboardings lo usan para avisar
-  // antes de tiempo si un negocio queda fuera de toda plaza.
-  const [radioKm, setRadioKm]   = useState(RADIO_PLAZA_KM_FALLBACK);
+  const [valor, setValor]   = useState(INICIAL);
+  const [plazas, setPlazas] = useState([]);
+  const [radioKm, setRadio] = useState(RADIO_PLAZA_KM_FALLBACK);
 
   const detectar = useCallback(async () => {
-    let listaPlazas = [];
-    let porDefecto = null;
-    let radioKm = RADIO_PLAZA_KM_FALLBACK;
+    setValor((v) => (v.estado === PLAZA_ESTADO.DENTRO ? v : { ...INICIAL }));
+
+    // 1. Las localidades donde operamos hoy.
+    let lista = [], radio = RADIO_PLAZA_KM_FALLBACK;
     try {
       const { data } = await pedidosAPI.configPublica();
-      listaPlazas = data?.data?.ciudades || [];
-      porDefecto  = data?.data?.ciudad_default;
-      radioKm     = Number(data?.data?.radio_plaza_km) || RADIO_PLAZA_KM_FALLBACK;
-      setRadioKm(radioKm);
+      lista = data?.data?.ciudades || [];
+      radio = Number(data?.data?.radio_plaza_km) || RADIO_PLAZA_KM_FALLBACK;
     } catch {
-      // Sin servidor no se inventa una plaza: se deja en marca neutra y se
-      // reintenta al volver a abrir. `lista` sigue en false, así que el
-      // catálogo no se pide con la plaza equivocada.
-      return;
+      return setValor({ ...INICIAL, estado: PLAZA_ESTADO.SIN_RED });
     }
-    if (!listaPlazas.length) return;
-    setPlazas(listaPlazas);
+    if (!lista.length) return setValor({ ...INICIAL, estado: PLAZA_ESTADO.SIN_RED });
+    setPlazas(lista);
+    setRadio(radio);
 
-    const fijar = (p) => { setPlaza(p); setLista(true); };
-
-    // 1. Lo que el usuario eligió a mano gana siempre: si viajó o la detección
-    //    se equivocó, no queremos volver a moverlo cada vez que abre la app.
-    const guardada = await SecureStore.getItemAsync(CLAVE_GUARDADA).catch(() => null);
-    const manual = guardada && listaPlazas.find((c) => c.slug === guardada);
-    if (manual) return fijar(manual);
-
-    // 2. La más cercana por GPS. Es lo que evita que alguien de Putla abra la
-    //    app y vea restaurantes de Puerto Escondido.
+    // 2. Dónde está el teléfono. Sin esto no hay catálogo: es la única
+    //    fuente de verdad de qué localidad ve el usuario.
+    let permiso;
     try {
-      let permiso = await Location.getForegroundPermissionsAsync();
-      // Si nunca se preguntó, se pregunta AQUÍ. Antes solo se consultaba el
-      // permiso ya concedido: como el permiso se pedía hasta el checkout,
-      // en la primera sesión la detección nunca corría y todo el mundo caía
-      // en la plaza por defecto.
+      permiso = await Location.getForegroundPermissionsAsync();
       if (!permiso.granted && permiso.canAskAgain) {
         permiso = await Location.requestForegroundPermissionsAsync();
       }
-      if (permiso.granted) {
-        const pos = await Location.getLastKnownPositionAsync()
-          || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-        if (pos) {
-          const punto = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          const ordenadas = [...listaPlazas].sort((a, b) => distanciaKm(punto, a) - distanciaKm(punto, b));
-          const cercana = ordenadas[0];
-          const km = cercana ? distanciaKm(punto, cercana) : Infinity;
+    } catch {
+      return setValor({ ...INICIAL, estado: PLAZA_ESTADO.SIN_GPS });
+    }
+    if (!permiso?.granted) return setValor({ ...INICIAL, estado: PLAZA_ESTADO.SIN_PERMISO });
 
-          // FUERA DE COBERTURA. Antes se asignaba la plaza más cercana sin
-          // importar la distancia: alguien en Ciudad de México veía los
-          // restaurantes de Putla, a 500 km, y podía intentar pedir. Ahora se
-          // dice que no hay servicio, que es la verdad —pero se deja cambiar
-          // de plaza a mano por si anda de viaje y quiere pedir en su pueblo.
-          if (km > radioKm) {
-            return fijar({
-              ...MARCA_NEUTRA,
-              fueraDeCobertura: true,
-              kmALaMasCercana: Math.round(km),
-              masCercana: cercana,
-            });
-          }
-          if (cercana) return fijar(cercana);
-        }
-      }
-    } catch { /* sin GPS se cae al default */ }
+    let pos = null;
+    try {
+      // La última conocida es instantánea; si no hay (teléfono recién
+      // encendido), se pide una lectura real.
+      pos = await Location.getLastKnownPositionAsync()
+         || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    } catch { pos = null; }
+    if (!pos) return setValor({ ...INICIAL, estado: PLAZA_ESTADO.SIN_GPS });
 
-    // 3. Último recurso: la plaza por defecto del backend.
-    fijar(listaPlazas.find((c) => c.slug === porDefecto) || listaPlazas[0]);
+    // 3. La localidad que le corresponde a ese punto.
+    const punto = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    let cercana = null, km = Infinity;
+    for (const p of lista) {
+      const d = distanciaKm(punto, p);
+      if (d < km) { km = d; cercana = p; }
+    }
+    if (!cercana || km > radio) {
+      return setValor({ ...INICIAL, estado: PLAZA_ESTADO.FUERA, kmALaMasCercana: Math.round(km) });
+    }
+    setValor({ ...cercana, estado: PLAZA_ESTADO.DENTRO });
   }, []);
 
   useEffect(() => { detectar(); }, [detectar]);
 
-  // Cambio manual: se recuerda para las próximas aperturas. Es la salida
-  // cuando el GPS no está disponible o el usuario quiere ver otra plaza.
-  const cambiarPlaza = useCallback(async (slug) => {
-    const nueva = plazas.find((c) => c.slug === slug);
-    if (!nueva) return;
-    setPlaza(nueva);
-    setLista(true);
-    SecureStore.setItemAsync(CLAVE_GUARDADA, slug).catch(() => {});
-  }, [plazas]);
-
-  // Volver a la detección automática (borra la elección guardada).
-  const detectarDeNuevo = useCallback(async () => {
-    await SecureStore.deleteItemAsync(CLAVE_GUARDADA).catch(() => {});
-    setLista(false);
-    detectar();
+  // Si el usuario sale a Ajustes a conceder el permiso o a encender el GPS,
+  // al volver a la app se reintenta solo — sin esto tendría que cerrarla y
+  // volverla a abrir para que sirviera.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado !== 'active') return;
+      setValor((v) => {
+        if (v.estado !== PLAZA_ESTADO.DENTRO) detectar();
+        return v;
+      });
+    });
+    return () => sub.remove();
   }, [detectar]);
 
-  const valor = useMemo(
-    () => ({ ...plaza, plazas, lista, radioKm, cambiarPlaza, detectarDeNuevo }),
-    [plaza, plazas, lista, radioKm, cambiarPlaza, detectarDeNuevo],
+  const contexto = useMemo(
+    () => ({
+      ...valor,
+      plazas, radioKm,
+      // Estado resumido para las pantallas: `lista` = ya se sabe algo;
+      // `hayCobertura` = se puede mostrar catálogo y dejar pedir.
+      lista: valor.estado !== PLAZA_ESTADO.BUSCANDO,
+      hayCobertura: valor.estado === PLAZA_ESTADO.DENTRO,
+      reintentar: detectar,
+    }),
+    [valor, plazas, radioKm, detectar],
   );
 
-  return <PlazaContext.Provider value={valor}>{children}</PlazaContext.Provider>;
+  return <PlazaContext.Provider value={contexto}>{children}</PlazaContext.Provider>;
 }
 
 export function usePlaza() {
   const ctx = useContext(PlazaContext);
-  // Sin provider se devuelve la marca neutra en vez de reventar: una pantalla
-  // suelta (deep link, preview) debe seguir dibujándose.
+  // Sin provider se devuelve el estado inicial en vez de reventar: una
+  // pantalla suelta (deep link, preview) debe seguir dibujándose.
   return ctx || {
-    ...MARCA_NEUTRA, plazas: [], lista: false, radioKm: RADIO_PLAZA_KM_FALLBACK,
-    cambiarPlaza: () => {}, detectarDeNuevo: () => {},
+    ...INICIAL, plazas: [], radioKm: RADIO_PLAZA_KM_FALLBACK,
+    lista: false, hayCobertura: false, reintentar: () => {},
   };
 }
 
