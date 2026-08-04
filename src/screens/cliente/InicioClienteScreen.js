@@ -451,17 +451,34 @@ export default function InicioClienteScreen({ navigation, route }) {
  * el GPS, ni que estar sencillamente lejos.
  */
 function SinCobertura({ plaza }) {
+  // Cada motivo dice la verdad. Antes todos decían "Sin cobertura en este
+  // lugar", así que a quien se le negaba el permiso o tenía el GPS apagado
+  // la app le aseguraba que no damos servicio en su pueblo —cuando sí— y no
+  // había forma de que supiera qué hacer.
   const porMotivo = {
     [PLAZA_ESTADO.SIN_PERMISO]: {
       emoji: '📍',
-      titulo: 'Sin cobertura en este lugar',
-      texto: 'Para saber si llegamos hasta donde estás necesitamos tu ubicación. Actívala y vuelve a intentar.',
+      titulo: 'Necesitamos tu ubicación',
+      texto: 'La usamos para mostrarte los negocios de tu localidad y saber si llegamos hasta donde estás. No la compartimos con nadie.',
       accion: 'Permitir ubicación',
+    },
+    [PLAZA_ESTADO.PERMISO_BLOQUEADO]: {
+      emoji: '⚙️',
+      titulo: 'Activa la ubicación en Ajustes',
+      texto: 'El permiso de ubicación está bloqueado para VoyCorriendo. Actívalo en los ajustes del teléfono y vuelve a la app.',
+      accion: 'Abrir ajustes',
+      ajustes: true,
+    },
+    [PLAZA_ESTADO.UBICACION_APAGADA]: {
+      emoji: '🛰️',
+      titulo: 'Enciende la ubicación',
+      texto: 'La ubicación del teléfono está apagada. Enciéndela y vuelve a intentar.',
+      accion: 'Reintentar',
     },
     [PLAZA_ESTADO.SIN_GPS]: {
       emoji: '📡',
-      titulo: 'Sin cobertura en este lugar',
-      texto: 'No pudimos leer tu ubicación. Revisa que el GPS esté encendido y vuelve a intentar.',
+      titulo: 'No pudimos leer tu ubicación',
+      texto: 'A veces pasa bajo techo o con mala señal. Sal un momento al aire libre y vuelve a intentar.',
       accion: 'Reintentar',
     },
     [PLAZA_ESTADO.SIN_RED]: {
@@ -471,11 +488,12 @@ function SinCobertura({ plaza }) {
       accion: 'Reintentar',
     },
   };
+  // Sin motivo especial, el caso real: está lejos de todas las localidades.
   const info = porMotivo[plaza.estado] || {
     emoji: '📍',
     titulo: 'Sin cobertura en este lugar',
     texto: plaza.kmALaMasCercana
-      ? `Todavía no llegamos hasta aquí. La localidad más cercana donde entregamos está a unos ${plaza.kmALaMasCercana} km.`
+      ? `Todavía no llegamos hasta aquí. ${plaza.masCercana || 'La localidad más cercana'} está a unos ${plaza.kmALaMasCercana} km.`
       : 'Todavía no llegamos hasta aquí.',
     accion: 'Reintentar',
   };
@@ -485,9 +503,21 @@ function SinCobertura({ plaza }) {
       <Text style={estilos.vacioEmoji}>{info.emoji}</Text>
       <Text style={estilos.vacioTxt}>{info.titulo}</Text>
       <Text style={estilos.vacioSub}>{info.texto}</Text>
-      <Pressable style={estilos.btnReintentar} onPress={plaza.reintentar}>
+      <Pressable
+        style={estilos.btnReintentar}
+        onPress={() => (info.ajustes ? plaza.abrirAjustes() : plaza.reintentar())}
+      >
         <Text style={estilos.btnReintentarTxt}>{info.accion}</Text>
       </Pressable>
+
+      {/* Solo cuando de verdad está fuera del área: qué leyó el teléfono.
+          Es lo que permite distinguir "estás lejos" de "el GPS se equivocó"
+          sin tener el teléfono en la mano. */}
+      {plaza.coords && (
+        <Text style={estilos.diagnostico}>
+          Ubicación leída: {plaza.coords.lat}, {plaza.coords.lng}
+        </Text>
+      )}
     </View>
   );
 }
@@ -747,4 +777,5 @@ const estilos = StyleSheet.create({
   btnReintentarTxt: { color: colors.textoInverso, fontWeight: '800', fontSize: 15 },
   centrado: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: espacio.lg },
   buscandoTxt: { marginTop: espacio.md, color: colors.textoSuave, fontSize: 14, fontWeight: '600' },
+  diagnostico: { marginTop: espacio.lg, fontSize: 11, color: colors.bordeOscuro, textAlign: 'center' },
 });

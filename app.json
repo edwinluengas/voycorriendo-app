@@ -1,8 +1,8 @@
-﻿{
+{
   "expo": {
     "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.2.47",
+    "version": "1.2.48",
     "scheme": "voycorriendo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,10 +17,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "mx.voycorriendo.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Para saber dÃ³nde entregarte tu pedido.",
-        "NSLocationAlwaysUsageDescription": "VoyCorriendo usa tu ubicaciÃ³n para rastrear entregas en curso.",
+        "NSLocationWhenInUseUsageDescription": "Para saber dónde entregarte tu pedido.",
+        "NSLocationAlwaysUsageDescription": "VoyCorriendo usa tu ubicación para rastrear entregas en curso.",
         "NSCameraUsageDescription": "Para tomar fotos de tus productos y documentos.",
-        "NSPhotoLibraryUsageDescription": "Para elegir fotos de tus productos desde tu galerÃ­a."
+        "NSPhotoLibraryUsageDescription": "Para elegir fotos de tus productos desde tu galería."
       }
     },
     "android": {
@@ -52,15 +52,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "VoyCorriendo usa tu ubicaciÃ³n para asignarte pedidos cercanos.",
-          "locationAlwaysPermission": "VoyCorriendo usa tu ubicaciÃ³n para rastrear entregas en curso."
+          "locationWhenInUsePermission": "VoyCorriendo usa tu ubicación para mostrarte los negocios de tu localidad y calcular tu entrega.",
+          "locationAlwaysPermission": "VoyCorriendo usa tu ubicación para rastrear entregas en curso."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "VoyCorriendo necesita tu galerÃ­a para subir fotos de documentos.",
-          "cameraPermission": "VoyCorriendo necesita la cÃ¡mara para fotografiar documentos.",
+          "photosPermission": "VoyCorriendo necesita tu galería para subir fotos de documentos.",
+          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos.",
           "microphonePermission": false
         }
       ],
