@@ -233,6 +233,13 @@ export default function InicioClienteScreen({ navigation, route }) {
       </SafeAreaView>
     );
   }
+  if (plaza.estado === PLAZA_ESTADO.SIN_PERMISO) {
+    return (
+      <SafeAreaView style={[estilos.contenedor, estilos.centrado]} edges={['bottom']}>
+        <PedirUbicacion onActivar={plaza.solicitarPermiso} />
+      </SafeAreaView>
+    );
+  }
   if (!plaza.hayCobertura) {
     return (
       <SafeAreaView style={[estilos.contenedor, estilos.centrado]} edges={['bottom']}>
@@ -450,6 +457,42 @@ export default function InicioClienteScreen({ navigation, route }) {
  * resuelve cada caso es distinta: dar el permiso no es lo mismo que encender
  * el GPS, ni que estar sencillamente lejos.
  */
+/**
+ * Se le explica al usuario PARA QUÉ queremos su ubicación antes de que
+ * aparezca el diálogo de Android.
+ *
+ * El diálogo del sistema solo sirve una vez: si dice que no, la siguiente ya
+ * trae "no volver a preguntar" y a la tercera ni aparece. Gastarlo al abrir
+ * la app, sin contexto, es la forma más segura de perderlo. Pidiéndolo así
+ * —con el beneficio delante y un botón suyo— casi nadie lo niega. Es lo que
+ * hacen Uber y Rappi.
+ */
+function PedirUbicacion({ onActivar }) {
+  return (
+    <View style={estilos.vacio}>
+      <Text style={estilos.vacioEmoji}>📍</Text>
+      <Text style={estilos.vacioTxt}>¿Dónde estás?</Text>
+      <Text style={estilos.vacioSub}>
+        Con tu ubicación te mostramos los negocios de tu localidad y el tiempo
+        real de entrega hasta tu puerta.
+      </Text>
+
+      <View style={estilos.motivos}>
+        <Text style={estilos.motivo}>🍽️   Los restaurantes de tu pueblo, no de otro</Text>
+        <Text style={estilos.motivo}>🛵   Repartidores que sí pueden llegarte</Text>
+        <Text style={estilos.motivo}>⏱️   Tiempo y costo de envío reales</Text>
+      </View>
+
+      <Pressable style={estilos.btnReintentar} onPress={onActivar}>
+        <Text style={estilos.btnReintentarTxt}>Activar mi ubicación</Text>
+      </Pressable>
+      <Text style={estilos.notaPrivacidad}>
+        Solo la usamos mientras tienes la app abierta. No la compartimos con nadie.
+      </Text>
+    </View>
+  );
+}
+
 function SinCobertura({ plaza }) {
   // Cada motivo dice la verdad. Antes todos decían "Sin cobertura en este
   // lugar", así que a quien se le negaba el permiso o tenía el GPS apagado
@@ -778,4 +821,10 @@ const estilos = StyleSheet.create({
   centrado: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: espacio.lg },
   buscandoTxt: { marginTop: espacio.md, color: colors.textoSuave, fontSize: 14, fontWeight: '600' },
   diagnostico: { marginTop: espacio.lg, fontSize: 11, color: colors.bordeOscuro, textAlign: 'center' },
+  motivos: { marginTop: espacio.lg, gap: espacio.sm, alignSelf: 'stretch' },
+  motivo: { fontSize: 14, color: colors.texto, fontWeight: '600' },
+  notaPrivacidad: {
+    marginTop: espacio.md, fontSize: 12, color: colors.textoSuave,
+    textAlign: 'center', lineHeight: 17,
+  },
 });

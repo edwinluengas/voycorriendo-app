@@ -93,7 +93,19 @@ export function PlazaProvider({ children }) {
   // diálogo de permiso.
   const corriendoRef = useRef(false);
 
-  const detectar = useCallback(async () => {
+  /**
+   * @param {boolean} pedirPermiso  Si es `true` se dispara el diálogo del
+   *   sistema. Por defecto NO: la app solo consulta el permiso que ya haya.
+   *
+   * Es deliberado. El diálogo de Android solo se puede mostrar una vez con
+   * provecho —si el usuario dice que no, la segunda vez ya trae "no volver a
+   * preguntar" y a la tercera no aparece— así que gastarlo al arrancar, sin
+   * contexto y sobre la pantalla de bienvenida, es la peor forma de pedirlo.
+   * Primero se le explica para qué sirve (pantalla propia en el inicio del
+   * cliente) y solo cuando él toca el botón se llama a `solicitarPermiso`.
+   * Es lo que hacen Uber y Rappi, y por eso casi nadie les dice que no.
+   */
+  const detectar = useCallback(async (pedirPermiso = false) => {
     if (corriendoRef.current) return;
     corriendoRef.current = true;
     const fijar = (v) => { setValor(v); };
@@ -113,11 +125,13 @@ export function PlazaProvider({ children }) {
       setPlazas(lista);
       setRadio(radio);
 
-      // 2. Permiso de ubicación.
+      // 2. Permiso de ubicación. El diálogo del sistema SOLO se dispara si
+      //    quien llamó lo pidió (`solicitarPermiso`, tras la pantalla que le
+      //    explica al usuario para qué es).
       let permiso;
       try {
         permiso = await Location.getForegroundPermissionsAsync();
-        if (!permiso.granted && permiso.canAskAgain) {
+        if (!permiso.granted && pedirPermiso && permiso.canAskAgain) {
           permiso = await Location.requestForegroundPermissionsAsync();
         }
       } catch {
@@ -185,7 +199,10 @@ export function PlazaProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { detectar(); }, [detectar]);
+  // Al arrancar solo se MIRA el permiso: si ya está concedido, todo es
+  // automático y el usuario no ve nada. Si no, se queda en SIN_PERMISO y la
+  // pantalla del inicio le explica por qué conviene darlo.
+  useEffect(() => { detectar(false); }, [detectar]);
 
   // Si el usuario sale a Ajustes a conceder el permiso o a encender la
   // ubicación, al volver se reintenta solo — sin esto tendría que cerrar la
@@ -195,7 +212,10 @@ export function PlazaProvider({ children }) {
   estadoRef.current = valor.estado;
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active' && estadoRef.current !== PLAZA_ESTADO.DENTRO) detectar();
+      // Sin pedir permiso: al volver de Ajustes basta con volver a mirar
+      // qué permiso hay ahora. Lanzar el diálogo aquí sería pedirlo por la
+      // espalda, que es justo lo que esta pantalla previa evita.
+      if (s === 'active' && estadoRef.current !== PLAZA_ESTADO.DENTRO) detectar(false);
     });
     return () => sub.remove();
   }, [detectar]);
@@ -208,7 +228,11 @@ export function PlazaProvider({ children }) {
       // `hayCobertura` = se puede mostrar catálogo y dejar pedir.
       lista: valor.estado !== PLAZA_ESTADO.BUSCANDO,
       hayCobertura: valor.estado === PLAZA_ESTADO.DENTRO,
-      reintentar: detectar,
+      // `reintentar` NO abre el diálogo del sistema (solo revisa de nuevo);
+      // `solicitarPermiso` sí — es el que cuelga del botón de la pantalla
+      // que le explica al usuario para qué queremos su ubicación.
+      reintentar: () => detectar(false),
+      solicitarPermiso: () => detectar(true),
       abrirAjustes,
     }),
     [valor, plazas, radioKm, detectar],
@@ -223,7 +247,8 @@ export function usePlaza() {
   // pantalla suelta (deep link, preview) debe seguir dibujándose.
   return ctx || {
     ...INICIAL, plazas: [], radioKm: RADIO_PLAZA_KM_FALLBACK,
-    lista: false, hayCobertura: false, reintentar: () => {}, abrirAjustes,
+    lista: false, hayCobertura: false,
+    reintentar: () => {}, solicitarPermiso: () => {}, abrirAjustes,
   };
 }
 

@@ -522,15 +522,28 @@ export default function PagoScreen({ route, navigation }) {
       // efectivo) — refrescar el saldo mostrado sin importar cuál se usó.
       if (usarCredito) refrescarUsuario();
       vaciarCarrito();
-      // `replace` dejaba debajo la pantalla del carrito, así que el botón
-      // atrás desde el seguimiento devolvía a un checkout de un pedido que
-      // ya se hizo — con el carrito vacío y datos viejos. Se rehace el stack
-      // para que atrás lleve al inicio: el pedido ya está cerrado.
-      navigation.reset({
-        index: 1,
-        routes: [{ name: 'Inicio' }, { name: 'Seguimiento', params: { pedidoId: pedido.id } }],
-      });
+      // De vuelta al INICIO (decisión del dueño, 2026-08-04). El pedido queda
+      // esperando respuesta del restaurante, y el inicio ya trae el banner de
+      // "pedido en curso" que lleva al seguimiento con un toque. Dejarlo
+      // clavado en la pantalla de seguimiento le hacía sentir que tenía que
+      // quedarse ahí mirando hasta que alguien contestara.
+      // Se rehace el stack: atrás desde el inicio no debe volver a un checkout
+      // de un pedido que ya se envió, con el carrito vacío y datos viejos.
+      navigation.reset({ index: 0, routes: [{ name: 'Inicio' }] });
+      Alert.alert(
+        '¡Pedido enviado!',
+        `Tu pedido ${pedido.numero || ''} ya le llegó a ${carrito.negocio?.nombre || 'el restaurante'}. `
+        + 'Te avisamos en cuanto lo acepten. Mientras tanto puedes seguirlo desde el inicio.',
+      );
     } catch (e) {
+      // El servidor rechaza un segundo pedido mientras el restaurante no
+      // conteste el anterior. No es un error del cliente: se le explica y se
+      // le devuelve al inicio, donde el banner lleva al pedido que ya mandó.
+      if (e?.codigoError === 'PEDIDO_ESPERANDO_RESPUESTA') {
+        Alert.alert('Ya tienes un pedido en espera', e.mensajeAmigable);
+        navigation.reset({ index: 0, routes: [{ name: 'Inicio' }] });
+        return;
+      }
       Alert.alert('Error al crear pedido', e?.mensajeAmigable || 'No pudimos registrar tu pedido. Intenta de nuevo.');
     } finally {
       setEnviando(false);

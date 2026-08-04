@@ -29,6 +29,22 @@ export default function CarritoScreen({ navigation }) {
   // presenta como beneficio (te ahorras el envío), nunca como una falla.
   const [tiposDisponibles, setTiposDisponibles] = useState(null);   // null = aún no se sabe
   const [avisoEnvio, setAvisoEnvio]             = useState(null);
+  // Pedido anterior que el restaurante todavía no contesta. Mientras exista,
+  // no se puede mandar otro (regla del dueño): la cocina no debe recibir dos
+  // pedidos del mismo cliente sin haber aceptado el primero.
+  const [esperandoRespuesta, setEsperandoRespuesta] = useState(null);
+
+  useFocusEffect(useCallback(() => {
+    let vivo = true;
+    pedidosAPI.misPedidos()
+      .then(({ data }) => {
+        if (!vivo) return;
+        const pendiente = (data.data?.pedidos || []).find((p) => p.estado === 'pendiente');
+        setEsperandoRespuesta(pendiente || null);
+      })
+      .catch(() => {});   // el candado de verdad está en el servidor
+    return () => { vivo = false; };
+  }, []));
 
   useFocusEffect(useCallback(() => {
     let vivo = true;
@@ -254,10 +270,29 @@ export default function CarritoScreen({ navigation }) {
         )}
 
         <Boton
-          titulo={debajo ? `Mínimo $${PEDIDO_MINIMO} MXN en productos` : 'Continuar al pago →'}
-          deshabilitado={debajo}
+          titulo={
+            esperandoRespuesta ? 'Tienes un pedido esperando respuesta'
+            : debajo ? `Mínimo $${PEDIDO_MINIMO} MXN en productos`
+            : 'Continuar al pago →'
+          }
+          deshabilitado={debajo || !!esperandoRespuesta}
           onPress={() => navigation.navigate('Pago', { total, tipo_envio: tipoEnvio })}
         />
+
+        {/* Se explica el bloqueo y se le da la salida: ver el pedido que ya
+            mandó. Un botón apagado sin motivo solo genera dudas. */}
+        {esperandoRespuesta && (
+          <Pressable
+            style={estilos.avisoPendiente}
+            onPress={() => navigation.navigate('Seguimiento', { pedidoId: esperandoRespuesta.id })}
+          >
+            <Text style={estilos.avisoPendienteTxt}>
+              Tu pedido {esperandoRespuesta.numero} está esperando que el restaurante lo acepte.
+              En cuanto responda podrás hacer otro.
+            </Text>
+            <Text style={estilos.avisoPendienteLink}>Ver mi pedido ›</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -271,6 +306,16 @@ const Linea = ({ label, valor, fuerte }) => (
 );
 
 const estilos = StyleSheet.create({
+  avisoPendiente: {
+    marginTop: espacio.md,
+    padding: espacio.md,
+    borderRadius: radio.md,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  avisoPendienteTxt:  { fontSize: 13, color: '#9A3412', lineHeight: 19 },
+  avisoPendienteLink: { fontSize: 13, color: colors.primario, fontWeight: '800', marginTop: espacio.xs },
   contenedor: { flex: 1, backgroundColor: colors.fondo },
   vacio: {
     flex: 1, backgroundColor: colors.fondo,
