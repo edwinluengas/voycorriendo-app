@@ -214,6 +214,10 @@ export const usuariosAPI = {
   setMetodoPagoDefault:  (metodo)     => api.patch('/usuarios/metodo-pago-default', { metodo }),
   getNotificaciones:     ()           => api.get('/usuarios/notificaciones'),
   setNotificaciones:     (prefs)      => api.patch('/usuarios/notificaciones', prefs),
+  // Eliminación de cuenta: el GET dice qué se borra, qué se conserva y qué
+  // lo impide; el DELETE ejecuta y exige la contraseña.
+  estadoEliminacion:     ()           => api.get('/usuarios/mi-cuenta/eliminacion'),
+  eliminarMiCuenta:      (password)   => api.delete('/usuarios/mi-cuenta', { data: { password } }),
 };
 
 export const repartidoresAPI = {

@@ -28,6 +28,7 @@ import DireccionesScreen from '../screens/cliente/DireccionesScreen';
 import MetodosPagoScreen from '../screens/cliente/MetodosPagoScreen';
 import CalificacionesScreen from '../screens/cliente/CalificacionesScreen';
 import NotificacionesScreen from '../screens/cliente/NotificacionesScreen';
+import EliminarCuentaScreen from '../screens/cliente/EliminarCuentaScreen';
 
 // Pantallas Repartidor
 import InicioRepartidorScreen    from '../screens/repartidor/InicioRepartidorScreen';
@@ -160,6 +161,7 @@ const ClienteStack = () => (
     <Stack.Screen name="MetodosPago"    component={MetodosPagoScreen}    options={{ title: 'Métodos de pago' }} />
     <Stack.Screen name="Calificaciones" component={CalificacionesScreen} options={{ title: 'Mis calificaciones' }} />
     <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: 'Notificaciones' }} />
+    <Stack.Screen name="EliminarCuenta" component={EliminarCuentaScreen} options={{ title: 'Eliminar mi cuenta' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}

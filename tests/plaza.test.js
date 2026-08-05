@@ -24,6 +24,8 @@ const stubs = {
   },
   'expo-location': { Accuracy: { Balanced: 3, Lowest: 1 } },
   '../api/client': { pedidosAPI: { configPublica: async () => ({ data: { data: {} } }) } },
+  // El contexto de sesión no se transpila aquí; basta con que exista.
+  './AuthContext': { useAuth: () => ({ usuario: null }) },
   react: require('react'),
 };
 

@@ -24,6 +24,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { AppState, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import { pedidosAPI } from '../api/client';
+import { useAuth } from './AuthContext';
 
 // Distancia real en km (haversine). Con grados no se puede: 0.5° son 55 km en
 // latitud y bastante menos en longitud, así que un umbral en grados daría un
@@ -92,6 +93,11 @@ export function PlazaProvider({ children }) {
   // Serializa las detecciones: ver la nota de arriba sobre la carrera con el
   // diálogo de permiso.
   const corriendoRef = useRef(false);
+  // La localidad anclada del usuario en sesión, en una ref para que
+  // `detectar` (que se crea una sola vez) siempre lea el valor vigente.
+  const { usuario } = useAuth();
+  const ciudadFijaRef = useRef(null);
+  ciudadFijaRef.current = usuario?.ciudad_fija || null;
 
   /**
    * @param {boolean} pedirPermiso  Si es `true` se dispara el diálogo del
@@ -124,6 +130,15 @@ export function PlazaProvider({ children }) {
       if (!lista.length) return fijar({ ...INICIAL, estado: PLAZA_ESTADO.SIN_RED });
       setPlazas(lista);
       setRadio(radio);
+
+      // Cuenta con localidad ANCLADA: se salta el GPS por completo. Solo la
+      // tiene la cuenta que se le entrega a la tienda de aplicaciones para
+      // revisar la app — un revisor no está en Oaxaca y, con la detección
+      // normal, vería "sin cobertura" y concluiría que la app no funciona.
+      // Para cualquier usuario real este campo viene nulo y no pasa nada.
+      const anclada = ciudadFijaRef.current
+        && lista.find((c) => c.slug === ciudadFijaRef.current);
+      if (anclada) return fijar({ ...anclada, estado: PLAZA_ESTADO.DENTRO, anclada: true });
 
       // 2. Permiso de ubicación. El diálogo del sistema SOLO se dispara si
       //    quien llamó lo pidió (`solicitarPermiso`, tras la pantalla que le
@@ -203,6 +218,11 @@ export function PlazaProvider({ children }) {
   // automático y el usuario no ve nada. Si no, se queda en SIN_PERMISO y la
   // pantalla del inicio le explica por qué conviene darlo.
   useEffect(() => { detectar(false); }, [detectar]);
+
+  // La sesión se abre DESPUÉS de la primera detección, así que la localidad
+  // anclada aparece más tarde: hay que volver a decidir cuando llega (y
+  // cuando se va, al cerrar sesión).
+  useEffect(() => { detectar(false); }, [usuario?.ciudad_fija, detectar]);
 
   // Si el usuario sale a Ajustes a conceder el permiso o a encender la
   // ubicación, al volver se reintenta solo — sin esto tendría que cerrar la

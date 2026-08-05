@@ -140,7 +140,11 @@ export default function PerfilScreen({ navigation }) {
           <View style={estilos.divider} />
           <MenuItem icono="🔔" titulo="Notificaciones" onPress={() => navigation.navigate('Notificaciones')} />
           <View style={estilos.divider} />
-          <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => navigation.navigate('PoliticaPrivacidad')} ultima />
+          <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => navigation.navigate('PoliticaPrivacidad')} />
+          <View style={estilos.divider} />
+          {/* Requisito de Google Play desde 2024: el borrado de cuenta tiene
+              que estar DENTRO de la app, no solo por correo. */}
+          <MenuItem icono="🗑️" titulo="Eliminar mi cuenta" onPress={() => navigation.navigate('EliminarCuenta')} ultima />
         </View>
 
         <Pressable style={estilos.btnSalir} onPress={salir}>
