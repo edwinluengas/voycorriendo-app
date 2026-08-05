@@ -578,6 +578,11 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
           style={estilos.miniLogoImg}
         />
       </View>
+    ) : negocio.logo ? (
+      // Sin portada pero CON foto oficial: se usa la del negocio antes que un
+      // emoji genérico. Un catálogo de emojis todos iguales no deja distinguir
+      // un restaurante de otro.
+      <Image source={{ uri: negocio.logo }} style={estilos.imagenPlaceholder} />
     ) : (
       <View style={estilos.imagenPlaceholder}>
         <Text style={estilos.imagenEmoji}>

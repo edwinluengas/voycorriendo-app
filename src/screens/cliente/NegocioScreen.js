@@ -344,7 +344,17 @@ export default function NegocioScreen({ route, navigation }) {
                 <Text style={estilos.portadaEmoji}>{emojiNegocio}</Text>
               </View>
             )}
-            <View style={{ padding: espacio.lg }}>
+            {/* Foto OFICIAL del restaurante, montada sobre la portada. La
+                portada es el ambiente del lugar; ésta es su identidad —la que
+                el cliente reconoce— y hasta ahora no se mostraba en ninguna
+                parte aunque el dueño la subiera desde su panel. */}
+            {!!negocio.logo && (
+              <View style={estilos.oficialWrap}>
+                <Image source={{ uri: negocio.logo }} style={estilos.oficialFoto} />
+              </View>
+            )}
+
+            <View style={[{ padding: espacio.lg }, !!negocio.logo && estilos.datosConOficial]}>
               <Text style={estilos.nombre}>{negocio.nombre}</Text>
               <Text style={estilos.meta}>
                 ⭐ {parseFloat(negocio.calificacion_promedio || 4.5).toFixed(1)}   ·   {formatoTiempoEntrega(negocio)}
@@ -442,6 +452,16 @@ export default function NegocioScreen({ route, navigation }) {
 
                 {modalProducto && (
                   <>
+                    {/* La comida, en grande. En la lista la foto es una
+                        miniatura de 72 px —suficiente para reconocer el
+                        platillo, no para antojarse—; aquí se ve completa
+                        antes de decidir. */}
+                    {!!(modalProducto.imagen || modalProducto.foto_url) && (
+                      <Image
+                        source={{ uri: modalProducto.imagen || modalProducto.foto_url }}
+                        style={estilos.modalFoto}
+                      />
+                    )}
                     <Text style={estilos.modalTitulo}>{modalProducto.nombre}</Text>
                     <Text style={estilos.modalPrecio}>
                       ${parseFloat(modalProducto.precio).toFixed(2)}
@@ -538,6 +558,28 @@ const estilos = StyleSheet.create({
     height: 200,
     resizeMode: 'cover',
   },
+
+  // Foto oficial del restaurante: círculo montado sobre el borde inferior de
+  // la portada, como una foto de perfil. `marginTop` negativo para que
+  // sobresalga, y los datos de abajo se recorren para no quedar tapados.
+  oficialWrap: {
+    marginTop: -44,
+    marginLeft: espacio.lg,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: colors.superficie,
+    backgroundColor: colors.superficie,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  oficialFoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+  datosConOficial: { paddingTop: espacio.sm },
   portadaAhivoy: {
     backgroundColor: colors.oscuro,
     height: 180,
@@ -574,9 +616,17 @@ const estilos = StyleSheet.create({
     color: '#1A1A00', fontSize: 11, fontWeight: '900', letterSpacing: 1.5,
   },
   portadaEmoji: { fontSize: 72 },
+  modalFoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: radio.md,
+    resizeMode: 'cover',
+    marginBottom: espacio.md,
+    backgroundColor: '#FFE6D1',
+  },
   productoFoto: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
     borderRadius: radio.sm,
     marginRight: espacio.sm,
     resizeMode: 'cover',

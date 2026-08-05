@@ -221,9 +221,11 @@ export default function FotosNegocioScreen({ navigation }) {
 
         {/* ── Logo ── */}
         <View style={estilos.seccion}>
-          <Text style={estilos.seccionTitulo}>🏷️ Logo del negocio</Text>
+          <Text style={estilos.seccionTitulo}>🏷️ Foto oficial del negocio</Text>
           <Text style={estilos.seccionDesc}>
-            Aparece en los pedidos confirmados y en las notificaciones. Formato cuadrado.
+            La cara de tu negocio: tu logo o una foto cuadrada que te identifique.
+            El cliente la ve junto a tu nombre al abrir tu menú, en la lista de
+            negocios y en sus pedidos. Formato cuadrado.
           </Text>
           <View style={estilos.logoFila}>
             {negocio.logo ? (

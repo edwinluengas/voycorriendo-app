@@ -70,6 +70,7 @@ export default function OnboardingNegocioScreen({ navigation }) {
     horarios: {}, // { lun: {abre:'09:00', cierra:'21:00'}, ... }
     foto_portada: null,
     foto_local: null,
+    logo: null,
     comprobante_domicilio: null,
     documento_ine_dueno: null,
     documento_rfc: null,
@@ -98,6 +99,7 @@ export default function OnboardingNegocioScreen({ navigation }) {
             horarios:             n.horarios             || {},
             foto_portada:          n.foto_portada,
             foto_local:           n.foto_local,
+            logo:                  n.logo,
             comprobante_domicilio: n.comprobante_domicilio,
             documento_ine_dueno:  n.documento_ine_dueno,
             documento_rfc:        n.documento_rfc,
@@ -186,6 +188,7 @@ export default function OnboardingNegocioScreen({ navigation }) {
     if (paso === 4) {
       if (!datos.foto_portada) return Alert.alert('Faltan', 'Sube una foto de portada de tu negocio.');
       if (!datos.foto_local) return Alert.alert('Faltan', 'Sube una foto de tu local.');
+      if (!datos.logo) return Alert.alert('Faltan', 'Sube la foto oficial de tu negocio.');
       if (!datos.comprobante_domicilio) return Alert.alert('Faltan', 'Sube el comprobante de domicilio.');
       if (!datos.documento_ine_dueno) return Alert.alert('Faltan', 'Sube tu INE.');
     }
@@ -514,6 +517,7 @@ function PasoDocumentos({ datos, seleccionar }) {
   const docs = [
     { tipo: 'foto_portada',          columna: 'foto_portada',          label: 'Foto de portada *', desc: 'Esta foto aparece en la app cuando los clientes buscan tu negocio. Que se vea bien.' },
     { tipo: 'foto_local',            columna: 'foto_local',            label: 'Foto del local *', desc: 'Frente o entrada de tu tienda.' },
+    { tipo: 'logo',                  columna: 'logo',                  label: 'Foto oficial *', desc: 'La cara de tu negocio: tu logo o una foto cuadrada que te identifique. Es la que el cliente ve junto a tu nombre.' },
     { tipo: 'comprobante_domicilio', columna: 'comprobante_domicilio', label: 'Comprobante de domicilio *', desc: 'Recibo de luz, agua o predial reciente.' },
     { tipo: 'documento_ine_dueno',   columna: 'documento_ine_dueno',   label: 'INE del dueno *', desc: 'Frente de la credencial.' },
     { tipo: 'documento_rfc',         columna: 'documento_rfc',         label: 'Constancia RFC (opcional)', desc: 'Si tienes RFC, ayuda a la facturacion.' },
@@ -611,6 +615,7 @@ function PasoResumen({ datos }) {
         <Text style={estilos.resumenSeccion}>Documentos</Text>
         <Item label="Foto de portada"        valor={datos.foto_portada ? '✅ Subida' : '❌ Falta'} />
         <Item label="Foto del local"         valor={datos.foto_local ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Foto oficial"           valor={datos.logo ? '✅ Subida' : '❌ Falta'} />
         <Item label="Comprobante domicilio"  valor={datos.comprobante_domicilio ? '✅ Subida' : '❌ Falta'} />
         <Item label="INE del dueno"          valor={datos.documento_ine_dueno ? '✅ Subida' : '❌ Falta'} />
         <Item label="RFC"                    valor={datos.documento_rfc ? '✅ Subida' : '— Opcional'} />
