@@ -172,3 +172,51 @@ Google pide justificar el permiso. Es SOLO en primer plano
 Al subir el primer AAB, Google pregunta si usar Play App Signing. **Es
 irreversible.** Lo recomendable es aceptar: Google guarda la llave de firma,
 y si se pierde la propia no se pierde la app.
+
+
+## Reactivar el pago con tarjeta más adelante
+
+**No hace falta compilar ni volver a subir la app.** Verificado el 2026-08-07
+levantando el servidor con la tarjeta encendida y probando contra el mismo
+binario que ya está compilado (v1.2.52):
+
+- La llave pública de Mercado Pago **ya viaja dentro del APK/AAB**
+  (`app.json → extra.mpPublicKey`, la de producción). Es lo único que
+  habría obligado a recompilar, y ya está ahí.
+- La app pregunta al servidor qué métodos aceptar (`/api/config-publica`) al
+  abrir el checkout, y pinta el selector con lo que venga. No trae la lista
+  escrita en el código.
+- El formulario de tarjeta, las tarjetas guardadas y los endpoints de cobro
+  están compilados y vivos — solo los tapa el interruptor.
+
+### Los tres pasos
+
+**1. Encender el interruptor** (efecto inmediato, sin desplegar):
+```
+railway variables --service voycorriendo-backend --set "METODOS_PAGO_ACTIVOS=efectivo,tarjeta"
+```
+
+**2. Probar con una tarjeta real por un monto chico.** No hay entorno de
+pruebas: las credenciales de Mercado Pago son de producción, así que la única
+forma de verificar el cobro de punta a punta es una compra real. Ya hubo una
+transacción exitosa (pedido MND-697030, $185), pero conviene repetirla antes
+de anunciarlo.
+
+**3. Actualizar la descripción de la ficha** en Play Console: cambiar la
+sección "CÓMO PAGAS" por el texto comentado que está justo debajo de ella en
+este archivo. Editar la descripción pasa por revisión de Google (suele tardar
+horas), **pero la app publicada sigue funcionando mientras tanto** — no se
+cae nada.
+
+### Lo que NO cambia
+
+- **Data safety**: ya está declarado "Información de pago — se comparte con
+  Mercado Pago". No hay que tocar el formulario.
+- **La versión de la app**: no sube, no hay binario nuevo.
+- **Los permisos**: los mismos.
+
+### El orden importa
+
+Encender la tarjeta **antes** de anunciarla en la ficha. Al revés —anunciarla
+y que no funcione— trae reseñas de una estrella, que son de lo más difícil de
+revertir, y Google puede rechazar la ficha por descripción engañosa.
