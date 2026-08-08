@@ -38,6 +38,8 @@
     "babel-preset-expo": "^55.0.18"
   },
   "overrides": {
-    "socket.io-parser": "^4.2.7"
+    "socket.io-parser": "^4.2.7",
+    "nanoid": "^3.3.17",
+    "brace-expansion": "^2.0.2"
   }
 }

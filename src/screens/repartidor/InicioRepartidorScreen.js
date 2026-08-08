@@ -364,7 +364,21 @@ export default function InicioRepartidorScreen({ navigation }) {
               <View style={estilos.pie}>
                 <View>
                   <Text style={estilos.total}>${parseFloat(item.total).toFixed(2)}</Text>
-                  <Text style={estilos.ganancia}>Ganancia: ${item.ganancia_estimada || '35'}</Text>
+                  {/* Lo que REALMENTE va a cobrar. Antes se leía un campo
+                      `ganancia_estimada` que no existe en ninguna respuesta,
+                      así que SIEMPRE caía al respaldo "$35" escrito a mano
+                      —y la tarifa subió a $40 en julio—: al repartidor se le
+                      prometían $5 menos de los que iba a cobrar.
+                      Se usa `fee_cliente` (la tarifa de envío, que es
+                      exactamente su pago) porque `pago_repartidor` vale 0
+                      hasta que la entrega se liquida. */}
+                  <Text style={estilos.ganancia}>
+                    Ganancia: ${parseFloat(
+                      Number(item.pago_repartidor) > 0
+                        ? item.pago_repartidor
+                        : (item.fee_cliente ?? item.costo_envio ?? 0),
+                    ).toFixed(2)}
+                  </Text>
                 </View>
                 <Boton
                   titulo="Tomar pedido"
