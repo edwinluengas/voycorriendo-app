@@ -1,0 +1,96 @@
+<meta charset="utf-8">
+<style>
+  :root{--primario:#FF5C00;--oscuro:#1C1C1E;--secundario:#00B341;--fondo:#F8F9FA;--superficie:#FFFFFF;--texto:#111827;--textoSuave:#6B7280;--borde:#E5E7EB}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .tel{width:1080px;height:1920px;background:var(--fondo);position:relative;overflow:hidden}
+
+  /* Portada del restaurante */
+  .portada{height:420px;background:linear-gradient(135deg,#FF7A2B,#CC4900);position:relative}
+  .status{display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:26px;font-weight:700;padding:60px 48px 0;position:relative;z-index:3}
+  .status .ic{display:flex;gap:14px;font-size:22px;opacity:.9}
+  .atras{position:absolute;top:150px;left:44px;width:78px;height:78px;border-radius:50%;background:rgba(0,0,0,.35);
+    display:flex;align-items:center;justify-content:center;z-index:3}
+  .atras svg{width:38px;height:38px;stroke:#fff;stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .comida{position:absolute;right:60px;bottom:40px;font-size:150px;opacity:.92}
+
+  /* Foto oficial montada */
+  .oficial{position:absolute;left:48px;top:352px;width:150px;height:150px;border-radius:36px;border:6px solid #fff;
+    background:linear-gradient(135deg,#FF8533,#FF5C00);display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:60px;font-weight:900;box-shadow:0 10px 24px rgba(0,0,0,.28);z-index:4}
+
+  .info{padding:70px 48px 24px}
+  .info h1{font-size:56px;font-weight:900;color:var(--texto);letter-spacing:-1px}
+  .info .meta{display:flex;gap:20px;margin-top:16px;font-size:30px;color:var(--textoSuave);font-weight:600;align-items:center}
+  .info .estrella{color:#F59E0B;font-weight:800}
+  .info .desc{font-size:29px;color:var(--textoSuave);margin-top:18px;line-height:1.4}
+  .info .envio{margin-top:20px;display:inline-flex;gap:10px;background:#E8F8EE;color:var(--secundario);
+    font-size:27px;font-weight:800;padding:12px 24px;border-radius:14px}
+
+  .sechdr{background:var(--fondo);padding:30px 48px 18px;font-size:40px;font-weight:900;color:var(--texto);letter-spacing:-.5px}
+
+  /* Productos con foto */
+  .prod{display:flex;gap:28px;padding:26px 48px;align-items:center;background:#fff;border-bottom:1px solid var(--borde)}
+  .prod .foto{width:170px;height:170px;border-radius:24px;flex:none;display:flex;align-items:center;justify-content:center;font-size:88px}
+  .f1{background:linear-gradient(135deg,#FFE0CC,#FFB98A)}
+  .f2{background:linear-gradient(135deg,#FFEbcc,#FFD98A)}
+  .f3{background:linear-gradient(135deg,#FFD9CC,#FFAE99)}
+  .prod .txt{flex:1}
+  .prod h3{font-size:36px;font-weight:800;color:var(--texto)}
+  .prod .pd{font-size:27px;color:var(--textoSuave);margin-top:8px;line-height:1.35}
+  .prod .precio{font-size:38px;font-weight:900;color:var(--primario);margin-top:12px}
+  .prod .mas{width:74px;height:74px;border-radius:20px;background:var(--primario);flex:none;
+    display:flex;align-items:center;justify-content:center}
+  .prod .mas svg{width:38px;height:38px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round}
+  .badge18{display:inline-flex;align-items:center;gap:6px;background:#FEE2E2;color:#DC2626;font-size:22px;font-weight:800;
+    padding:5px 14px;border-radius:10px;margin-left:12px;vertical-align:middle}
+</style>
+
+<div class="tel">
+  <div class="portada">
+    <div class="status"><div>9:41</div><div class="ic"><span>▲</span><span>◗</span><span>▮▮▮</span></div></div>
+    <div class="atras"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+    <div class="comida">🍔</div>
+    <div class="oficial">YH</div>
+  </div>
+
+  <div class="info">
+    <h1>Yard House</h1>
+    <div class="meta"><span class="estrella">★ 4.8</span><span>·</span><span>🕒 20-40 min</span></div>
+    <div class="desc">Cocina mexicana y mariscos frescos.</div>
+    <div class="envio">🛵 Envío $40 · fijo a cualquier parte del pueblo</div>
+  </div>
+
+  <div class="sechdr">🌮 Tacos</div>
+  <div class="prod">
+    <div class="foto f1">🌮</div>
+    <div class="txt">
+      <h3>Tacos de pastor (orden)</h3>
+      <div class="pd">5 tacos con piña, cebolla y cilantro</div>
+      <div class="precio">$95.00</div>
+    </div>
+    <div class="mas"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+  </div>
+
+  <div class="sechdr">🍔 Hamburguesas</div>
+  <div class="prod">
+    <div class="foto f2">🍔</div>
+    <div class="txt">
+      <h3>Hamburguesa de la casa</h3>
+      <div class="pd">Carne de res, tocino y papas</div>
+      <div class="precio">$145.00</div>
+    </div>
+    <div class="mas"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+  </div>
+
+  <div class="sechdr">🦐 Mariscos</div>
+  <div class="prod">
+    <div class="foto f3">🦐</div>
+    <div class="txt">
+      <h3>Aguachile de camarón</h3>
+      <div class="pd">Camarón fresco, limón y chile serrano</div>
+      <div class="precio">$185.00</div>
+    </div>
+    <div class="mas"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+  </div>
+</div>
