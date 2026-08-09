@@ -496,7 +496,17 @@ export default function PagoScreen({ route, navigation }) {
           const status = resPago.data?.data?.status;
           if (status === 'rejected') {
             pagoRechazado = true;
-            Alert.alert('Pago rechazado', resPago.data?.mensaje || 'Tu banco rechazó el pago. Verifica los datos de tu tarjeta o intenta con otra.');
+            // El título también importa: "Pago rechazado" suena definitivo, y
+            // cuando el banco solo pide autorizar el cargo la tarjeta está
+            // perfecta — basta con confirmarlo y volver a intentar aquí
+            // mismo. El carrito NO se vacía, así que puede reintentar.
+            const detalle = resPago.data?.data?.status_detail;
+            const titulo = detalle === 'cc_rejected_call_for_authorize'
+              ? 'Tu banco pide autorización'
+              : detalle === 'cc_rejected_insufficient_amount'
+                ? 'Fondos insuficientes'
+                : 'Pago rechazado';
+            Alert.alert(titulo, resPago.data?.mensaje || 'Tu banco rechazó el pago. Verifica los datos de tu tarjeta o intenta con otra.');
           } else if (status === 'in_process' || status === 'pending') {
             Alert.alert('Pago en proceso', 'Tu pago está siendo verificado. Te avisaremos en cuanto se confirme.');
           }
