@@ -41,7 +41,8 @@
         "googleMaps": {
           "apiKey": "AIzaSyBabHgOYrF4W8qGbksXhE_TIOjGpa4oXGM"
         }
-      }
+      },
+      "versionCode": 13
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -71,7 +72,8 @@
           "color": "#00B341",
           "defaultChannel": "general"
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "eas": {

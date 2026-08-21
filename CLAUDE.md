@@ -23,7 +23,9 @@ El índice es `MEMORY.md`. Leer `project_voycorriendo.md` al inicio de cada sesi
 ## Reglas de trabajo
 - Siempre trabajar en la rama `claude/voy-corriendo-app-updates-MQIyw`
 - Hacer bump de versión en `app.json` antes de cada build
-- Para builds: `NODE_TLS_REJECT_UNAUTHORIZED=0 eas build --platform android --profile preview --non-interactive`
+- Para builds en la nube: `NODE_TLS_REJECT_UNAUTHORIZED=0 eas build --platform android --profile preview --non-interactive`
+- Para builds locales (gratis, sin cola): `npm run build:aab` (o `npm run build:apk`). Requiere el keystore en `C:/Users/edwin/keys/` y las credenciales en `~/.gradle/gradle.properties`.
+- El `versionCode` vive en `app.json` -> `android.versionCode` (fuente unica; `eas.json` usa `appVersionSource: local`). Subirlo con `npm run build:aab -- -Bump`.
 - No pedir autorización para ejecutar comandos — actuar como ingeniero de sistemas
 - Al terminar trabajo significativo: actualizar `project_voycorriendo.md` en memoria
 
