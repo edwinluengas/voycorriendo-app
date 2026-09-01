@@ -1,35 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
-import { pedidosAPI, pagosAPI } from '../../api/client';
+import FormularioTarjeta, { tarjetaCompleta, cvvEsperadoPorMarca } from '../../components/FormularioTarjeta';
+import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
+import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
+import { usePlaza } from '../../context/PlazaContext';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
+import { FEE_ENVIO, PEDIDO_MINIMO, LIMITE_EFECTIVO, METODOS_PAGO_ACTIVOS_DEFAULT } from '../../config/businessRules';
 
-const FEE_ENVIO = { standard: 35, express: 60 };
-const TOKENS_POR_PESO = 10;
-
-const METODOS = [
-  { id: 'efectivo',     nombre: 'Efectivo',     emoji: '💵', desc: 'Pagas cuando llegue el pedido (solo hasta $500)' },
-  { id: 'tarjeta',      nombre: 'Tarjeta',      emoji: '💳', desc: 'Débito o crédito vía Mercado Pago' },
-  { id: 'mercado_pago', nombre: 'Mercado Pago', emoji: '📱', desc: 'Desde tu cuenta Mercado Pago' },
-  { id: 'transferencia',nombre: 'Transferencia',emoji: '🏦', desc: 'SPEI a nuestra cuenta bancaria' },
+const METODOS_BASE = [
+  { id: 'efectivo', nombre: 'Efectivo', desc: `Pagas al recibir · máx. $${LIMITE_EFECTIVO} en productos + envío` },
+  { id: 'tarjeta',  nombre: 'Tarjeta',  desc: 'Débito o crédito — pago 100% seguro' },
 ];
 
-const TOKENS_ENVIO_GRATIS = 50;
+// Iconos vectoriales en lugar de emoji: mismo tamaño, mismo peso, mismo color
+// que el resto de la interfaz. Con emoji cada uno se dibujaba con la fuente
+// del sistema y la columna quedaba desalineada.
+function IconoMetodo({ id, activo }) {
+  const color = activo ? colors.primario : colors.textoSuave;
+  if (id === 'transferencia') return <Ionicons name="business-outline" size={22} color={color} />;
+  if (id === 'tarjeta')       return <Ionicons name={activo ? 'card' : 'card-outline'} size={22} color={color} />;
+  return <MaterialCommunityIcons name="cash" size={23} color={color} />;
+}
+const METODO_TRANSFERENCIA = {
+  id: 'transferencia',
+  nombre: 'Transferencia SPEI',
+  desc: 'Exclusivo Voy Store® · Transferencia bancaria SPEI',
+  esExclusivo: true,
+};
 
 export default function PagoScreen({ route, navigation }) {
   const { usuario, refrescarUsuario } = useAuth();
-  const carrito   = getCarrito();
+  const plaza = usePlaza();
+  // El saldo de crédito puede haberlo otorgado un admin en cualquier
+  // momento de la sesión — refrescar al entrar a pagar para no mostrar un
+  // saldo desactualizado (el objeto `usuario` del contexto solo se llena
+  // una vez, al hacer login).
+  useFocusEffect(useCallback(() => { refrescarUsuario(); }, [refrescarUsuario]));
+
+  // El carrito vive fuera de React (módulo de NegocioScreen), así que si el
+  // cliente vuelve atrás, agrega otro producto y regresa aquí, esta pantalla
+  // seguiría mostrando el resumen viejo: los productos nuevos no aparecían y
+  // el total no cuadraba con lo que acababa de agregar. Este contador fuerza
+  // la relectura cada vez que la pantalla toma el foco.
+  const [refrescoCarrito, setRefrescoCarrito] = useState(0);
+  useFocusEffect(useCallback(() => { setRefrescoCarrito((n) => n + 1); }, []));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const carrito   = useMemo(() => getCarrito(), [refrescoCarrito]);
   const tipoEnvio = route.params?.tipo_envio || 'standard';
+  const esPickup  = tipoEnvio === 'pickup';
   const subtotal  = carrito.items.reduce((s, it) => s + it.precio_unitario * it.cantidad, 0);
-  const feeEnvio  = FEE_ENVIO[tipoEnvio] || 35;
-  const tokens    = Math.floor(subtotal / TOKENS_POR_PESO);
+  // Pickup: el cliente pasa por su pedido, no paga envío.
+  const feeEnvio  = esPickup ? 0 : (FEE_ENVIO[tipoEnvio] || FEE_ENVIO.standard);
 
   const requiereINE = carrito.items.some((it) => it.requiere_id);
 
@@ -38,17 +68,57 @@ export default function PagoScreen({ route, navigation }) {
   const [ubicacion, setUbicacion]       = useState(null);
   const [costoEnvioReal, setCostoEnvio] = useState(null);
   const [detectandoUbicacion, setDetectandoUbicacion] = useState(false);
-  const [usaTokens, setUsaTokens]       = useState(false);
+  const [pagaCon, setPagaCon]           = useState('');
 
-  const costoEnvioBase = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
-  const costoEnvio     = usaTokens ? 0 : costoEnvioBase;
-  const total          = subtotal + costoEnvio;
+  // Métodos de pago habilitados por la plataforma. Se consultan al backend
+  // para poder prender/apagar la tarjeta sin compilar un APK nuevo.
+  const [metodosActivos, setMetodosActivos] = useState(METODOS_PAGO_ACTIVOS_DEFAULT);
+  useFocusEffect(useCallback(() => {
+    let vivo = true;
+    pedidosAPI.configPublica()
+      .then(({ data }) => {
+        const lista = data?.data?.metodos_pago_activos;
+        if (vivo && Array.isArray(lista) && lista.length) setMetodosActivos(lista);
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []));
 
-  const [metodo, setMetodo]     = useState(total > 500 ? 'tarjeta' : 'efectivo');
+  const [metodo, setMetodo]     = useState('efectivo');
+  // Propina en el CHECKOUT (solo tarjeta): se cobra dentro del mismo cargo
+  // a la tarjeta. En efectivo se da en mano al entregar.
+  const [propinaSel, setPropinaSel] = useState(0);
+  const propina    = metodo === 'tarjeta' ? propinaSel : 0;
+  const costoEnvio = costoEnvioReal !== null ? costoEnvioReal : feeEnvio;
+  const total      = subtotal + costoEnvio + propina;
+  // Crédito de plataforma: complementa CUALQUIER método de pago — si no
+  // alcanza a cubrir todo el pedido, el resto se completa con tarjeta o en
+  // efectivo al entregar (el backend es la autoridad real del monto
+  // consumido, evita condiciones de carrera; esto es solo para mostrarle
+  // al cliente cuánto le va a quedar por pagar antes de confirmar).
+  const [usarCredito, setUsarCredito] = useState(true);
+  const creditoDisponible = parseFloat(usuario?.credito_disponible || 0);
+  const creditoAplicable  = usarCredito ? Math.min(creditoDisponible, total) : 0;
+  const totalNeto = Math.round((total - creditoAplicable) * 100) / 100;
   const [direccion, setDir]     = useState('');
   const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
   const [ineFoto, setIneFoto]   = useState(null);
+  const [ineFotoUrl, setIneFotoUrl] = useState(null);
+  const [subiendoIne, setSubiendoIne] = useState(false);
+
+  // ── Pago con tarjeta nativo ──
+  const [tarjetas, setTarjetas]           = useState([]);
+  const [cargandoTarjetas, setCargandoTarjetas] = useState(false);
+  const [tarjetaElegida, setTarjetaElegida] = useState(null); // id de TarjetaGuardada, o 'nueva'
+  // Recuerda la última tarjeta GUARDADA seleccionada — para poder
+  // "deseleccionar" (deshacer) si el usuario toca "Usar otra tarjeta" por
+  // error y quiere regresar a la que ya tenía elegida, sin fricción.
+  const tarjetaGuardadaAnteriorRef = useRef(null);
+  const [cvvGuardada, setCvvGuardada]     = useState('');
+  const [datosTarjetaNueva, setDatosTarjetaNueva] = useState({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+  const [metodoDetectado, setMetodoDetectado] = useState(null);
+  const [guardarTarjetaNueva, setGuardarTarjetaNueva] = useState(true);
 
   const detectarUbicacion = async () => {
     setDetectandoUbicacion(true);
@@ -65,7 +135,7 @@ export default function PagoScreen({ route, navigation }) {
         if (partes.length > 0) setDir(partes.join(' '));
       }
       if (carrito.negocio?.id) {
-        const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng);
+        const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng, tipoEnvio);
         if (data?.data) {
           if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
           setCobertura({
@@ -83,8 +153,28 @@ export default function PagoScreen({ route, navigation }) {
     }
   };
 
-  // Auto-detectar ubicación y cotizar al entrar
+  // Auto-detectar ubicación y cotizar al entrar.
+  // En PICKUP no se pide ubicación ni se cotiza: el cliente pasa por su
+  // pedido al negocio, no hay envío que calcular ni GPS que pedirle.
   useEffect(() => {
+    if (esPickup) {
+      setCostoEnvio(0);
+      setCobertura({ fuera_de_cobertura: false, aviso: null, distancia_km: null });
+      setCotizando(false);
+      // Sin pedir permisos ni bloquear nada: si la ubicación YA está
+      // concedida se toma la última conocida y se manda con el pedido, para
+      // que el servidor pueda comprobar que el cliente y el negocio están en
+      // la misma localidad. Si no hay permiso, el pickup sigue igual de fácil.
+      (async () => {
+        try {
+          const permiso = await Location.getForegroundPermissionsAsync();
+          if (!permiso.granted) return;
+          const pos = await Location.getLastKnownPositionAsync();
+          if (pos) setUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        } catch { /* el pickup no depende del GPS */ }
+      })();
+      return;
+    }
     (async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync();
@@ -99,7 +189,7 @@ export default function PagoScreen({ route, navigation }) {
             if (partes.length > 0) setDir(partes.join(' '));
           }
           if (carrito.negocio?.id) {
-            const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng);
+            const { data } = await pedidosAPI.cotizar(carrito.negocio.id, coords.lat, coords.lng, tipoEnvio);
             if (data?.data) {
               if (data.data.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
               setCobertura({
@@ -110,7 +200,7 @@ export default function PagoScreen({ route, navigation }) {
             }
           }
         } else if (carrito.negocio?.id) {
-          const { data } = await pedidosAPI.cotizar(carrito.negocio.id, null, null);
+          const { data } = await pedidosAPI.cotizar(carrito.negocio.id, null, null, tipoEnvio);
           if (data?.data?.costo_envio != null) setCostoEnvio(Number(data.data.costo_envio));
         }
       } catch (e) {
@@ -122,8 +212,81 @@ export default function PagoScreen({ route, navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const metodosDisponibles = METODOS.filter((m) => !(m.id === 'efectivo' && total > 500));
+  // Carga tarjetas guardadas cada vez que la pantalla toma foco con "tarjeta"
+  // elegida — así refleja altas/bajas hechas en Métodos de pago sin perder
+  // la selección actual si esa tarjeta sigue existiendo.
+  useFocusEffect(
+    useCallback(() => {
+      if (metodo !== 'tarjeta') return;
+      setCargandoTarjetas(true);
+      tarjetasAPI.listar()
+        .then(({ data }) => {
+          const lista = data.data?.tarjetas || [];
+          setTarjetas(lista);
+          setTarjetaElegida((actual) => {
+            if (actual && actual !== 'nueva' && lista.some((t) => t.id === actual)) return actual;
+            const porDefecto = lista.length > 0 ? (lista.find((t) => t.predeterminada)?.id || lista[0].id) : 'nueva';
+            // Guarda la selección por defecto como "anterior" — así, si el
+            // usuario nunca tocó explícitamente una tarjeta guardada y toca
+            // "Usar otra tarjeta" por error, deseleccionar la regresa aquí.
+            if (porDefecto !== 'nueva') tarjetaGuardadaAnteriorRef.current = porDefecto;
+            return porDefecto;
+          });
+        })
+        .catch(() => setTarjetaElegida('nueva'))
+        .finally(() => setCargandoTarjetas(false));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [metodo])
+  );
+
+  const eliminarTarjetaGuardada = (t) => {
+    Alert.alert('Eliminar tarjeta', `¿Quitar la tarjeta terminada en ${t.ultimos_4}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await tarjetasAPI.eliminar(t.id);
+            setTarjetas((prev) => prev.filter((x) => x.id !== t.id));
+            setTarjetaElegida((actual) => (actual === t.id ? 'nueva' : actual));
+          } catch (e) {
+            Alert.alert('Error', e?.mensajeAmigable || 'No se pudo eliminar la tarjeta.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const esAhivoyStore = carrito.negocio?.categoria === 'ahivoy store';
+  const METODOS = esAhivoyStore ? [...METODOS_BASE, METODO_TRANSFERENCIA] : METODOS_BASE;
+  const metodosDisponibles = METODOS
+    // Métodos apagados por la plataforma (fase de prueba real: solo efectivo).
+    // El backend manda la lista real en /api/config-publica; mientras
+    // responde se usa el valor por defecto de businessRules.
+    .filter((m) => metodosActivos.includes(m.id))
+    .filter((m) => !(m.id === 'efectivo' && subtotal > LIMITE_EFECTIVO));
   const { fuera_de_cobertura, aviso, distancia_km } = cobertura;
+
+  // ── Sube la foto del INE a Supabase Storage y guarda la URL pública ──
+  const subirIne = async (asset) => {
+    setIneFoto({ uri: asset.uri, base64: asset.base64 });
+    setIneFotoUrl(null);
+    setSubiendoIne(true);
+    try {
+      const mime = asset.mimeType || 'image/jpeg';
+      const { data } = await pedidosAPI.subirFotoINE(asset.base64, mime);
+      const url = data?.data?.url;
+      if (!url) throw new Error('Sin URL');
+      setIneFotoUrl(url);
+    } catch (e) {
+      Alert.alert('No se pudo subir tu INE', e?.mensajeAmigable || 'Intenta tomar la foto de nuevo.');
+      setIneFoto(null);
+      setIneFotoUrl(null);
+    } finally {
+      setSubiendoIne(false);
+    }
+  };
 
   // ── Tomar / elegir foto del INE ──
   const tomarFotoINE = async () => {
@@ -140,7 +303,7 @@ export default function PagoScreen({ route, navigation }) {
         allowsEditing: false,
       });
       if (!res.canceled && res.assets?.[0]) {
-        setIneFoto({ uri: res.assets[0].uri, base64: res.assets[0].base64 });
+        await subirIne(res.assets[0]);
       }
     } catch (e) {
       Alert.alert('Error', 'No pudimos abrir la cámara.');
@@ -161,7 +324,7 @@ export default function PagoScreen({ route, navigation }) {
         allowsEditing: false,
       });
       if (!res.canceled && res.assets?.[0]) {
-        setIneFoto({ uri: res.assets[0].uri, base64: res.assets[0].base64 });
+        await subirIne(res.assets[0]);
       }
     } catch (e) {
       Alert.alert('Error', 'No pudimos abrir la galería.');
@@ -169,16 +332,21 @@ export default function PagoScreen({ route, navigation }) {
   };
 
   const confirmar = async () => {
-    if (!direccion) {
+    // En PICKUP no hay dirección que pedir: el cliente pasa por su pedido y
+    // el backend guarda la dirección del negocio en el pedido.
+    if (!esPickup && !direccion) {
       Alert.alert('Dirección', 'Por favor escribe dónde quieres que te entreguemos.');
       return;
     }
-    const carrito = getCarrito();
     if (!carrito.negocio || carrito.items.length === 0) {
       Alert.alert('Carrito vacío', 'Regresa y arma tu pedido.');
       return;
     }
-    if (requiereINE && !ineFoto) {
+    if (requiereINE && subiendoIne) {
+      Alert.alert('Subiendo INE', 'Espera a que termine de subir tu INE antes de confirmar.');
+      return;
+    }
+    if (requiereINE && !ineFotoUrl) {
       Alert.alert(
         'Validación de edad',
         'Tu pedido incluye productos con restricción de edad (alcohol o cigarros). Por favor sube una foto de tu INE para poder entregar.'
@@ -189,16 +357,66 @@ export default function PagoScreen({ route, navigation }) {
       Alert.alert('Fuera de cobertura', aviso || 'Tu dirección está fuera de nuestra zona de entrega.');
       return;
     }
+    // Resultado de la detección de banco/marca, resuelto ANTES de crear el
+    // pedido y usado directo en el cobro (no se lee del estado de React
+    // dentro de confirmar(): setMetodoDetectado es asíncrono y el closure
+    // vería el valor viejo).
+    let metodoResuelto = metodoDetectado;
+    // El crédito cubre el pedido ENTERO — no hace falta tarjeta para nada,
+    // el backend ya lo marcará 'capturado' desde crearPedido.
+    const cubiertoConCredito = metodo === 'tarjeta' && totalNeto <= 0;
+    if (metodo === 'tarjeta' && !cubiertoConCredito) {
+      if (!mpConfigurado()) {
+        Alert.alert('No disponible', 'El pago con tarjeta aún no está configurado. Elige otro método.');
+        return;
+      }
+      if (tarjetaElegida === 'nueva' || !tarjetaElegida) {
+        if (!tarjetaCompleta(datosTarjetaNueva)) {
+          Alert.alert('Datos de tarjeta incompletos', 'Revisa el número, nombre, vencimiento y CVV.');
+          return;
+        }
+        if (!metodoResuelto?.payment_method_id) {
+          // La detección automática por BIN pudo no haber corrido todavía o
+          // haber fallado por red — se reintenta aquí mismo en vez de dejar
+          // al usuario bloqueado esperando algo que ya no va a ocurrir.
+          const binActual = datosTarjetaNueva.numero.replace(/\s+/g, '').slice(0, 6);
+          if (binActual.length === 6) {
+            try {
+              metodoResuelto = await buscarMetodoPago(binActual);
+            } catch (_) {
+              metodoResuelto = null;
+            }
+          }
+          if (!metodoResuelto?.payment_method_id) {
+            Alert.alert('No identificamos tu banco', 'Revisa que el número de tarjeta esté completo y correcto, y que tengas conexión a internet. Luego vuelve a intentar.');
+            return;
+          }
+          setMetodoDetectado(metodoResuelto);
+        }
+      } else {
+        const tarjetaSel = tarjetas.find((t) => t.id === tarjetaElegida);
+        if (!tarjetaSel) {
+          Alert.alert('Tarjeta no disponible', 'Esa tarjeta ya no está disponible. Elige otra o agrega una nueva.');
+          return;
+        }
+        // Amex usa CVV de 4 dígitos; el resto, de 3. Si no conocemos la
+        // marca (tarjetas guardadas antes de que existiera la columna),
+        // se acepta 3 o 4 y decide Mercado Pago.
+        const lenEsperada = tarjetaSel.payment_method_id ? cvvEsperadoPorMarca(tarjetaSel.payment_method_id) : null;
+        const cvvOk = lenEsperada ? cvvGuardada.length === lenEsperada : (cvvGuardada.length >= 3 && cvvGuardada.length <= 4);
+        if (!cvvOk) {
+          Alert.alert('CVV incorrecto', lenEsperada
+            ? `El CVV de esta tarjeta es de ${lenEsperada} dígitos.`
+            : 'Ingresa el CVV de tu tarjeta guardada para continuar.');
+          return;
+        }
+      }
+    }
 
     try {
       setEnviando(true);
-      // Armar URL de la foto del INE (data URI base64 si la tomamos)
-      let ine_foto_url = null;
-      if (requiereINE && ineFoto) {
-        ine_foto_url = ineFoto.base64
-          ? `data:image/jpeg;base64,${ineFoto.base64}`
-          : ineFoto.uri;
-      }
+      // URL pública del INE ya subido a Supabase Storage
+      const ine_foto_url = requiereINE ? ineFotoUrl : null;
 
       // 1. Crear el pedido en el backend
       const { data } = await pedidosAPI.crear({
@@ -209,35 +427,134 @@ export default function PagoScreen({ route, navigation }) {
           opcion_elegida: it.opcion_elegida || null,
           notas: it.notas || null,
         })),
-        direccion_entrega: direccion,
-        latitud_entrega:  ubicacion?.lat  || null,
+        // Pickup: el backend rellena la dirección con la del negocio y no
+        // valida cobertura de reparto (no hay reparto que cubrir). La
+        // ubicación SÍ se manda aunque sea pickup —si se tiene— para que el
+        // servidor pueda comprobar que el cliente y el negocio están en la
+        // misma localidad: sin eso se colaba un pickup a un pueblo a 200 km
+        // y el negocio cocinaba para alguien que nunca iba a llegar.
+        direccion_entrega: esPickup ? undefined : direccion,
+        latitud_entrega:  ubicacion?.lat || null,
         longitud_entrega: ubicacion?.lng || null,
         notas_entrega: notas,
         metodo_pago: metodo,
         tipo_envio: tipoEnvio,
         ine_foto_url,
-        usa_tokens: usaTokens,
+        propina: propina > 0 ? propina : undefined,
+        paga_con: metodo === 'efectivo' && pagaCon ? Number(pagaCon) : null,
+        usar_credito: usarCredito ? true : undefined,
+        // La localidad en la que la app se está usando. El servidor la
+        // compara con la del negocio para no dejar pasar un pedido a otro
+        // pueblo entrado por enlace directo o carrito viejo.
+        ciudad_cliente: plaza?.slug || undefined,
       });
       const pedido = data.data?.pedido;
 
-      // 2. Si no es efectivo, abrir pasarela de Mercado Pago
-      if (metodo === 'tarjeta' || metodo === 'mercado_pago') {
-        const resPref = await pagosAPI.preferencia(pedido.id);
-        const url = resPref.data.data.init_point || resPref.data.data.sandbox_init_point;
-        await WebBrowser.openBrowserAsync(url);
+      // 2. Tarjeta: tokeniza y cobra directo en la app (sin salir a Mercado Pago)
+      // — salvo que el crédito ya haya cubierto el pedido COMPLETO: el
+      // backend lo marca 'capturado' desde crearPedido y aquí no hay nada
+      // que cobrar a ningún medio de pago.
+      let pagoRechazado = false;
+      if (metodo === 'tarjeta' && pedido?.pago_estado !== 'capturado') {
+        try {
+          let datosPago;
+          if (tarjetaElegida !== 'nueva') {
+            const tarjeta = tarjetas.find((t) => t.id === tarjetaElegida);
+            if (!tarjeta) throw new Error('Esa tarjeta ya no está disponible. Elige otra desde "Métodos de pago".');
+            // La re-tokenización de una tarjeta guardada requiere el access
+            // token (secreto) de MP — se hace en el backend. Aquí solo
+            // mandamos el id de la tarjeta guardada + CVV (nunca se guarda).
+            datosPago = { tarjeta_id: tarjeta.id, cvv: cvvGuardada };
+          } else {
+            // metodoResuelto se garantizó arriba, ANTES de crear el pedido —
+            // este guard solo queda como red de seguridad.
+            const payment_method_id = metodoResuelto?.payment_method_id;
+            const issuer_id = metodoResuelto?.issuer_id;
+            if (!payment_method_id) throw new Error('No identificamos tu banco. Revisa el número de tarjeta e intenta de nuevo.');
+
+            if (guardarTarjetaNueva) {
+              // El token de MP es de un solo uso: para guardar Y pagar con
+              // una tarjeta nueva primero se guarda (consume ese token) y
+              // luego el backend genera uno nuevo desde la tarjeta ya
+              // guardada para el cobro — nunca se reusa el mismo token dos veces.
+              const tokenParaGuardar = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              const resGuardar = await tarjetasAPI.agregar(tokenParaGuardar);
+              const tarjetaGuardada = resGuardar.data.data.tarjeta;
+              datosPago = { tarjeta_id: tarjetaGuardada.id, cvv: datosTarjetaNueva.cvv, payment_method_id, issuer_id };
+            } else {
+              const token = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              datosPago = { token, payment_method_id, issuer_id };
+            }
+          }
+
+          const resPago = await pagosAPI.tarjeta({
+            pedido_id: pedido.id,
+            ...datosPago,
+            installments: 1,
+          });
+
+          const status = resPago.data?.data?.status;
+          if (status === 'rejected') {
+            pagoRechazado = true;
+            // El título también importa: "Pago rechazado" suena definitivo, y
+            // cuando el banco solo pide autorizar el cargo la tarjeta está
+            // perfecta — basta con confirmarlo y volver a intentar aquí
+            // mismo. El carrito NO se vacía, así que puede reintentar.
+            const detalle = resPago.data?.data?.status_detail;
+            const titulo = detalle === 'cc_rejected_call_for_authorize'
+              ? 'Tu banco pide autorización'
+              : detalle === 'cc_rejected_insufficient_amount'
+                ? 'Fondos insuficientes'
+                : 'Pago rechazado';
+            Alert.alert(titulo, resPago.data?.mensaje || 'Tu banco rechazó el pago. Verifica los datos de tu tarjeta o intenta con otra.');
+          } else if (status === 'in_process' || status === 'pending') {
+            Alert.alert('Pago en proceso', 'Tu pago está siendo verificado. Te avisaremos en cuanto se confirme.');
+          }
+        } catch (payErr) {
+          // El pago no se pudo intentar siquiera (tarjeta inválida, tokenización
+          // falló, red, etc.) — el pedido YA se creó pero nunca llega al negocio
+          // sin pago capturado (pedidosDelNegocio lo filtra). No lo mandamos a
+          // Seguimiento como si fuera normal: se queda aquí para reintentar.
+          pagoRechazado = true;
+          const detalleError = payErr?.response?.data?.mensaje || payErr?.mensajeAmigable || payErr?.message || 'Error desconocido';
+          Alert.alert('No se pudo cobrar tu tarjeta', `Detalle: ${detalleError}\n\nVerifica los datos o intenta con otra tarjeta.`);
+        }
+        if (pagoRechazado) return; // no vaciar carrito ni navegar — el pedido no avanza sin pago
       } else if (metodo === 'transferencia') {
         Alert.alert(
           'Datos bancarios',
-          'Transfiere a:\n\nBanco: BBVA\nCLABE: 012XXXXXXXXXXXXX\nBeneficiario: VoyCorriendo SA de CV\n\nDespués sube tu comprobante en "Mis pedidos".'
+          'Transfiere a:\n\nBanco: Banamex (Citibanamex)\nCLABE: 002180902500967465\nBeneficiario: Edwin Melton Rojas Luengas\n\nDespués sube tu comprobante en "Mis pedidos".'
         );
       }
 
       // 3. Limpiar carrito y redirigir al seguimiento
+      // El crédito ahora aplica a CUALQUIER método de pago (tarjeta o
+      // efectivo) — refrescar el saldo mostrado sin importar cuál se usó.
+      if (usarCredito) refrescarUsuario();
       vaciarCarrito();
-      if (usaTokens) refrescarUsuario();
-      navigation.replace('Seguimiento', { pedidoId: pedido.id });
+      // De vuelta al INICIO (decisión del dueño, 2026-08-04). El pedido queda
+      // esperando respuesta del restaurante, y el inicio ya trae el banner de
+      // "pedido en curso" que lleva al seguimiento con un toque. Dejarlo
+      // clavado en la pantalla de seguimiento le hacía sentir que tenía que
+      // quedarse ahí mirando hasta que alguien contestara.
+      // Se rehace el stack: atrás desde el inicio no debe volver a un checkout
+      // de un pedido que ya se envió, con el carrito vacío y datos viejos.
+      navigation.reset({ index: 0, routes: [{ name: 'Inicio' }] });
+      Alert.alert(
+        '¡Pedido enviado!',
+        `Tu pedido ${pedido.numero || ''} ya le llegó a ${carrito.negocio?.nombre || 'el restaurante'}. `
+        + 'Te avisamos en cuanto lo acepten. Mientras tanto puedes seguirlo desde el inicio.',
+      );
     } catch (e) {
-      Alert.alert('No pudimos crear tu pedido', e.mensajeAmigable || 'Intenta de nuevo.');
+      // El servidor rechaza un segundo pedido mientras el restaurante no
+      // conteste el anterior. No es un error del cliente: se le explica y se
+      // le devuelve al inicio, donde el banner lleva al pedido que ya mandó.
+      if (e?.codigoError === 'PEDIDO_ESPERANDO_RESPUESTA') {
+        Alert.alert('Ya tienes un pedido en espera', e.mensajeAmigable);
+        navigation.reset({ index: 0, routes: [{ name: 'Inicio' }] });
+        return;
+      }
+      Alert.alert('Error al crear pedido', e?.mensajeAmigable || 'No pudimos registrar tu pedido. Intenta de nuevo.');
     } finally {
       setEnviando(false);
     }
@@ -245,7 +562,11 @@ export default function PagoScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView
+        contentContainerStyle={estilos.scroll}
+        keyboardShouldPersistTaps="always"
+        automaticallyAdjustKeyboardInsets={true}
+      >
         {/* Resumen del pedido */}
         {carrito.items.length > 0 && (
           <View style={estilos.resumenPedido}>
@@ -276,15 +597,12 @@ export default function PagoScreen({ route, navigation }) {
             </View>
             <View style={estilos.resumenLinea}>
               <Text style={estilos.resumenSub}>
-                Envío {cotizando ? '(calculando…)' : tipoEnvio === 'express' ? 'Express' : 'Estándar'}
+                {esPickup
+                  ? 'Recoges en tienda 🛍️'
+                  : `Envío ${cotizando ? '(calculando…)' : tipoEnvio === 'express' ? 'Express' : 'Estándar'}`}
               </Text>
               <Text style={estilos.resumenSub}>${costoEnvio.toFixed(2)}</Text>
             </View>
-            {tokens > 0 && (
-              <Text style={estilos.tokensInfo}>
-                🪙 Ganarás {tokens} VoyTokens · {tokens >= 50 ? '¡Suficientes para envío gratis!' : `${50 - tokens} más para envío gratis`}
-              </Text>
-            )}
             {distancia_km != null && (
               <Text style={estilos.tarifaInfo}>
                 📍 ~{distancia_km.toFixed(1)} km del negocio
@@ -313,10 +631,21 @@ export default function PagoScreen({ route, navigation }) {
               <View style={estilos.inePreview}>
                 <Image source={{ uri: ineFoto.uri }} style={estilos.ineImagen} />
                 <View style={{ flex: 1 }}>
-                  <Text style={estilos.ineOk}>✅ INE cargada</Text>
-                  <Pressable onPress={() => setIneFoto(null)}>
-                    <Text style={estilos.ineLink}>Cambiar foto</Text>
-                  </Pressable>
+                  {subiendoIne ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacio.sm }}>
+                      <ActivityIndicator size="small" color={colors.primario} />
+                      <Text style={estilos.ineSubiendo}>Subiendo…</Text>
+                    </View>
+                  ) : ineFotoUrl ? (
+                    <Text style={estilos.ineOk}>✅ INE cargada</Text>
+                  ) : (
+                    <Text style={estilos.ineSubiendo}>Sin subir</Text>
+                  )}
+                  {!subiendoIne && (
+                    <Pressable onPress={() => { setIneFoto(null); setIneFotoUrl(null); }}>
+                      <Text style={estilos.ineLink}>Cambiar foto</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             ) : (
@@ -334,99 +663,304 @@ export default function PagoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* ── Toggle VoyTokens ── */}
-        {(usuario?.voytokens || 0) >= TOKENS_ENVIO_GRATIS && (
-          <Pressable
-            style={[estilos.tokensCanjeBox, usaTokens && estilos.tokensCanjeActivo]}
-            onPress={() => setUsaTokens(v => !v)}
-          >
-            <Text style={estilos.tokensCanjeEmoji}>🪙</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tokensCanjeTitulo}>
-                Usar {TOKENS_ENVIO_GRATIS} VoyTokens — envío gratis
-              </Text>
-              <Text style={estilos.tokensCanjeSub}>
-                {usaTokens
-                  ? `✓ Envío gratis aplicado · te quedarán ${(usuario.voytokens || 0) - TOKENS_ENVIO_GRATIS} tokens`
-                  : `Tienes ${usuario.voytokens} tokens disponibles`}
+        {/* PICKUP: no se pide dirección ni GPS — se le dice dónde recoger */}
+        {esPickup ? (
+          <>
+            <Text style={estilos.seccion}>¿Dónde recoges tu pedido?</Text>
+            <View style={estilos.pickupCaja}>
+              <Text style={estilos.pickupNegocio}>🛍️ {carrito.negocio?.nombre}</Text>
+              {!!(carrito.negocio?.direccion || carrito.negocio?.colonia) && (
+                <Text style={estilos.pickupDir}>
+                  📍 {[carrito.negocio?.direccion, carrito.negocio?.colonia].filter(Boolean).join(', ')}
+                </Text>
+              )}
+              <Text style={estilos.pickupNota}>
+                Te avisamos en cuanto esté listo. Muestra tu código de entrega al recogerlo.
               </Text>
             </View>
-            <View style={[estilos.tokensCanjeSwitch, usaTokens && estilos.tokensCanjeOn]}>
-              <Text style={estilos.tokensCanjeSwitchTxt}>{usaTokens ? 'ON' : 'OFF'}</Text>
-            </View>
-          </Pressable>
+            <Campo
+              placeholder="Notas para el negocio (opcional)"
+              multiline
+              value={notas}
+              onChangeText={setNotas}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
+
+            {/* Ubicación GPS */}
+            <Pressable
+              style={[estilos.ubicacionBtn, detectandoUbicacion && estilos.ubicacionBtnCargando]}
+              onPress={detectarUbicacion}
+              disabled={detectandoUbicacion}
+            >
+              {detectandoUbicacion
+                ? <ActivityIndicator size="small" color={colors.primario} />
+                : <Text style={estilos.ubicacionBtnTxt}>
+                    {ubicacion ? '📍 Ubicación detectada · Actualizar' : '📍 Detectar mi ubicación'}
+                  </Text>
+              }
+            </Pressable>
+
+            <Campo
+              placeholder="Ej. Hotel Olas Altas, detrás de la farmacia…"
+              multiline
+              value={direccion}
+              onChangeText={setDir}
+            />
+            <Campo
+              placeholder="Notas para el repartidor (opcional)"
+              multiline
+              value={notas}
+              onChangeText={setNotas}
+            />
+          </>
         )}
-
-        <Text style={estilos.seccion}>¿Dónde te lo llevamos?</Text>
-
-        {/* Ubicación GPS */}
-        <Pressable
-          style={[estilos.ubicacionBtn, detectandoUbicacion && estilos.ubicacionBtnCargando]}
-          onPress={detectarUbicacion}
-          disabled={detectandoUbicacion}
-        >
-          {detectandoUbicacion
-            ? <ActivityIndicator size="small" color={colors.primario} />
-            : <Text style={estilos.ubicacionBtnTxt}>
-                {ubicacion ? '📍 Ubicación detectada · Actualizar' : '📍 Detectar mi ubicación'}
-              </Text>
-          }
-        </Pressable>
-
-        <Campo
-          placeholder="Ej. Hotel Olas Altas, detrás de la farmacia…"
-          multiline
-          value={direccion}
-          onChangeText={setDir}
-        />
-        <Campo
-          placeholder="Notas para el repartidor (opcional)"
-          multiline
-          value={notas}
-          onChangeText={setNotas}
-        />
 
         <Text style={estilos.seccion}>¿Cómo quieres pagar?</Text>
         {metodosDisponibles.map((m) => (
           <Pressable
             key={m.id}
-            style={[estilos.metodo, metodo === m.id && estilos.metodoActivo]}
+            style={[estilos.metodo, metodo === m.id && estilos.metodoActivo, m.esExclusivo && estilos.metodoStore]}
             onPress={() => setMetodo(m.id)}
           >
-            <Text style={estilos.metodoEmoji}>{m.emoji}</Text>
+            <View style={[estilos.metodoIcono, metodo === m.id && estilos.metodoIconoActivo]}>
+              <IconoMetodo id={m.id} activo={metodo === m.id} />
+            </View>
             <View style={{ flex: 1, marginLeft: espacio.md }}>
-              <Text style={estilos.metodoNombre}>{m.nombre}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacio.xs, flexWrap: 'wrap' }}>
+                <Text style={estilos.metodoNombre}>{m.nombre}</Text>
+                {m.esExclusivo && (
+                  <View style={estilos.metodoBadgeStore}>
+                    <Text style={estilos.metodoBadgeStoreTxt}>🛒 STORE</Text>
+                  </View>
+                )}
+              </View>
               <Text style={estilos.metodoDesc}>{m.desc}</Text>
             </View>
             <View style={[estilos.radio, metodo === m.id && estilos.radioActivo]} />
           </Pressable>
         ))}
 
-        {total > 500 && (
+        {/* Aviso límite efectivo */}
+        {metodo === 'efectivo' && subtotal > LIMITE_EFECTIVO && (
+          <View style={estilos.avisoEfectivo}>
+            <Text style={estilos.avisoEfectivoTxt}>
+              ⚠️ Tus productos suman ${subtotal.toFixed(0)} MXN. El efectivo solo aplica hasta ${LIMITE_EFECTIVO} en productos (+ el fee de envío encima). Elige tarjeta.
+            </Text>
+          </View>
+        )}
+
+        {/* Campo "¿Con cuánto pagas?" — solo para efectivo, y solo si queda
+            algo por cobrar en mano (si el crédito cubrió todo, no hay nada
+            que pagar al entregar). */}
+        {metodo === 'efectivo' && totalNeto > 0 && (
+          <View style={estilos.pagaConBox}>
+            <Text style={estilos.pagaConLabel}>¿Con cuánto vas a pagar?</Text>
+            <Text style={estilos.pagaConSub}>
+              El repartidor sabrá cuánto cambio preparar. Opcional.
+              {creditoAplicable > 0 ? ` Ya se descontó tu crédito — solo pagas $${totalNeto.toFixed(2)}.` : ''}
+            </Text>
+            <Campo
+              placeholder={`Ej. $${Math.ceil(totalNeto / 50) * 50} MXN`}
+              keyboardType="numeric"
+              value={pagaCon}
+              onChangeText={setPagaCon}
+              maxLength={6}
+            />
+          </View>
+        )}
+        {metodo === 'efectivo' && totalNeto <= 0 && (
+          <View style={estilos.pagaConBox}>
+            <Text style={estilos.pagaConLabel}>🎁 Tu crédito cubre este pedido completo</Text>
+            <Text style={estilos.pagaConSub}>No le debes pagar nada en efectivo al repartidor.</Text>
+          </View>
+        )}
+
+        {/* Selección de tarjeta / captura de tarjeta nueva */}
+        {metodo === 'tarjeta' && (
+          <View style={estilos.tarjetaBox}>
+            {cargandoTarjetas ? (
+              <ActivityIndicator color={colors.primario} style={{ marginVertical: espacio.sm }} />
+            ) : (
+              <>
+                {tarjetas.map((t) => (
+                  <View key={t.id} style={[estilos.tarjetaOpcion, tarjetaElegida === t.id && estilos.tarjetaOpcionActiva]}>
+                    <Pressable
+                      style={estilos.tarjetaOpcionToca}
+                      onPress={() => {
+                        tarjetaGuardadaAnteriorRef.current = t.id;
+                        setTarjetaElegida(t.id);
+                        // Limpia el formulario de tarjeta nueva — si el
+                        // usuario había tecleado algo por error y cambia de
+                        // opinión, no debe reaparecer la próxima vez que
+                        // toque "Usar otra tarjeta".
+                        setDatosTarjetaNueva({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+                        setMetodoDetectado(null);
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>💳</Text>
+                      <Text style={estilos.tarjetaOpcionTxt}>
+                        {(t.marca || 'Tarjeta').toUpperCase()} •••• {t.ultimos_4}
+                      </Text>
+                      <View style={[estilos.radio, tarjetaElegida === t.id && estilos.radioActivo]} />
+                    </Pressable>
+                    <Pressable onPress={() => eliminarTarjetaGuardada(t)} hitSlop={10} style={estilos.tarjetaEliminarBtn}>
+                      <Text style={estilos.tarjetaEliminarTxt}>Eliminar</Text>
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={[estilos.tarjetaOpcion, tarjetaElegida === 'nueva' && estilos.tarjetaOpcionActiva]}
+                  onPress={() => {
+                    if (tarjetaElegida === 'nueva') {
+                      // Ya estaba en "nueva" (la tocó por error) — DESELECCIONAR:
+                      // regresa a la tarjeta guardada que tenía elegida antes,
+                      // sin fricción. Si nunca había una (p. ej. no tiene
+                      // tarjetas guardadas), no hay a dónde volver — se queda
+                      // en "nueva" pero al menos limpia el formulario.
+                      setDatosTarjetaNueva({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
+                      setMetodoDetectado(null);
+                      if (tarjetaGuardadaAnteriorRef.current && tarjetas.some((t) => t.id === tarjetaGuardadaAnteriorRef.current)) {
+                        setTarjetaElegida(tarjetaGuardadaAnteriorRef.current);
+                      }
+                    } else {
+                      tarjetaGuardadaAnteriorRef.current = tarjetaElegida;
+                      setTarjetaElegida('nueva');
+                    }
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>➕</Text>
+                  <Text style={estilos.tarjetaOpcionTxt}>Usar otra tarjeta</Text>
+                  <View style={[estilos.radio, tarjetaElegida === 'nueva' && estilos.radioActivo]} />
+                </Pressable>
+
+                {tarjetaElegida === 'nueva' ? (
+                  <View style={{ marginTop: espacio.sm }}>
+                    <FormularioTarjeta
+                      datos={datosTarjetaNueva}
+                      setDatos={setDatosTarjetaNueva}
+                      metodoDetectado={metodoDetectado}
+                      setMetodoDetectado={setMetodoDetectado}
+                    />
+                    <Pressable
+                      style={estilos.checkboxRow}
+                      onPress={() => setGuardarTarjetaNueva((v) => !v)}
+                    >
+                      <View style={[estilos.checkbox, guardarTarjetaNueva && estilos.checkboxActivo]}>
+                        {guardarTarjetaNueva && <Text style={estilos.checkboxCheck}>✓</Text>}
+                      </View>
+                      <Text style={estilos.checkboxTxt}>Guardar esta tarjeta para mis próximos pedidos</Text>
+                    </Pressable>
+                  </View>
+                ) : tarjetaElegida ? (
+                  <Campo
+                    etiqueta="CVV de tu tarjeta"
+                    placeholder={cvvEsperadoPorMarca(tarjetas.find((t) => t.id === tarjetaElegida)?.payment_method_id) === 4 ? '1234' : '123'}
+                    keyboardType="numeric"
+                    maxLength={4}
+                    value={cvvGuardada}
+                    onChangeText={setCvvGuardada}
+                    style={{ marginTop: espacio.sm }}
+                  />
+                ) : null}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Aviso explicativo: SPEI solo en la tienda */}
+        {!esAhivoyStore && (
+          <View style={estilos.avisoStore}>
+            <Text style={estilos.avisoStoreEmoji}>🏦</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.avisoStoreTitulo}>Transferencia SPEI no disponible</Text>
+              <Text style={estilos.avisoStoreDesc}>
+                La transferencia bancaria solo está habilitada para compras en la{' '}
+                <Text style={{ fontWeight: '800', color: colors.primario }}>Voy Store®</Text>.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {subtotal > LIMITE_EFECTIVO && (
           <Text style={estilos.avisoLimite}>
-            💡 Tu pedido es de ${total.toFixed(2)} MXN. El efectivo solo está disponible para pedidos
-            de $500 o menos.
+            💡 Productos: ${subtotal.toFixed(2)} MXN. Efectivo disponible solo si los productos son ≤${LIMITE_EFECTIVO} (el fee de envío va encima de ese límite).
           </Text>
         )}
 
+        {/* Propina al repartidor — solo tarjeta: va dentro del mismo cargo */}
+        {metodo === 'tarjeta' && (
+          <View style={estilos.propinaBox}>
+            <Text style={estilos.propinaLabel}>
+              💛 Propina para el repartidor <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional, se cobra con tu tarjeta)</Text>
+            </Text>
+            <View style={{ flexDirection: 'row', gap: espacio.xs, marginTop: espacio.xs }}>
+              {[0, 10, 20, 30].map((amt) => (
+                <Pressable
+                  key={amt}
+                  style={[estilos.propinaChip, propinaSel === amt && estilos.propinaChipActivo]}
+                  onPress={() => setPropinaSel(amt)}
+                >
+                  <Text style={[estilos.propinaChipTxt, propinaSel === amt && estilos.propinaChipTxtActivo]}>
+                    {amt === 0 ? 'Sin propina' : `$${amt}`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Crédito de plataforma — CUALQUIER método de pago. Otorgado por
+            un admin (manual o como compensación por un pedido no
+            entregado), usable en cualquier tienda. Si no alcanza a cubrir
+            todo, el resto se completa con tarjeta o en efectivo. */}
+        {creditoDisponible > 0 && (
+          <Pressable style={estilos.creditoBox} onPress={() => setUsarCredito((v) => !v)}>
+            <View style={[estilos.creditoCheckbox, usarCredito && estilos.creditoCheckboxActivo]}>
+              {usarCredito && <Text style={estilos.creditoCheckboxCheck}>✓</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.creditoLabel}>🎁 Usar mi crédito disponible</Text>
+              <Text style={estilos.creditoSub}>
+                Tienes ${creditoDisponible.toFixed(2)} MXN de crédito
+                {usarCredito && creditoAplicable > 0 && creditoAplicable < total
+                  ? ` — completa el resto ${metodo === 'tarjeta' ? 'con tu tarjeta' : 'en efectivo al entregar'}`
+                  : ''}
+              </Text>
+            </View>
+            {usarCredito && creditoAplicable > 0 && (
+              <Text style={estilos.creditoMonto}>-${creditoAplicable.toFixed(2)}</Text>
+            )}
+          </Pressable>
+        )}
+
         <View style={estilos.totalBox}>
-          <Text style={estilos.totalLabel}>Total a pagar</Text>
-          <Text style={estilos.totalValor}>${total.toFixed(2)} MXN</Text>
+          <View>
+            <Text style={estilos.totalLabel}>Total a pagar</Text>
+            {creditoAplicable > 0 && (
+              <Text style={estilos.totalTachado}>${total.toFixed(2)} MXN</Text>
+            )}
+          </View>
+          <Text style={estilos.totalValor}>${totalNeto.toFixed(2)} MXN</Text>
         </View>
 
         <Boton
           titulo={
             fuera_de_cobertura
               ? '🚫 Fuera de cobertura'
-              : requiereINE && !ineFoto
-                ? '📷 Sube tu INE para continuar'
-                : cotizando
-                  ? 'Verificando cobertura…'
-                  : 'Confirmar pedido'
+              : requiereINE && subiendoIne
+                ? '⬆️ Subiendo INE…'
+                : requiereINE && !ineFotoUrl
+                  ? '📷 Sube tu INE para continuar'
+                  : cotizando
+                    ? 'Verificando cobertura…'
+                    : 'Confirmar pedido'
           }
           onPress={confirmar}
           cargando={enviando}
-          deshabilitado={(requiereINE && !ineFoto) || fuera_de_cobertura || cotizando}
+          deshabilitado={(requiereINE && !ineFotoUrl) || subiendoIne || fuera_de_cobertura || cotizando}
         />
       </ScrollView>
     </SafeAreaView>
@@ -438,27 +972,16 @@ const estilos = StyleSheet.create({
   scroll: { padding: espacio.lg },
   seccion: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md, marginBottom: espacio.sm },
 
-  // Toggle VoyTokens
-  tokensCanjeBox: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: espacio.md,
-    borderRadius: radio.md,
-    borderWidth: 1.5, borderColor: '#FDE68A',
-    backgroundColor: '#FFFBEB',
-    marginBottom: espacio.md,
-  },
-  tokensCanjeActivo: { borderColor: '#F59E0B', backgroundColor: '#FFF3CD' },
-  tokensCanjeEmoji: { fontSize: 26, marginRight: espacio.sm },
-  tokensCanjeTitulo: { fontSize: 13, fontWeight: '800', color: '#92400E' },
-  tokensCanjeSub: { fontSize: 11, color: '#92400E', marginTop: 2, lineHeight: 15 },
-  tokensCanjeSwitch: {
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20, backgroundColor: colors.borde, marginLeft: espacio.sm,
-  },
-  tokensCanjeOn: { backgroundColor: '#F59E0B' },
-  tokensCanjeSwitchTxt: { fontSize: 11, fontWeight: '800', color: '#FFF' },
-
   // Botón detectar ubicación
+  // Pickup: dónde recoger (tono de confirmación, no de aviso)
+  pickupCaja: {
+    backgroundColor: '#E8F5E9', borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#A5D6A7',
+    padding: espacio.md, marginBottom: espacio.md,
+  },
+  pickupNegocio: { fontSize: 16, fontWeight: '800', color: '#1B5E20' },
+  pickupDir:     { fontSize: 13, color: '#2E7D32', marginTop: 4 },
+  pickupNota:    { fontSize: 12, color: '#388E3C', marginTop: espacio.sm, lineHeight: 17 },
   ubicacionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -495,7 +1018,6 @@ const estilos = StyleSheet.create({
   resumenEdad: { fontSize: 12, color: '#9B1C1C', fontWeight: '800' },
   resumenExtra: { fontSize: 12, color: colors.secundario, marginLeft: 16, marginBottom: 2 },
   tarifaInfo:  { fontSize: 11, color: colors.textoSuave, marginTop: 2, fontStyle: 'italic' },
-  tokensInfo:  { fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: '600', backgroundColor: '#FFFBEB', padding: 6, borderRadius: 6 },
   fueraCobertura: {
     backgroundColor: '#FEF2F2',
     padding: espacio.sm, borderRadius: radio.sm,
@@ -542,6 +1064,7 @@ const estilos = StyleSheet.create({
     backgroundColor: colors.borde,
   },
   ineOk: { fontSize: 14, fontWeight: '800', color: colors.exito },
+  ineSubiendo: { fontSize: 14, fontWeight: '700', color: colors.primario },
   ineLink: { fontSize: 13, color: colors.primario, fontWeight: '600', marginTop: 4 },
 
   metodo: {
@@ -553,19 +1076,114 @@ const estilos = StyleSheet.create({
     marginBottom: espacio.sm,
   },
   metodoActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
-  metodoEmoji: { fontSize: 28 },
+  metodoStore: { borderStyle: 'dashed', borderColor: colors.acento },
+  metodoIcono: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.fondo,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  metodoIconoActivo: { backgroundColor: '#FFE8D9' },
   metodoNombre: { fontSize: 15, fontWeight: '700', color: colors.texto },
   metodoDesc: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  metodoBadgeStore: {
+    backgroundColor: colors.oscuro, paddingHorizontal: 8,
+    paddingVertical: 2, borderRadius: radio.full,
+  },
+  metodoBadgeStoreTxt: { color: colors.acento, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+
+  // Aviso SPEI no disponible (restaurantes/tienditas)
+  avisoStore: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: espacio.sm,
+    backgroundColor: '#1A1A1A',
+    borderRadius: radio.md, padding: espacio.md,
+    marginBottom: espacio.md,
+    borderWidth: 1, borderColor: '#2C2C2E',
+  },
+  avisoStoreEmoji: { fontSize: 22 },
+  avisoStoreTitulo: { fontSize: 13, fontWeight: '800', color: '#E0E0E0', marginBottom: 3 },
+  avisoStoreDesc: { fontSize: 12, color: '#9E9E9E', lineHeight: 16 },
+  avisoEfectivo: {
+    backgroundColor: '#FEF2F2', borderRadius: radio.md,
+    padding: espacio.md, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  avisoEfectivoTxt: { fontSize: 13, color: '#991B1B', lineHeight: 18 },
+
+  pagaConBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: radio.md,
+    padding: espacio.md,
+    marginBottom: espacio.sm,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  pagaConLabel: { fontSize: 14, fontWeight: '700', color: '#14532D', marginBottom: 2 },
+  pagaConSub:   { fontSize: 12, color: '#166534', marginBottom: espacio.sm },
+
   radio: {
     width: 22, height: 22, borderRadius: 11,
     borderWidth: 2, borderColor: colors.borde,
   },
   radioActivo: { borderColor: colors.primario, backgroundColor: colors.primario },
+
+  tarjetaBox: {
+    backgroundColor: colors.superficie, borderRadius: radio.md,
+    padding: espacio.md, marginBottom: espacio.sm, borderWidth: 1, borderColor: colors.borde,
+  },
+  tarjetaOpcion: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: espacio.sm, borderBottomWidth: 1, borderBottomColor: colors.borde,
+  },
+  tarjetaOpcionActiva: {},
+  tarjetaOpcionToca: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
+  tarjetaEliminarBtn: { paddingHorizontal: espacio.sm, paddingVertical: espacio.xs },
+  tarjetaEliminarTxt: { fontSize: 12, color: colors.error, fontWeight: '700' },
+  tarjetaOpcionTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.texto },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm, marginTop: espacio.sm },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.borde,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxActivo: { backgroundColor: colors.primario, borderColor: colors.primario },
+  checkboxCheck: { color: '#FFF', fontSize: 13, fontWeight: '900' },
+  checkboxTxt: { flex: 1, fontSize: 13, color: colors.texto },
   avisoLimite: {
     backgroundColor: '#FFF9E6',
     padding: espacio.md, borderRadius: radio.sm,
     color: colors.texto, fontSize: 13, marginTop: espacio.md, lineHeight: 18,
   },
+  propinaBox: {
+    marginHorizontal: espacio.md, marginBottom: espacio.sm,
+    backgroundColor: colors.superficie, borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: colors.borde,
+  },
+  propinaLabel: { fontSize: 13, fontWeight: '800', color: colors.texto },
+  propinaChip: {
+    paddingHorizontal: espacio.sm, paddingVertical: espacio.xs,
+    borderRadius: radio.md, borderWidth: 1.5, borderColor: colors.borde,
+    backgroundColor: colors.fondo,
+  },
+  propinaChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  propinaChipTxt: { fontSize: 13, fontWeight: '700', color: colors.textoSuave },
+  propinaChipTxtActivo: { color: colors.primario },
+
+  creditoBox: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    marginHorizontal: espacio.md, marginBottom: espacio.sm,
+    backgroundColor: '#F0FDF4', borderRadius: radio.md,
+    padding: espacio.md, borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  creditoCheckbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.secundario,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  creditoCheckboxActivo: { backgroundColor: colors.secundario },
+  creditoCheckboxCheck: { color: '#FFF', fontWeight: '900', fontSize: 14 },
+  creditoLabel: { fontSize: 13, fontWeight: '800', color: colors.texto },
+  creditoSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  creditoMonto: { fontSize: 15, fontWeight: '800', color: colors.secundario },
+  totalTachado: { fontSize: 13, color: colors.textoSuave, textDecorationLine: 'line-through' },
+
   totalBox: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     padding: espacio.md,

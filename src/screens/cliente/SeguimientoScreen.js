@@ -1,45 +1,148 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable, Linking, ScrollView, Vibration, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pedidosAPI } from '../../api/client';
+import * as Notifications from 'expo-notifications';
+import { pedidosAPI, pagosAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import Boton from '../../components/Boton';
+import MapaSeguimiento from '../../components/MapaSeguimiento';
+import useRutaPedido from '../../hooks/useRutaPedido';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 
 const WA_VOYCORRIENDO = '527542462564';
 
 const ESTADOS_LOCAL = [
-  { id: 'pendiente',  label: 'Recibimos tu pedido',        emoji: '📝' },
-  { id: 'confirmado', label: 'El negocio lo aceptó',        emoji: '✅' },
-  { id: 'preparando', label: 'Lo están preparando',          emoji: '👨‍🍳' },
-  { id: 'listo',      label: 'Listo para recoger',           emoji: '📦' },
-  { id: 'en_camino',  label: 'Tu repartidor va en camino',   emoji: '🛵' },
-  { id: 'entregado',  label: '¡Entregado! Buen provecho',    emoji: '🎉' },
+  { id: 'pendiente',  label: 'Recibimos tu pedido',        icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'El negocio lo aceptó',        icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Lo están preparando',          icono: 'restaurant-outline' },
+  { id: 'listo',      label: 'Listo — el repartidor lo recoge', icono: 'cube-outline' },
+  { id: 'en_camino',  label: 'Tu repartidor va en camino',   icono: 'navigate-outline' },
+  { id: 'entregado',  label: '¡Entregado! Buen provecho',    icono: 'happy-outline' },
+];
+
+// PICKUP: el cliente pasa por su pedido, no hay repartidor. Mostrarle los
+// pasos "el repartidor va en camino" era mentira y lo dejaba esperando en
+// casa un pedido que nadie iba a llevarle.
+const ESTADOS_PICKUP = [
+  { id: 'pendiente',  label: 'Recibimos tu pedido',           icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'El negocio lo aceptó',          icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Lo están preparando',           icono: 'restaurant-outline' },
+  { id: 'listo',      label: '¡Listo! Pasa por él',           icono: 'storefront-outline' },
+  { id: 'entregado',  label: '¡Recogido! Buen provecho',      icono: 'happy-outline' },
 ];
 
 const ESTADOS_PAQUETERIA = [
-  { id: 'pendiente',  label: 'Pedido recibido',             emoji: '📝' },
-  { id: 'confirmado', label: 'Pedido confirmado',            emoji: '✅' },
-  { id: 'preparando', label: 'Empacando tu pedido',          emoji: '📦' },
-  { id: 'listo',      label: 'Listo para enviar',            emoji: '🏷️' },
-  { id: 'en_envio',   label: 'En camino desde México 🚚',   emoji: '🚚' },
-  { id: 'entregado',  label: '¡Llegó tu pedido!',            emoji: '🎉' },
+  { id: 'pendiente',  label: 'Pedido recibido',             icono: 'receipt-outline' },
+  { id: 'confirmado', label: 'Pedido confirmado',            icono: 'checkmark-circle-outline' },
+  { id: 'preparando', label: 'Empacando tu pedido',          icono: 'cube-outline' },
+  { id: 'listo',      label: 'Listo para enviar',            icono: 'pricetag-outline' },
+  { id: 'en_envio',   label: 'En camino desde México',      icono: 'airplane-outline' },
+  { id: 'entregado',  label: '¡Llegó tu pedido!',            icono: 'happy-outline' },
 ];
+
+// Mensajes de notificación para cada cambio de estado
+const NOTIF_ESTADO = {
+  confirmado: { titulo: '✅ ¡Pedido confirmado!',   cuerpo: 'El negocio aceptó tu pedido y lo está preparando.' },
+  preparando: { titulo: '👨‍🍳 Preparando tu pedido', cuerpo: 'Tu pedido está en la cocina. ¡Ya casi!' },
+  listo:      { titulo: '📦 ¡Pedido listo!',        cuerpo: 'Tu pedido está listo. El repartidor va a recogerlo.' },
+  en_camino:  { titulo: '🛵 ¡Tu repartidor viene!', cuerpo: 'Ya va en camino. Prepárate para recibir tu pedido.' },
+  en_envio:   { titulo: '🚚 ¡Tu pedido va en camino!', cuerpo: 'Fue enviado desde México. Te avisamos cuando llegue.' },
+  entregado:  { titulo: '🎉 ¡Pedido entregado!',    cuerpo: '¡Buen provecho! No olvides calificarnos.' },
+  cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
+};
+
+// En pickup los avisos cambian: nadie va a llevárselo, y el momento
+// importante es "ya está listo, pasa por él" con su código a la mano.
+const NOTIF_ESTADO_PICKUP = {
+  confirmado: { titulo: '✅ ¡Pedido confirmado!',   cuerpo: 'El negocio aceptó tu pedido y lo está preparando.' },
+  preparando: { titulo: '👨‍🍳 Preparando tu pedido', cuerpo: 'Tu pedido está en la cocina. ¡Ya casi puedes pasar por él!' },
+  listo:      { titulo: '🏪 ¡Listo para recoger!',  cuerpo: 'Tu pedido ya te espera. Pasa por él y muestra tu código de entrega.' },
+  entregado:  { titulo: '🎉 ¡Pedido recogido!',     cuerpo: '¡Buen provecho! No olvides calificarnos.' },
+  cancelado:  { titulo: '❌ Pedido cancelado',       cuerpo: 'Tu pedido fue cancelado. Contáctanos si necesitas ayuda.' },
+};
+
+const notificarCambioEstado = (nuevoEstado, pedidoId, codigoEntrega, esPickup = false) => {
+  const n = (esPickup ? NOTIF_ESTADO_PICKUP : NOTIF_ESTADO)[nuevoEstado];
+  if (!n) return;
+  Vibration.vibrate([0, 200, 100, 200]);
+  let cuerpo = n.cuerpo;
+  if (!esPickup && nuevoEstado === 'en_camino' && codigoEntrega) {
+    cuerpo = `Ya va en camino. Tu código de entrega es: ${codigoEntrega}. Tenlo listo.`;
+  } else if (esPickup && nuevoEstado === 'listo' && codigoEntrega) {
+    cuerpo = `Ya te espera en el negocio. Tu código para recogerlo es: ${codigoEntrega}.`;
+  }
+  Notifications.scheduleNotificationAsync({
+    content: {
+      title: n.titulo,
+      body: cuerpo,
+      sound: true,
+      // Cancelado y rechazado van al canal de alertas (rojo, patrón de
+      // vibración distinto): son las dos únicas que piden actuar, y mezclarlas
+      // con "ya salió tu pedido" hacía que se leyeran igual de rutinarias.
+      channelId: ['cancelado', 'rechazado'].includes(nuevoEstado) ? 'alertas' : 'pedidos',
+      data: { tipo: 'estado_pedido', pedidoId },
+    },
+    trigger: null,
+  }).catch(() => {});
+};
 
 export default function SeguimientoScreen({ route, navigation }) {
   const { pedidoId } = route.params;
-  const [pedido, setPedido]           = useState(null);
-  const [cargando, setCargando]       = useState(true);
-  const [estrellas, setEstrellas]     = useState(0);
+  const [pedido, setPedido]             = useState(null);
+  const [cargando, setCargando]         = useState(true);
+  const [estrellas, setEstrellas]       = useState(0);
   const [estrellasRep, setEstrellasRep] = useState(0);
-  const [calificando, setCalificando] = useState(false);
+  const [propina, setPropina]           = useState('');
+  const [calificando, setCalificando]   = useState(false);
+  const [cancelando, setCancelando]     = useState(false);
+  const [repartidorPos, setRepartidorPos] = useState(null);
+  const estadoAnteriorRef               = useRef(null);
+  // Ruta por calles para el mapa (null si Google no esta disponible).
+  const rutaPolyline = useRutaPedido(pedidoId, repartidorPos, !!pedido?.repartidor);
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     try {
       const { data } = await pedidosAPI.detalle(pedidoId);
-      setPedido(data.data?.pedido);
-    } catch (_) {/* ignorar */}
+      const p = data.data?.pedido;
+      if (p) {
+        setPedido(p);
+        // Última ubicación conocida en DB — mientras llega el primer evento
+        // en vivo del socket, mejor mostrar algo aproximado que nada.
+        if (p.repartidor?.latitud && p.repartidor?.longitud) {
+          setRepartidorPos((actual) => actual || { lat: parseFloat(p.repartidor.latitud), lng: parseFloat(p.repartidor.longitud) });
+        }
+      }
+    } catch (_) {}
     finally { setCargando(false); }
+  }, [pedidoId]);
+
+  // Pedido con tarjeta rechazada: nunca llega al negocio (queda 'pendiente'
+  // para siempre si no se cancela). El backend ya permite al cliente
+  // cancelar mientras esté 'pendiente' — solo faltaba exponerlo aquí.
+  const cancelarPedidoFallido = () => {
+    Alert.alert(
+      'Cancelar pedido',
+      `El pago de #${pedido?.numero} fue rechazado. ¿Cancelamos este pedido? Puedes hacer uno nuevo con otra tarjeta.`,
+      [
+        { text: 'No, dejarlo', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelando(true);
+            try {
+              await pedidosAPI.cancelar(pedidoId, 'Pago con tarjeta rechazado');
+              await cargar();
+            } catch (e) {
+              Alert.alert('Error', e?.mensajeAmigable || 'No pudimos cancelar el pedido. Intenta de nuevo.');
+            } finally {
+              setCancelando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   useEffect(() => {
@@ -57,29 +160,66 @@ export default function SeguimientoScreen({ route, navigation }) {
       });
     }, 5000);
 
-    // Socket.io para updates instantáneos (complementa el polling)
+    // Socket.io para updates instantáneos
     const socket = conectarSocket();
     socket.emit('unirse_pedido', pedidoId);
-    socket.on('estado_pedido', (data) => {
-      if (data.pedido_id === pedidoId) setPedido((p) => ({ ...p, estado: data.estado }));
-    });
-    socket.on('pago_actualizado', () => cargar());
+
+    const onEstado = (data) => {
+      if (data.pedido_id !== pedidoId) return;
+      const nuevoEstado = data.estado;
+      setPedido((p) => {
+        if (p && p.estado !== nuevoEstado) {
+          // El código del cliente ya está en el pedido cargado; en pickup el
+          // aviso de "listo" lo incluye para que lo tenga a la mano al llegar.
+          notificarCambioEstado(
+            nuevoEstado, pedidoId,
+            data.codigo_entrega || p.codigo_entrega,
+            p.tipo_envio === 'pickup',
+          );
+        }
+        const update = { ...p, estado: nuevoEstado };
+        if (data.codigo_entrega) update.codigo_entrega = data.codigo_entrega;
+        return p ? update : p;
+      });
+    };
+
+    const onPago = () => cargar();
+
+    // Ubicación en vivo del repartidor (emitida por el backend solo a la
+    // sala del pedido, ya validada por ownership del lado del servidor).
+    const onUbicacion = (data) => {
+      if (data?.lat === undefined || data?.lng === undefined) return;
+      setRepartidorPos({ lat: data.lat, lng: data.lng });
+    };
+
+    socket.on('estado_pedido', onEstado);
+    socket.on('pago_actualizado', onPago);
+    socket.on('ubicacion_repartidor', onUbicacion);
 
     return () => {
       clearInterval(intervalo);
-      socket.off('estado_pedido');
-      socket.off('pago_actualizado');
+      // Pasar la referencia exacta del handler — evita eliminar listeners de otros componentes
+      socket.off('estado_pedido', onEstado);
+      socket.off('pago_actualizado', onPago);
+      socket.off('ubicacion_repartidor', onUbicacion);
     };
-  }, [pedidoId]);
+  }, [pedidoId, cargar]);
 
   const calificar = async () => {
     if (!estrellas) return;
+    const propinaNum = parseFloat(propina) || 0;
+    if (propinaNum > 1000) {
+      Alert.alert('Propina inválida', 'La propina máxima es $1,000 MXN.');
+      return;
+    }
     setCalificando(true);
     try {
       await pedidosAPI.calificar(pedidoId, {
         calificacion_negocio: estrellas,
         calificacion_repartidor: (pedido.repartidor_id && estrellasRep) ? estrellasRep : undefined,
+        propina: propinaNum > 0 ? propinaNum : undefined,
       });
+
       await cargar();
     } catch (_) {} finally {
       setCalificando(false);
@@ -92,15 +232,14 @@ export default function SeguimientoScreen({ route, navigation }) {
 
   const esPaqueteria   = pedido.negocio?.tipo_entrega === 'paqueteria';
   const esAhivoy       = pedido.negocio?.categoria === 'ahivoy store';
-  const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : ESTADOS_LOCAL;
+  const esPickup       = pedido.tipo_envio === 'pickup';
+  const ESTADOS        = esPaqueteria ? ESTADOS_PAQUETERIA : esPickup ? ESTADOS_PICKUP : ESTADOS_LOCAL;
   const estadoActual   = ESTADOS.findIndex((e) => e.id === pedido.estado);
-  const esRestaurante  = pedido.negocio?.categoria === 'restaurante';
-  const mostrarSugerencia = esRestaurante && ['confirmado', 'preparando', 'listo', 'en_camino'].includes(pedido.estado);
   const yaCalificado   = pedido.calificacion_negocio !== null && pedido.calificacion_negocio !== undefined;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView>
+      <ScrollView keyboardShouldPersistTaps="always" automaticallyAdjustKeyboardInsets={true}>
         <View style={estilos.header}>
           <Text style={estilos.numero}>Pedido {pedido.numero}</Text>
           <Text style={estilos.total}>${parseFloat(pedido.total).toFixed(2)} MXN</Text>
@@ -109,7 +248,126 @@ export default function SeguimientoScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* 📦 Vista paquetería — sin mapa, con info de envío */}
+        {/* Mapa en vivo del viaje COMPLETO: el repartidor, el restaurante
+            donde recoge y la dirección de entrega. Se muestra desde que hay
+            repartidor asignado —no solo al salir— porque la pregunta del
+            cliente ("¿dónde va mi pedido?") empieza en la cocina, no en la
+            calle. Se oculta cuando el pedido ya terminó. */}
+        {pedido.repartidor && !['entregado', 'cancelado', 'rechazado'].includes(pedido.estado)
+          && pedido.latitud_entrega && pedido.longitud_entrega && (
+          <MapaSeguimiento
+            repartidorPos={repartidorPos}
+            rutaPolyline={rutaPolyline}
+            origen={pedido.negocio?.latitud && pedido.negocio?.longitud
+              ? { lat: pedido.negocio.latitud, lng: pedido.negocio.longitud }
+              : null}
+            destino={{ lat: pedido.latitud_entrega, lng: pedido.longitud_entrega }}
+            tituloOrigen={pedido.negocio?.nombre || 'Restaurante'}
+            tituloDestino="Tu dirección"
+          />
+        )}
+
+        {/* PICKUP y ya está LISTO: es el momento importante del flujo — hay
+            comida esperándolo. Se le dice dónde recoger y su código, en
+            grande, sin hablar de repartidores (no hay ninguno). */}
+        {esPickup && pedido.estado === 'listo' && (
+          <View style={estilos.pickupListo}>
+            <Text style={estilos.pickupListoTitulo}>🏪 ¡Tu pedido ya te espera!</Text>
+            <Text style={estilos.pickupListoNegocio}>{pedido.negocio?.nombre}</Text>
+            {!!(pedido.negocio?.direccion || pedido.negocio?.colonia) && (
+              <Text style={estilos.pickupListoDir}>
+                📍 {[pedido.negocio?.direccion, pedido.negocio?.colonia].filter(Boolean).join(', ')}
+              </Text>
+            )}
+            {!!pedido.codigo_entrega && (
+              <>
+                <Text style={estilos.pickupListoLabel}>Tu código para recogerlo</Text>
+                <Text style={estilos.pickupListoCodigo}>{pedido.codigo_entrega}</Text>
+              </>
+            )}
+            <Text style={estilos.pickupListoSub}>
+              Muéstralo en el mostrador. {pedido.metodo_pago === 'efectivo'
+                ? `Pagas ahí $${parseFloat(pedido.total).toFixed(2)} en efectivo.`
+                : ''}
+            </Text>
+          </View>
+        )}
+
+        {/* Código de entrega — LO PRIMERO que ve el cliente cuando el
+            repartidor va en camino: tarjeta naranja sólida, número gigante
+            en blanco. Solo presentación — la validación vive en el backend. */}
+        {pedido.estado === 'en_camino' && pedido.codigo_entrega && (
+          <View style={estilos.codigoCard}>
+            <Text style={estilos.codigoLabel}>Código de entrega</Text>
+            <Text style={estilos.codigoNum}>{pedido.codigo_entrega}</Text>
+            <Text style={estilos.codigoSub}>
+              Muéstraselo al repartidor cuando llegue para confirmar la entrega.
+            </Text>
+          </View>
+        )}
+
+        {/* Pago con tarjeta RECHAZADO — este pedido nunca va a llegar al
+            negocio (pedidosDelNegocio lo filtra mientras no esté
+            capturado). Sin esto el cliente lo veía como si fuera un
+            pedido normal en curso, sin ninguna forma de cancelarlo. */}
+        {pedido.metodo_pago === 'tarjeta' && pedido.pago_estado === 'fallido' && pedido.estado === 'pendiente' && (
+          <View style={[estilos.pagoBox, estilos.pagoBoxError]}>
+            <Text style={[estilos.pagoBoxTitulo, { color: colors.error }]}>❌ Pago rechazado</Text>
+            <Text style={[estilos.pagoBoxSub, { color: '#991B1B' }]}>
+              Tu banco rechazó el cobro de este pedido. No se envió al negocio. Puedes cancelarlo y hacer uno nuevo con otra tarjeta.
+            </Text>
+            <Pressable
+              style={[estilos.btnPagarMP, estilos.btnCancelarPedido]}
+              onPress={cancelarPedidoFallido}
+              disabled={cancelando}
+            >
+              {cancelando
+                ? <ActivityIndicator color="#FFF" size="small" />
+                : <Text style={estilos.btnPagarMPTxt}>🗑️ Cancelar este pedido</Text>}
+            </Pressable>
+          </View>
+        )}
+
+        {/* Pago con tarjeta nativo pendiente de confirmar (in_process en MP) —
+            se resuelve solo por webhook; aquí solo se ofrece refrescar. */}
+        {pedido.metodo_pago === 'tarjeta' && pedido.pago_estado === 'pendiente' && (
+          <View style={estilos.pagoBox}>
+            <Text style={estilos.pagoBoxTitulo}>⏳ Verificando tu pago</Text>
+            <Text style={estilos.pagoBoxSub}>
+              Tu banco está confirmando el cobro. Esto se actualiza solo en cuanto termine — si tarda más de unos minutos, toca para revisar de nuevo.
+            </Text>
+            <Pressable style={estilos.btnPagarMP} onPress={cargar}>
+              <Text style={estilos.btnPagarMPTxt}>🔄 Revisar estado del pago</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Legado: pedidos creados con el Checkout Pro anterior (webview de
+            Mercado Pago) — ya no se generan pedidos nuevos con este método. */}
+        {pedido.metodo_pago === 'mercado_pago' && pedido.pago_estado === 'pendiente' && (
+          <View style={estilos.pagoBox}>
+            <Text style={estilos.pagoBoxTitulo}>⏳ Esperando confirmación de pago</Text>
+            <Text style={estilos.pagoBoxSub}>
+              Si ya pagaste, tu pedido se actualizará en segundos. Si no, toca el botón para completar el pago.
+            </Text>
+            <Pressable
+              style={estilos.btnPagarMP}
+              onPress={async () => {
+                try {
+                  const res = await pagosAPI.preferencia(pedido.id);
+                  const url = res.data.data?.init_point || res.data.data?.sandbox_init_point;
+                  if (url) Linking.openURL(url);
+                } catch (_) {
+                  Alert.alert('Error', 'No pudimos generar el link de pago. Intenta más tarde.');
+                }
+              }}
+            >
+              <Text style={estilos.btnPagarMPTxt}>💳 Completar pago con Mercado Pago</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* 📦 Vista paquetería */}
         {esPaqueteria && ['en_envio', 'entregado'].includes(pedido.estado) && (
           <View style={estilos.paqueteriaBloque}>
             <Text style={estilos.paqueteriaTitulo}>
@@ -141,11 +399,26 @@ export default function SeguimientoScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Estado actual chip (reemplaza mapa) */}
+        {/* Estado actual chip */}
         {estadoActual >= 0 && pedido.estado !== 'entregado' && pedido.estado !== 'cancelado' && (
           <View style={estilos.chipEstadoCard}>
             <Text style={estilos.chipEstadoEmoji}>{ESTADOS[estadoActual]?.emoji}</Text>
             <Text style={estilos.chipEstadoTxt}>{ESTADOS[estadoActual]?.label}</Text>
+          </View>
+        )}
+
+        {/* Pedido cancelado o rechazado */}
+        {(pedido.estado === 'cancelado' || pedido.estado === 'rechazado') && (
+          <View style={estilos.chipCanceladoCard}>
+            <Text style={estilos.chipCanceladoEmoji}>❌</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.chipCanceladoTxt}>
+                {pedido.estado === 'rechazado' ? 'Pedido rechazado por el negocio' : 'Pedido cancelado'}
+              </Text>
+              {!!pedido.nota_estado && (
+                <Text style={estilos.chipCanceladoSub}>{pedido.nota_estado}</Text>
+              )}
+            </View>
           </View>
         )}
 
@@ -167,63 +440,73 @@ export default function SeguimientoScreen({ route, navigation }) {
 
         {/* Timeline de estados */}
         <View style={estilos.timeline}>
-          {ESTADOS.map((e, i) => (
-            <View key={e.id} style={estilos.paso}>
-              <View style={[estilos.circulo, i <= estadoActual && estilos.circuloActivo]}>
-                <Text style={estilos.circuloEmoji}>{e.emoji}</Text>
+          {ESTADOS.map((e, i) => {
+            const cumplido = i < estadoActual;
+            const actual   = i === estadoActual;
+            return (
+              <View key={e.id} style={estilos.paso}>
+                <View style={[
+                  estilos.circulo,
+                  cumplido && estilos.circuloCumplido,
+                  actual && estilos.circuloActual,
+                ]}>
+                  {/* Los pasos ya cumplidos se marcan con una palomita: no
+                      hace falta repetir su icono, y así el paso ACTUAL es lo
+                      único que destaca en la columna. */}
+                  <Ionicons
+                    name={cumplido ? 'checkmark' : e.icono}
+                    size={cumplido ? 17 : 18}
+                    color={cumplido || actual ? '#FFFFFF' : colors.textoSuave}
+                  />
+                </View>
+                <Text style={[estilos.pasoLabel, actual && estilos.pasoLabelActivo]}>
+                  {e.label}
+                </Text>
+                {i < ESTADOS.length - 1 && (
+                  <View style={[estilos.linea, cumplido && estilos.lineaActiva]} />
+                )}
               </View>
-              <Text style={[estilos.pasoLabel, i === estadoActual && estilos.pasoLabelActivo]}>
-                {e.label}
-              </Text>
-              {i < ESTADOS.length - 1 && (
-                <View style={[estilos.linea, i < estadoActual && estilos.lineaActiva]} />
-              )}
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {pedido.repartidor_id && (
           <View style={estilos.repartidor}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.repTxt}>🛵 {pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
-              {pedido.repartidor?.marca_vehiculo && (
+            <View style={estilos.repFotoWrap}>
+              {(pedido.repartidor_foto_snapshot || pedido.repartidor?.usuario?.foto_perfil) ? (
+                <Image source={{ uri: pedido.repartidor_foto_snapshot || pedido.repartidor.usuario.foto_perfil }} style={estilos.repFoto} />
+              ) : (
+                <View style={estilos.repFotoPlaceholder}>
+                  <Text style={estilos.repFotoIcon}>🛵</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flex: 1, marginLeft: espacio.sm }}>
+              <Text style={estilos.repTxt}>{pedido.repartidor_nombre_snapshot || pedido.repartidor?.usuario?.nombre || 'Tu repartidor'}</Text>
+              {(pedido.repartidor?.marca_vehiculo || pedido.repartidor_placa_snapshot) && (
                 <Text style={estilos.repSub}>
-                  {pedido.repartidor.marca_vehiculo}
-                  {pedido.repartidor.color_vehiculo ? ` · ${pedido.repartidor.color_vehiculo}` : ''}
+                  {pedido.repartidor?.marca_vehiculo}
+                  {pedido.repartidor?.color_vehiculo ? ` · ${pedido.repartidor.color_vehiculo}` : ''}
+                  {pedido.repartidor_placa_snapshot ? ` · Placa ${pedido.repartidor_placa_snapshot}` : ''}
                 </Text>
               )}
             </View>
             <Pressable
-              onPress={() => Linking.openURL(`tel:${pedido.repartidor?.usuario?.telefono || ''}`)}
-              style={estilos.btnLlamar}
+              onPress={() => {
+                const msg = encodeURIComponent(
+                  `Hola VoyCorriendo, soy el cliente del pedido #${pedido.numero}. Necesito contactar a mi repartidor.`
+                );
+                Linking.openURL(`whatsapp://send?phone=${WA_VOYCORRIENDO}&text=${msg}`)
+                  .catch(() => Linking.openURL(`https://wa.me/${WA_VOYCORRIENDO}?text=${msg}`));
+              }}
+              style={estilos.btnContactar}
             >
-              <Text style={estilos.btnLlamarTxt}>📞 Llamar</Text>
+              <Text style={estilos.btnContactarTxt}>💬 Contactar</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Sugerencia cruzada: ¿te falta una bebida? */}
-        {mostrarSugerencia && (
-          <Pressable
-            style={estilos.sugerencia}
-            onPress={() =>
-              navigation.navigate('Home', {
-                screen: 'Inicio',
-                params: { filtroCategoria: 'tienda_conveniencia' },
-              })
-            }
-          >
-            <Text style={estilos.sugerenciaEmoji}>🥤</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.sugerenciaTitulo}>¿Te falta una bebida?</Text>
-              <Text style={estilos.sugerenciaSub}>
-                Mientras llega tu comida, pide refrescos, cervezas o aguas frescas de Abarrotes La Esquina →
-              </Text>
-            </View>
-          </Pressable>
-        )}
-
-        {/* ⭐ Calificación — dos conjuntos de estrellas: negocio + repartidor */}
+        {/* ⭐ Calificación */}
         {pedido.estado === 'entregado' && !yaCalificado && (
           <View style={estilos.calificacionBloque}>
             <Text style={estilos.calificacionTitulo}>¿Cómo estuvo tu pedido?</Text>
@@ -249,18 +532,53 @@ export default function SeguimientoScreen({ route, navigation }) {
                     </Pressable>
                   ))}
                 </View>
+
+                {/* Propina opcional al repartidor — SOLO efectivo (se da en
+                    mano). Con tarjeta la propina se eligió en el checkout y
+                    ya se cobró dentro del cargo; el backend ignora una nueva. */}
+                {pedido.metodo_pago === 'efectivo' && (<>
+                <Text style={[estilos.calificacionLabel, { marginTop: espacio.md }]}>
+                  Propina para el repartidor{' '}
+                  <Text style={{ fontWeight: '400', color: colors.textoSuave }}>(opcional, se la das en mano)</Text>
+                </Text>
+                <View style={estilos.propinaRow}>
+                  {[20, 30, 50].map((amt) => (
+                    <Pressable
+                      key={amt}
+                      style={[estilos.propinaChip, propina === String(amt) && estilos.propinaChipActivo]}
+                      onPress={() => setPropina(propina === String(amt) ? '' : String(amt))}
+                    >
+                      <Text style={[estilos.propinaChipTxt, propina === String(amt) && estilos.propinaChipTxtActivo]}>
+                        ${amt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <TextInput
+                    style={estilos.propinaInput}
+                    placeholder="Otro"
+                    placeholderTextColor={colors.textoSuave}
+                    keyboardType="numeric"
+                    value={[20, 30, 50].map(String).includes(propina) ? '' : propina}
+                    onChangeText={(v) => {
+                      const n = parseFloat(v) || 0;
+                      if (n <= 1000) setPropina(v);
+                    }}
+                    maxLength={4}
+                  />
+                </View>
+                </>)}
               </>
             )}
 
             {estrellas > 0 && (
-              <Pressable
-                style={estilos.btnCalificar}
-                onPress={calificar}
-                disabled={calificando}
-              >
+              <Pressable style={estilos.btnCalificar} onPress={calificar} disabled={calificando}>
                 {calificando
                   ? <ActivityIndicator color="#FFF" />
-                  : <Text style={estilos.btnCalificarTxt}>Enviar calificación</Text>
+                  : <Text style={estilos.btnCalificarTxt}>
+                      {parseFloat(propina) > 0
+                        ? `Enviar + propina $${parseFloat(propina).toFixed(0)}`
+                        : 'Enviar calificación'}
+                    </Text>
                 }
               </Pressable>
             )}
@@ -278,7 +596,7 @@ export default function SeguimientoScreen({ route, navigation }) {
           <Boton
             titulo="Ayuda con este pedido"
             variante="secundario"
-            onPress={() => Alert.alert('Soporte', 'Llama al 800-VOYCORRIENDO o abre un ticket desde la pestaña Ayuda.')}
+            onPress={() => Alert.alert('Soporte', 'Escríbenos por WhatsApp o visita la pestaña Ayuda para abrir un ticket.')}
           />
         </View>
       </ScrollView>
@@ -293,123 +611,156 @@ const estilos = StyleSheet.create({
   total: { fontSize: 28, fontWeight: '800', color: colors.primario, marginTop: espacio.xs },
   direccionEntrega: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs, textAlign: 'center', paddingHorizontal: espacio.md },
 
-  // Estado card (reemplaza mapa)
   chipEstadoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    paddingVertical: espacio.md,
-    borderRadius: radio.md,
-    gap: espacio.sm,
-    borderWidth: 1,
-    borderColor: colors.borde,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    paddingVertical: espacio.md, borderRadius: radio.md, gap: espacio.sm,
+    borderWidth: 1, borderColor: colors.borde,
   },
   chipEstadoEmoji: { fontSize: 28 },
   chipEstadoTxt: { fontSize: 16, fontWeight: '700', color: colors.texto },
 
+  chipCanceladoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.md,
+    backgroundColor: '#FEF2F2',
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    padding: espacio.md, borderRadius: radio.md,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  chipCanceladoEmoji: { fontSize: 28 },
+  chipCanceladoTxt: { fontSize: 15, fontWeight: '700', color: '#7F1D1D' },
+  chipCanceladoSub: { fontSize: 13, color: '#9B1C1C', marginTop: 2 },
+
   timeline: { padding: espacio.lg },
   paso: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.md, position: 'relative' },
+  // Timeline: discos más chicos que antes (48 → 38). El paso ACTUAL es el
+  // único en color de marca; los cumplidos van en verde con palomita y los
+  // pendientes en gris. Así se lee de un vistazo en qué punto va el pedido,
+  // en vez de una columna de círculos todos iguales.
   circulo: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: colors.borde,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: espacio.md,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.oscuroCard,
+    borderWidth: 1.5, borderColor: colors.borde,
+    alignItems: 'center', justifyContent: 'center', marginRight: espacio.md,
   },
-  circuloActivo: { backgroundColor: colors.primario },
-  circuloEmoji: { fontSize: 22 },
+  circuloCumplido: { backgroundColor: colors.secundario, borderColor: colors.secundario },
+  circuloActual:   { backgroundColor: colors.primario,   borderColor: colors.primario },
   pasoLabel: { fontSize: 15, color: colors.textoSuave, flex: 1 },
   pasoLabelActivo: { fontSize: 16, color: colors.texto, fontWeight: '700' },
   linea: {
-    position: 'absolute', left: 23, top: 48,
-    width: 2, height: espacio.md + 8,
-    backgroundColor: colors.borde,
+    position: 'absolute', left: 18, top: 38,
+    width: 2, height: espacio.md + 8, backgroundColor: colors.borde,
   },
-  lineaActiva: { backgroundColor: colors.primario },
+  lineaActiva: { backgroundColor: colors.secundario },
+
   repartidor: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.superficie,
-    padding: espacio.md,
-    marginHorizontal: espacio.md,
-    borderRadius: radio.md,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.superficie, padding: espacio.md,
+    marginHorizontal: espacio.md, borderRadius: radio.md, marginTop: espacio.md,
   },
+  repFotoWrap: { width: 48, height: 48 },
+  repFoto: { width: 48, height: 48, borderRadius: 24 },
+  repFotoPlaceholder: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#FFE6D1', alignItems: 'center', justifyContent: 'center',
+  },
+  repFotoIcon: { fontSize: 24 },
   repTxt: { fontSize: 15, fontWeight: '700', color: colors.texto },
   repSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
-  btnLlamar: { backgroundColor: colors.exito, paddingVertical: espacio.sm, paddingHorizontal: espacio.md, borderRadius: radio.full },
-  btnLlamarTxt: { color: '#FFF', fontWeight: '700' },
-
-  sugerencia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E6',
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    padding: espacio.md,
-    borderRadius: radio.md,
-    gap: espacio.md,
-    borderWidth: 1,
-    borderColor: '#FFD6A5',
+  btnContactar: {
+    backgroundColor: '#25D366', paddingVertical: espacio.sm,
+    paddingHorizontal: espacio.md, borderRadius: radio.full,
   },
-  sugerenciaEmoji: { fontSize: 32 },
-  sugerenciaTitulo: { fontSize: 15, fontWeight: '800', color: colors.texto },
-  sugerenciaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2, lineHeight: 16 },
+  btnContactarTxt: { color: '#FFF', fontWeight: '700', fontSize: 13 },
 
-  // Bloque paquetería
   paqueteriaBloque: {
-    backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    borderRadius: radio.md,
-    padding: espacio.md,
-    borderWidth: 1,
-    borderColor: '#FFD6A5',
+    backgroundColor: colors.superficie, marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.md, borderWidth: 1, borderColor: '#FFD6A5',
   },
   paqueteriaTitulo: { fontSize: 16, fontWeight: '800', color: colors.texto, marginBottom: espacio.xs },
   paqueteriaInfo: { fontSize: 13, color: colors.textoSuave, lineHeight: 18 },
-  guiaChip: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: radio.md,
-    padding: espacio.sm,
-    marginTop: espacio.xs,
-  },
+  guiaChip: { backgroundColor: '#FFF7ED', borderRadius: radio.md, padding: espacio.sm, marginTop: espacio.xs },
   guiaLabel: { fontSize: 11, color: colors.textoSuave, fontWeight: '600', textTransform: 'uppercase' },
-  guiaTxt:   { fontSize: 15, fontWeight: '800', color: colors.primario, letterSpacing: 1, marginTop: 2 },
-  // Botón WhatsApp (paquetería en_envio + VoyCorriendo Store)
+  guiaTxt: { fontSize: 15, fontWeight: '800', color: colors.primario, letterSpacing: 1, marginTop: 2 },
   btnWA: {
     flexDirection: 'row', justifyContent: 'center',
-    backgroundColor: '#25D366',
-    borderRadius: radio.md,
-    paddingVertical: espacio.sm,
-    marginTop: espacio.sm,
-    marginHorizontal: espacio.md,
+    backgroundColor: '#25D366', borderRadius: radio.md,
+    paddingVertical: espacio.sm, marginTop: espacio.sm, marginHorizontal: espacio.md,
   },
   btnWATxt: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
-  // Calificación
   calificacionBloque: {
-    backgroundColor: colors.superficie,
-    marginHorizontal: espacio.md,
-    marginTop: espacio.md,
-    borderRadius: radio.md,
-    padding: espacio.lg,
-    alignItems: 'center',
+    backgroundColor: colors.superficie, marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
   },
   calificacionTitulo: { fontSize: 18, fontWeight: '800', color: colors.texto, marginBottom: espacio.sm },
-  calificacionLabel:  { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginTop: espacio.xs },
-  calificacionSub:    { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
+  calificacionLabel: { fontSize: 14, fontWeight: '700', color: colors.textoSuave, marginTop: espacio.xs },
+  calificacionSub: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
   estrellasRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.xs },
-  estrella:     { fontSize: 40, color: colors.borde },
+  estrella: { fontSize: 40, color: colors.borde },
   estrellaActiva: { color: '#FBBF24' },
   btnCalificar: {
-    marginTop: espacio.lg,
-    backgroundColor: colors.primario,
-    paddingVertical: espacio.md,
-    paddingHorizontal: espacio.xl,
-    borderRadius: radio.md,
-    minWidth: 200,
-    alignItems: 'center',
+    marginTop: espacio.lg, backgroundColor: colors.primario,
+    paddingVertical: espacio.md, paddingHorizontal: espacio.xl,
+    borderRadius: radio.md, minWidth: 200, alignItems: 'center',
   },
   btnCalificarTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+
+  pagoBox: {
+    backgroundColor: '#EFF8FF',
+    borderWidth: 1.5, borderColor: '#009EE3',
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.md,
+  },
+  pagoBoxTitulo: { fontSize: 15, fontWeight: '800', color: '#007BB5', marginBottom: espacio.xs },
+  pagoBoxSub: { fontSize: 13, color: '#007BB5', lineHeight: 18, marginBottom: espacio.md },
+  btnPagarMP: {
+    backgroundColor: '#009EE3',
+    paddingVertical: espacio.md, borderRadius: radio.md,
+    alignItems: 'center',
+  },
+  btnPagarMPTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+
+  pagoBoxError: { backgroundColor: '#FEF2F2', borderColor: colors.error },
+  btnCancelarPedido: { backgroundColor: colors.error },
+
+  codigoCard: {
+    backgroundColor: colors.primario,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
+  },
+  codigoLabel: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.92)', letterSpacing: 2, textTransform: 'uppercase' },
+  codigoNum: { fontSize: 72, fontWeight: '900', color: '#FFFFFF', letterSpacing: 12, marginVertical: espacio.xs },
+  codigoSub: { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', lineHeight: 18 },
+
+  // Pickup listo: verde (es una buena noticia, no una alerta) y con el
+  // código igual de grande que en la entrega a domicilio.
+  pickupListo: {
+    backgroundColor: colors.secundario,
+    marginHorizontal: espacio.md, marginTop: espacio.md,
+    borderRadius: radio.md, padding: espacio.lg, alignItems: 'center',
+  },
+  pickupListoTitulo:  { fontSize: 20, fontWeight: '900', color: '#FFFFFF', textAlign: 'center' },
+  pickupListoNegocio: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', marginTop: espacio.xs },
+  pickupListoDir:     { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginTop: 2 },
+  pickupListoLabel:   { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.92)', letterSpacing: 2, textTransform: 'uppercase', marginTop: espacio.md },
+  pickupListoCodigo:  { fontSize: 64, fontWeight: '900', color: '#FFFFFF', letterSpacing: 10, marginVertical: 2 },
+  pickupListoSub:     { fontSize: 13, color: 'rgba(255,255,255,0.95)', textAlign: 'center', lineHeight: 18, marginTop: espacio.xs },
+
+  propinaRow: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs, marginTop: espacio.xs, flexWrap: 'wrap' },
+  propinaChip: {
+    paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    borderRadius: radio.full, borderWidth: 1.5, borderColor: colors.borde,
+    backgroundColor: colors.superficie,
+  },
+  propinaChipActivo: { borderColor: colors.primario, backgroundColor: '#FFF3E8' },
+  propinaChipTxt: { fontSize: 14, fontWeight: '700', color: colors.textoSuave },
+  propinaChipTxtActivo: { color: colors.primario },
+  propinaInput: {
+    borderWidth: 1.5, borderColor: colors.borde,
+    borderRadius: radio.md, paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    fontSize: 14, color: colors.texto, minWidth: 72, textAlign: 'center',
+    backgroundColor: colors.superficie,
+  },
 });

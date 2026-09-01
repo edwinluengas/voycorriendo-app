@@ -1,72 +1,86 @@
 /**
- * DashboardNegocioScreen
- * ----------------------
- * El dueño del negocio ve sus pedidos en tiempo real, agrupados por estado.
- * - Si el negocio aún no está aprobado: muestra cuadro de estado con CTA al wizard.
- * - Si está aprobado: muestra switch "Abrir/Cerrar" + tabs de pedidos.
- * - Tabs: Nuevos, En preparación, Listos, Historial
- * - Al crearse un pedido nuevo: alerta/beep (Socket.io 'nuevo_pedido')
- * - Al cambiar estado: refresco automático ('estado_pedido')
+ * DashboardNegocioScreen — Dashboard en tiempo real para el dueño del negocio.
+ * Tabs: Nuevos, Preparando, Listos, Historial
+ * Socket.io para pedidos en vivo y notificaciones locales.
  */
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator,
-  RefreshControl, Vibration, Alert, Switch, ScrollView,
+  RefreshControl, Alert, Switch, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 import { negocioDashboardAPI, negocioOnboardingAPI } from '../../api/client';
 import { conectarSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
 import { colors, espacio, radio } from '../../theme/colors';
 
-// Tabs y su mapeo a los estados de la base de datos
 const TABS = [
-  { key: 'nuevos',     label: 'Nuevos',       estados: ['pendiente'] },
-  { key: 'preparando', label: 'Preparando',   estados: ['confirmado', 'preparando'] },
-  { key: 'listos',     label: 'Listos',       estados: ['listo', 'en_camino'] },
-  { key: 'historial',  label: 'Historial',    estados: ['entregado', 'cancelado', 'rechazado'] },
+  { key: 'nuevos',     label: 'Nuevos',     estados: ['pendiente'] },
+  { key: 'preparando', label: 'Preparando', estados: ['confirmado', 'preparando'] },
+  { key: 'listos',     label: 'Listos',     estados: ['listo', 'en_camino'] },
+  { key: 'historial',  label: 'Historial',  estados: ['entregado', 'cancelado', 'rechazado'] },
 ];
 
 const ETIQUETA_ESTADO = {
-  pendiente:   { texto: 'Nuevo',        color: colors.advertencia, emoji: '🆕' },
-  confirmado:  { texto: 'Confirmado',   color: colors.secundario,  emoji: '✅' },
-  preparando:  { texto: 'Preparando',   color: colors.primario,    emoji: '🍳' },
-  listo:       { texto: 'Listo',        color: colors.exito,       emoji: '📦' },
-  en_camino:   { texto: 'En camino',    color: colors.secundario,  emoji: '🛵' },
-  entregado:   { texto: 'Entregado',    color: colors.textoSuave,  emoji: '🎉' },
-  cancelado:   { texto: 'Cancelado',    color: colors.error,       emoji: '❌' },
-  rechazado:   { texto: 'Rechazado',    color: colors.error,       emoji: '🚫' },
+  pendiente:  { texto: 'Nuevo',      color: colors.advertencia, fondo: '#FFF9E6', emoji: '🆕' },
+  confirmado: { texto: 'Confirmado', color: colors.secundario,  fondo: '#E7F7EE', emoji: '✅' },
+  preparando: { texto: 'Preparando', color: colors.primario,    fondo: '#FFF3E8', emoji: '🍳' },
+  listo:      { texto: 'Listo',      color: colors.exito,       fondo: '#ECFDF5', emoji: '📦' },
+  en_camino:  { texto: 'En camino',  color: colors.secundario,  fondo: '#E7F7EE', emoji: '🛵' },
+  entregado:  { texto: 'Entregado',  color: colors.textoSuave,  fondo: '#F3F4F6', emoji: '🎉' },
+  cancelado:  { texto: 'Cancelado',  color: colors.error,       fondo: '#FEF2F2', emoji: '❌' },
+  rechazado:  { texto: 'Rechazado',  color: colors.error,       fondo: '#FEF2F2', emoji: '🚫' },
 };
 
 const formatoHora = (fecha) => {
   if (!fecha) return '';
   try {
-    const d = new Date(fecha);
-    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    return new Date(fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   } catch (_) { return ''; }
 };
 
 export default function DashboardNegocioScreen({ navigation }) {
   const { usuario, cerrarSesion, cargarRoles } = useAuth();
-  const [tab, setTab]             = useState('nuevos');
-  const [pedidos, setPedidos]     = useState([]);
-  const [negocio, setNegocio]     = useState(null);
-  const [cargando, setCargando]   = useState(true);
+  const [tab, setTab]               = useState('nuevos');
+  const [pedidos, setPedidos]       = useState([]);
+  const [negocio, setNegocio]       = useState(null);
+  const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [cambiandoApertura, setCambiandoApertura] = useState(false);
+  const [confirmandoUbicacion, setConfirmandoUbicacion] = useState(false);
   const socketRef = useRef(null);
 
-  // Carga: 1) datos del negocio (mi-negocio) y 2) pedidos si está aprobado
+  const confirmarUbicacion = async () => {
+    setConfirmandoUbicacion(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('Permiso necesario', 'Necesitamos tu ubicación para que los repartidores puedan encontrar tu negocio. Actívala en los ajustes del telefono.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await negocioOnboardingAPI.actualizarPerfil({
+        latitud: loc.coords.latitude,
+        longitud: loc.coords.longitude,
+      });
+      setNegocio((n) => n ? { ...n, latitud: loc.coords.latitude, longitud: loc.coords.longitude } : n);
+      Alert.alert('¡Listo!', 'Tu ubicación quedó confirmada. Los repartidores ya pueden encontrarte.');
+    } catch (e) {
+      Alert.alert('No pudimos confirmar tu ubicación', e?.mensajeAmigable || 'Verifica que el GPS esté activado e intenta de nuevo.');
+    } finally {
+      setConfirmandoUbicacion(false);
+    }
+  };
+
   const cargar = useCallback(async () => {
     try {
-      // Primero traemos el estado completo del negocio
       const respNegocio = await negocioOnboardingAPI.miNegocio();
       const neg = respNegocio.data?.data?.negocio || null;
       setNegocio(neg);
-
-      // Solo cargamos pedidos si el negocio está aprobado
       if (neg?.verificacion_estado === 'aprobado') {
         const respPedidos = await negocioDashboardAPI.misPedidos();
         setPedidos(respPedidos.data.data?.pedidos || []);
@@ -74,7 +88,7 @@ export default function DashboardNegocioScreen({ navigation }) {
         setPedidos([]);
       }
     } catch (e) {
-      console.log('Error al cargar dashboard negocio:', e.mensajeAmigable);
+      Alert.alert('Error', e?.mensajeAmigable || 'No pudimos cargar el dashboard. Revisa tu conexión.');
     } finally {
       setCargando(false);
       setRefrescar(false);
@@ -83,28 +97,34 @@ export default function DashboardNegocioScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
-  // Socket.io: solo si el negocio está aprobado
   useEffect(() => {
     if (!negocio?.id || negocio?.verificacion_estado !== 'aprobado') return;
     const socket = conectarSocket();
     socketRef.current = socket;
-    socket.emit('unirse_negocio', negocio.id);
+
+    // Entra al room del negocio — y vuelve a entrar si la conexión cae y reconecta
+    const unirse = () => socket.emit('unirse_negocio', negocio.id);
+    if (socket.connected) unirse();
+    socket.on('connect', unirse);
 
     const onNuevo = () => {
-      Vibration.vibrate([0, 400, 200, 400]);
+      // Vibración y notificación push: AuthContext las dispara globalmente
+      Alert.alert('🆕 ¡Nuevo pedido!', '¿Lo aceptas ahora?',
+        [{ text: 'Ver ahora', onPress: () => setTab('nuevos') }],
+        { cancelable: true },
+      );
       cargar();
     };
     const onEstado = () => { cargar(); };
     socket.on('nuevo_pedido', onNuevo);
     socket.on('estado_pedido', onEstado);
-
     return () => {
+      socket.off('connect', unirse);
       socket.off('nuevo_pedido', onNuevo);
       socket.off('estado_pedido', onEstado);
     };
   }, [negocio?.id, negocio?.verificacion_estado, cargar]);
 
-  // Toggle abrir/cerrar negocio
   const toggleApertura = async (valor) => {
     setCambiandoApertura(true);
     try {
@@ -119,13 +139,13 @@ export default function DashboardNegocioScreen({ navigation }) {
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.fondo }}>
+      <View style={estilos.cargando}>
         <ActivityIndicator size="large" color={colors.primario} />
       </View>
     );
   }
 
-  // ─── Si NO está aprobado: mostrar estado y CTA ────────────────
+  // Estado: negocio no aprobado
   if (!negocio || negocio.verificacion_estado !== 'aprobado') {
     return (
       <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -138,87 +158,96 @@ export default function DashboardNegocioScreen({ navigation }) {
             </Text>
 
             {(negocio?.verificacion_estado === 'pendiente' ||
-              negocio?.verificacion_estado === 'rechazado' ||
-              !negocio) && (
-              <Pressable
-                style={estilos.botonCTA}
-                onPress={() => navigation.navigate('OnboardingNegocio')}
-              >
-                <Text style={estilos.botonCTATxt}>
-                  {negocio?.verificacion_estado === 'rechazado'
-                    ? 'Corregir y reenviar'
-                    : 'Continuar registro'}
+              negocio?.verificacion_estado === 'rechazado' || !negocio) && (
+              <Pressable style={estilos.ctaBtn} onPress={() => navigation.navigate('OnboardingNegocio')}>
+                <Text style={estilos.ctaBtnTxt}>
+                  {negocio?.verificacion_estado === 'rechazado' ? 'Corregir y reenviar' : 'Continuar registro'}
                 </Text>
               </Pressable>
             )}
-
             {negocio?.verificacion_estado === 'en_revision' && (
-              <Pressable style={estilos.botonRefresh} onPress={() => { setRefrescar(true); cargar(); }}>
-                <Text style={estilos.botonRefreshTxt}>🔄 Verificar estado</Text>
+              <Pressable style={estilos.refreshBtn} onPress={() => { setRefrescar(true); cargar(); }}>
+                <Text style={estilos.refreshBtnTxt}>🔄 Verificar estado</Text>
               </Pressable>
             )}
-
-            {/* Botón de fotos disponible siempre que exista el negocio */}
             {negocio && (
-              <Pressable
-                style={estilos.botonFotos}
-                onPress={() => navigation.navigate('FotosNegocio')}
-              >
-                <Text style={estilos.botonFotosTxt}>📷 Seleccionar fotos</Text>
+              <Pressable style={estilos.fotosBtn} onPress={() => navigation.navigate('FotosNegocio')}>
+                <Text style={estilos.fotosBtnTxt}>📷 Subir fotos</Text>
               </Pressable>
             )}
           </View>
         </ScrollView>
 
-        <View style={estilos.footer}>
-          <Pressable style={estilos.perfilBtn} onPress={() => navigation.navigate('Perfil')}>
-            <Text style={estilos.perfilBtnTxt}>👤 Cambiar de modo</Text>
+        <View style={estilos.footerEstado}>
+          <Pressable style={estilos.footerLink} onPress={() => navigation.navigate('Perfil')}>
+            <Text style={estilos.footerLinkTxt}>👤 Cambiar de modo</Text>
           </Pressable>
-          <Pressable onPress={() => {
-            Alert.alert('Cerrar sesión', '¿Seguro que deseas salir?', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
-            ]);
-          }}>
-            <Text style={estilos.salir}>Cerrar sesión</Text>
+          <Pressable onPress={() => Alert.alert('Cerrar sesión', '¿Seguro?', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
+          ])}>
+            <Text style={estilos.salirTxt}>Cerrar sesión</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ─── Si SÍ está aprobado: dashboard normal ────────────────────
+  // Dashboard normal
   const tabActual = TABS.find((t) => t.key === tab);
   const filtrados = pedidos.filter((p) => tabActual?.estados.includes(p.estado));
   const abierto = !!negocio.abierto_ahora;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      {/* Saludo + switch abrir/cerrar */}
-      <View style={estilos.saludo}>
-        <View style={estilos.saludoFila}>
+      {/* Header oscuro */}
+      <View style={estilos.header}>
+        <View style={estilos.headerTop}>
           <View style={{ flex: 1 }}>
-            <Text style={estilos.hola}>🏪 {negocio?.nombre || 'Tu negocio'}</Text>
-            <Text style={estilos.subtitulo}>
-              Hola {usuario?.nombre?.split(' ')[0]}, aquí ves los pedidos entrando.
-            </Text>
+            <Text style={estilos.headerNombre} numberOfLines={1}>{negocio?.nombre || 'Tu negocio'}</Text>
+            <Text style={estilos.headerSub}>Hola {usuario?.nombre?.split(' ')[0]}, aquí van los pedidos</Text>
           </View>
+          <Pressable
+            onPress={() => navigation.navigate('HorariosNegocio')}
+            hitSlop={10}
+            style={estilos.horariosBtn}
+          >
+            <Ionicons name="time-outline" size={22} color="#FFF" />
+          </Pressable>
           {cambiandoApertura
-            ? <ActivityIndicator color={colors.primario} />
+            ? <ActivityIndicator color="#FFF" />
             : <Switch
                 value={abierto}
                 onValueChange={toggleApertura}
-                trackColor={{ false: '#999', true: colors.exito }}
+                trackColor={{ false: 'rgba(255,255,255,0.2)', true: colors.exito }}
                 thumbColor="#FFF"
               />
           }
         </View>
-        <View style={[estilos.estadoApertura, { backgroundColor: abierto ? '#E7F7EE' : '#FFE2E0' }]}>
-          <Text style={[estilos.estadoAperturaTxt, { color: abierto ? '#1B7F3A' : '#B3261E' }]}>
-            {abierto ? '✅ ABIERTO — recibiendo pedidos' : '⛔ CERRADO — no recibes pedidos'}
+        <View style={[estilos.aperturaBanner, { backgroundColor: abierto ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)' }]}>
+          <View style={[estilos.aperturaDot, { backgroundColor: abierto ? colors.exito : colors.error }]} />
+          <Text style={[estilos.aperturaTxt, { color: abierto ? '#34C759' : '#FF3B30' }]}>
+            {abierto ? 'ABIERTO — recibiendo pedidos' : 'CERRADO — no recibes pedidos'}
           </Text>
         </View>
       </View>
+
+      {(!negocio.latitud || !negocio.longitud) && (
+        <View style={estilos.ubicacionBanner}>
+          <Text style={estilos.ubicacionBannerTxt}>
+            ⚠️ Tu negocio no tiene ubicación confirmada. Los repartidores no pueden encontrarte.
+          </Text>
+          <Pressable
+            style={estilos.ubicacionBannerBtn}
+            onPress={confirmarUbicacion}
+            disabled={confirmandoUbicacion}
+          >
+            {confirmandoUbicacion
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={estilos.ubicacionBannerBtnTxt}>Confirmar ahora</Text>}
+          </Pressable>
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={estilos.tabs}>
@@ -226,16 +255,11 @@ export default function DashboardNegocioScreen({ navigation }) {
           const n = pedidos.filter((p) => t.estados.includes(p.estado)).length;
           const activo = t.key === tab;
           return (
-            <Pressable
-              key={t.key}
-              onPress={() => setTab(t.key)}
-              style={[estilos.tab, activo && estilos.tabActiva]}
-            >
-              <Text style={[estilos.tabTxt, activo && estilos.tabTxtActiva]}>
-                {t.label}
-              </Text>
+            <Pressable key={t.key} onPress={() => setTab(t.key)}
+              style={[estilos.tab, activo && estilos.tabActiva]}>
+              <Text style={[estilos.tabTxt, activo && estilos.tabTxtActiva]}>{t.label}</Text>
               {n > 0 && (
-                <View style={estilos.badge}>
+                <View style={[estilos.badge, activo && estilos.badgeActivo]}>
                   <Text style={estilos.badgeTxt}>{n}</Text>
                 </View>
               )}
@@ -244,7 +268,7 @@ export default function DashboardNegocioScreen({ navigation }) {
         })}
       </View>
 
-      {/* Lista */}
+      {/* Lista de pedidos */}
       <FlatList
         data={filtrados}
         keyExtractor={(p) => p.id}
@@ -253,18 +277,20 @@ export default function DashboardNegocioScreen({ navigation }) {
             refreshing={refrescando}
             onRefresh={() => { setRefrescar(true); cargar(); }}
             tintColor={colors.primario}
+            colors={[colors.primario]}
           />
         }
         contentContainerStyle={{ paddingVertical: espacio.sm, paddingBottom: espacio.xl * 2 }}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={estilos.vacio}>
-            <Text style={{ fontSize: 54 }}>📭</Text>
-            <Text style={estilos.vacioTxt}>No hay pedidos aquí</Text>
+            <Text style={estilos.vacioEmoji}>📭</Text>
+            <Text style={estilos.vacioTxt}>Sin pedidos aquí</Text>
             <Text style={estilos.vacioSub}>
-              {tab === 'nuevos'
-                ? abierto
-                  ? 'Cuando llegue un pedido te avisaremos.'
-                  : 'Abre tu negocio para empezar a recibir pedidos.'
+              {tab === 'nuevos' && abierto
+                ? 'Cuando llegue un pedido te avisaremos.'
+                : tab === 'nuevos'
+                ? 'Abre tu negocio para recibir pedidos.'
                 : 'Desliza hacia abajo para refrescar.'}
             </Text>
           </View>
@@ -277,209 +303,252 @@ export default function DashboardNegocioScreen({ navigation }) {
         )}
       />
 
-      {/* Footer */}
+      {/* Footer de navegación */}
       <View style={estilos.footer}>
-        <View style={estilos.footerBotones}>
-          <Pressable onPress={() => navigation.navigate('ProductosNegocio')} style={estilos.tokenBtn}>
-            <Text style={estilos.tokenBtnTxt}>🍽️ Productos</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('FotosNegocio')} style={estilos.fotosBtn}>
-            <Text style={estilos.fotosBtnTxt}>📷 Fotos</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Perfil')} style={estilos.perfilBtn}>
-            <Text style={estilos.perfilBtnTxt}>👤 Perfil</Text>
-          </Pressable>
-        </View>
-        <Pressable onPress={() => {
-          Alert.alert('Cerrar sesión', '¿Seguro que deseas salir?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
-          ]);
-        }}>
-          <Text style={estilos.salir}>Cerrar sesión</Text>
+        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('ProductosNegocio')}>
+          <Ionicons name="restaurant-outline" size={22} color={colors.textoSuave} />
+          <Text style={estilos.footerTabTxt}>Productos</Text>
+        </Pressable>
+        <Pressable style={estilos.footerTab} onPress={() => navigation.navigate('GananciasNegocio')}>
+          <Ionicons name="bar-chart-outline" size={22} color={colors.textoSuave} />
+          <Text style={estilos.footerTabTxt}>Ganancias</Text>
+        </Pressable>
+<Pressable style={estilos.footerTab} onPress={() => navigation.navigate('Perfil')}>
+          <Ionicons name="person-outline" size={22} color={colors.textoSuave} />
+          <Text style={estilos.footerTabTxt}>Perfil</Text>
+        </Pressable>
+        <Pressable style={estilos.footerTab} onPress={() => Alert.alert('Cerrar sesión', '¿Seguro?', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
+        ])}>
+          <Ionicons name="log-out-outline" size={22} color={colors.error} />
+          <Text style={[estilos.footerTabTxt, { color: colors.error }]}>Salir</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-// ─── Helpers de estado de verificación ─────────────────────────
-function iconoPorEstado(estado) {
-  switch (estado) {
-    case 'pendiente':   return '📝';
-    case 'en_revision': return '⏳';
-    case 'rechazado':   return '⚠️';
-    case 'aprobado':    return '✅';
-    default:            return '🏪';
-  }
-}
-
-function tituloPorEstado(estado) {
-  switch (estado) {
-    case 'pendiente':   return 'Termina tu registro';
-    case 'en_revision': return 'En revisión';
-    case 'rechazado':   return 'Documentos rechazados';
-    case 'aprobado':    return '¡Aprobado!';
-    default:            return 'Activa tu negocio';
-  }
-}
-
-function mensajePorEstado(estado, nota) {
-  switch (estado) {
-    case 'pendiente':
-      return 'Aún te faltan datos para enviar tu negocio a revisión. Completa el registro para empezar a recibir pedidos.';
-    case 'en_revision':
-      return 'Recibimos tu negocio y nuestro equipo lo está revisando. En menos de 24 horas te avisaremos.';
-    case 'rechazado':
-      return nota || 'Tus documentos no pudieron ser aprobados. Revisa el motivo, corrige la información y vuelve a enviarlos.';
-    default:
-      return 'Para empezar a recibir pedidos necesitamos algunos datos de tu tienda o restaurante.';
-  }
-}
-
 function TarjetaPedido({ pedido, onPress }) {
-  const et = ETIQUETA_ESTADO[pedido.estado] || { texto: pedido.estado, color: colors.textoSuave, emoji: '•' };
+  const et = ETIQUETA_ESTADO[pedido.estado] || { texto: pedido.estado, color: colors.textoSuave, fondo: '#EEE', emoji: '•' };
   const totalItems = Array.isArray(pedido.items)
-    ? pedido.items.reduce((a, it) => a + (it.cantidad || 0), 0)
-    : 0;
+    ? pedido.items.reduce((a, it) => a + (it.cantidad || 0), 0) : 0;
   const requiereID = Array.isArray(pedido.items) && pedido.items.some((it) => it.requiere_id);
-  const clienteNombre = pedido.cliente?.nombre || 'Cliente';
+  const esPickup   = pedido.tipo_envio === 'pickup';
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [estilos.tarjeta, pressed && { opacity: 0.7 }]}>
-      <View style={estilos.encab}>
-        <Text style={estilos.numero}>#{pedido.numero}</Text>
-        <View style={[estilos.pill, { backgroundColor: et.color + '22', borderColor: et.color }]}>
-          <Text style={[estilos.pillTxt, { color: et.color }]}>
-            {et.emoji} {et.texto}
-          </Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [estilos.tarjeta, pressed && { opacity: 0.8 }]}
+    >
+      <View style={[estilos.tarjetaFranja, { backgroundColor: et.color }]} />
+      <View style={estilos.tarjetaCuerpo}>
+        <View style={estilos.tarjetaEncab}>
+          <Text style={estilos.tarjetaNumero}>#{pedido.numero}</Text>
+          <View style={[estilos.pill, { backgroundColor: et.fondo }]}>
+            <Text style={[estilos.pillTxt, { color: et.color }]}>{et.emoji} {et.texto}</Text>
+          </View>
         </View>
-      </View>
 
-      <Text style={estilos.cliente}>👤 {clienteNombre}</Text>
-      <Text style={estilos.direccion} numberOfLines={2}>📍 {pedido.direccion_entrega}</Text>
-
-      <View style={estilos.fila}>
-        <Text style={estilos.items}>🛍️ {totalItems} {totalItems === 1 ? 'artículo' : 'artículos'}</Text>
-        {requiereID && (
-          <View style={estilos.edadPill}>
-            <Text style={estilos.edadTxt}>🔞 Requiere INE</Text>
+        {/* Distinguir PICKUP de una entrega a domicilio: sin esta marca el
+            negocio no sabía si esperar a un repartidor o al cliente, y un
+            pedido para recoger podía quedarse listo en el mostrador sin que
+            nadie supiera que alguien iba a pasar por él. */}
+        {esPickup && (
+          <View style={estilos.pickupPill}>
+            <Ionicons name="storefront" size={13} color="#1B5E20" />
+            <Text style={estilos.pickupPillTxt}>El cliente pasa por él</Text>
           </View>
         )}
-      </View>
 
-      <View style={estilos.pie}>
-        <Text style={estilos.total}>${parseFloat(pedido.total).toFixed(2)}</Text>
-        <Text style={estilos.hora}>{formatoHora(pedido.creado_en)}</Text>
+        <Text style={estilos.tarjetaCliente} numberOfLines={1}>
+          👤 {pedido.cliente?.nombre || 'Cliente'}
+        </Text>
+        {!esPickup && (
+          <Text style={estilos.tarjetaDireccion} numberOfLines={2}>
+            📍 {pedido.direccion_entrega}
+          </Text>
+        )}
+
+        <View style={estilos.tarjetaMeta}>
+          <Text style={estilos.tarjetaItems}>
+            🛍️ {totalItems} {totalItems === 1 ? 'artículo' : 'artículos'}
+          </Text>
+          {requiereID && (
+            <View style={estilos.edadBadge}>
+              <Text style={estilos.edadBadgeTxt}>🔞 INE</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={estilos.tarjetaPie}>
+          <Text style={estilos.tarjetaTotal}>${parseFloat(pedido.total).toFixed(2)}</Text>
+          <Text style={estilos.tarjetaHora}>{formatoHora(pedido.creado_en)}</Text>
+        </View>
       </View>
     </Pressable>
   );
 }
 
+function iconoPorEstado(e) {
+  return { pendiente: '📝', en_revision: '⏳', rechazado: '⚠️', aprobado: '✅' }[e] || '🏪';
+}
+function tituloPorEstado(e) {
+  return { pendiente: 'Termina tu registro', en_revision: 'En revisión', rechazado: 'Documentos rechazados', aprobado: '¡Aprobado!' }[e] || 'Activa tu negocio';
+}
+function mensajePorEstado(e, nota) {
+  if (e === 'pendiente') return 'Aún te faltan datos. Completa el registro para empezar a recibir pedidos.';
+  if (e === 'en_revision') return 'Tu negocio está siendo revisado. Te avisaremos en menos de 24 horas.';
+  if (e === 'rechazado') return nota || 'Tus documentos no fueron aprobados. Corrige la información y vuelve a enviarla.';
+  return 'Para recibir pedidos necesitamos los datos de tu tienda o restaurante.';
+}
+
 const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
+  cargando: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.fondo },
 
-  // ── Pantalla de estado (no aprobado) ──
+  // Estado no aprobado
   scrollEstado: { padding: espacio.lg, paddingTop: espacio.xl, alignItems: 'center' },
   cuadroEstado: {
-    backgroundColor: colors.superficie,
-    padding: espacio.xl,
-    borderRadius: radio.lg,
-    alignItems: 'center',
-    width: '100%',
+    backgroundColor: colors.superficie, padding: espacio.xl,
+    borderRadius: radio.xl, alignItems: 'center', width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
   },
   iconoEstado: { fontSize: 64, marginBottom: espacio.md },
-  tituloEstado: {
-    fontSize: 22, fontWeight: '800', color: colors.texto,
-    textAlign: 'center', marginBottom: espacio.sm,
+  tituloEstado: { fontSize: 22, fontWeight: '900', color: colors.texto, textAlign: 'center', marginBottom: espacio.sm },
+  mensajeEstado: { fontSize: 14, color: colors.textoSuave, textAlign: 'center', lineHeight: 21, marginBottom: espacio.lg },
+  ctaBtn: {
+    backgroundColor: colors.primario, paddingVertical: 14, paddingHorizontal: 32,
+    borderRadius: radio.lg, marginBottom: espacio.sm,
+    shadowColor: colors.primario, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
-  mensajeEstado: {
-    fontSize: 14, color: colors.textoSuave,
-    textAlign: 'center', lineHeight: 20, marginBottom: espacio.lg,
+  ctaBtnTxt: { color: '#FFF', fontSize: 15, fontWeight: '800' },
+  refreshBtn: {
+    backgroundColor: colors.fondo, paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: radio.lg, borderWidth: 1, borderColor: colors.borde, marginBottom: espacio.sm,
   },
-  botonCTA: {
-    backgroundColor: colors.primario,
-    paddingVertical: 14, paddingHorizontal: 32,
-    borderRadius: radio.md,
+  refreshBtnTxt: { color: colors.texto, fontSize: 14, fontWeight: '700' },
+  fotosBtn: {
+    backgroundColor: '#EFF6FF', paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: radio.lg, borderWidth: 1, borderColor: '#3B82F6',
   },
-  botonCTATxt: { color: '#FFF', fontSize: 15, fontWeight: '800' },
-  botonRefresh: {
-    backgroundColor: colors.fondo,
-    paddingVertical: 12, paddingHorizontal: 24,
-    borderRadius: radio.md,
-    borderWidth: 1, borderColor: colors.borde,
+  fotosBtnTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
+  footerEstado: {
+    padding: espacio.md, alignItems: 'center', gap: espacio.sm,
+    borderTopWidth: 1, borderTopColor: colors.borde, backgroundColor: colors.superficie,
   },
-  botonRefreshTxt: { color: colors.texto, fontSize: 14, fontWeight: '700' },
-  botonFotos: {
-    marginTop: espacio.md,
-    backgroundColor: '#EFF6FF',
-    paddingVertical: 12, paddingHorizontal: 24,
-    borderRadius: radio.md,
-    borderWidth: 1, borderColor: '#3B82F6',
-  },
-  botonFotosTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
+  footerLink: { paddingVertical: 10 },
+  footerLinkTxt: { color: colors.primario, fontSize: 14, fontWeight: '700' },
+  salirTxt: { color: colors.error, fontSize: 13, fontWeight: '600' },
 
-  // ── Dashboard normal (aprobado) ──
-  saludo: { padding: espacio.lg, backgroundColor: colors.superficie, borderBottomWidth: 1, borderBottomColor: colors.borde },
-  saludoFila: { flexDirection: 'row', alignItems: 'center' },
-  hola: { fontSize: 20, fontWeight: '800', color: colors.texto },
-  subtitulo: { fontSize: 13, color: colors.textoSuave, marginTop: 4 },
-  estadoApertura: {
-    marginTop: espacio.sm,
-    paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: radio.sm, alignItems: 'center',
+  // Header
+  header: { backgroundColor: colors.primario, paddingHorizontal: espacio.lg, paddingTop: espacio.md, paddingBottom: espacio.sm },
+  headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm },
+  headerNombre: { fontSize: 20, fontWeight: '900', color: '#FFFFFF' },
+  headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  horariosBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: espacio.sm,
   },
-  estadoAperturaTxt: { fontSize: 12, fontWeight: '800' },
+  aperturaBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 7, paddingHorizontal: 12,
+    borderRadius: radio.sm, gap: 6,
+  },
+  aperturaDot: { width: 8, height: 8, borderRadius: 4 },
+  aperturaTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
 
-  tabs: { flexDirection: 'row', backgroundColor: colors.superficie, paddingHorizontal: espacio.sm, paddingTop: espacio.sm },
+  // Banner de ubicación faltante
+  ubicacionBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#FFF3E8', paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    borderBottomWidth: 1, borderBottomColor: '#FCD9B8', gap: espacio.sm,
+  },
+  ubicacionBannerTxt: { flex: 1, fontSize: 12, color: '#92400E', fontWeight: '600' },
+  ubicacionBannerBtn: {
+    backgroundColor: colors.primario, paddingVertical: 8, paddingHorizontal: 14,
+    borderRadius: radio.md,
+  },
+  ubicacionBannerBtnTxt: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+
+  // Tabs
+  tabs: {
+    flexDirection: 'row', backgroundColor: colors.superficie,
+    paddingHorizontal: espacio.xs,
+    borderBottomWidth: 1, borderBottomColor: colors.borde,
+  },
   tab: {
-    flex: 1, paddingVertical: espacio.sm, paddingHorizontal: espacio.xs,
-    alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent',
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
+    flex: 1, paddingVertical: espacio.md, paddingHorizontal: espacio.xs,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
+    gap: 5, borderBottomWidth: 3, borderBottomColor: 'transparent',
   },
   tabActiva: { borderBottomColor: colors.primario },
-  tabTxt: { fontSize: 13, fontWeight: '600', color: colors.textoSuave },
+  tabTxt: { fontSize: 12, fontWeight: '700', color: colors.textoSuave },
   tabTxtActiva: { color: colors.primario },
   badge: {
-    backgroundColor: colors.primario, borderRadius: radio.full,
-    minWidth: 20, height: 20, paddingHorizontal: 6,
+    backgroundColor: colors.borde, borderRadius: radio.full,
+    minWidth: 18, height: 18, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  badgeTxt: { color: '#FFF', fontSize: 11, fontWeight: '800' },
+  badgeActivo: { backgroundColor: colors.primario },
+  badgeTxt: { color: '#FFF', fontSize: 10, fontWeight: '900' },
 
+  // Cards de pedidos
   tarjeta: {
+    flexDirection: 'row',
     backgroundColor: colors.superficie,
-    padding: espacio.md,
     marginHorizontal: espacio.md,
     marginVertical: espacio.xs,
     borderRadius: radio.md,
-    borderLeftWidth: 4, borderLeftColor: colors.primario,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  encab: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  numero: { fontSize: 16, fontWeight: '800', color: colors.texto },
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radio.full, borderWidth: 1 },
+  tarjetaFranja: { width: 5 },
+  tarjetaCuerpo: { flex: 1, padding: espacio.md },
+  tarjetaEncab: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: espacio.xs },
+  tarjetaNumero: { fontSize: 17, fontWeight: '900', color: colors.texto },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radio.full },
   pillTxt: { fontSize: 12, fontWeight: '700' },
-  cliente: { marginTop: espacio.sm, fontSize: 14, color: colors.texto },
-  direccion: { fontSize: 13, color: colors.textoSuave, marginTop: 2 },
-  fila: { flexDirection: 'row', alignItems: 'center', marginTop: espacio.sm, gap: espacio.sm, flexWrap: 'wrap' },
-  items: { fontSize: 13, color: colors.texto, fontWeight: '600' },
-  edadPill: { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radio.full },
-  edadTxt: { fontSize: 11, color: '#991B1B', fontWeight: '700' },
-  pie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: espacio.md },
-  total: { fontSize: 18, fontWeight: '800', color: colors.primario },
-  hora: { fontSize: 12, color: colors.textoSuave },
+  tarjetaCliente: { fontSize: 13, color: colors.texto, fontWeight: '600', marginBottom: 2 },
+  tarjetaDireccion: { fontSize: 12, color: colors.textoSuave, marginBottom: espacio.sm },
+  tarjetaMeta: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm, marginBottom: espacio.sm, flexWrap: 'wrap' },
+  tarjetaItems: { fontSize: 13, color: colors.texto, fontWeight: '600' },
+  pickupPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: '#A5D6A7',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: radio.full,
+    marginTop: espacio.xs,
+  },
+  pickupPillTxt: { fontSize: 11, color: '#1B5E20', fontWeight: '800' },
+  edadBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radio.full },
+  edadBadgeTxt: { fontSize: 11, color: '#991B1B', fontWeight: '700' },
+  tarjetaPie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tarjetaTotal: { fontSize: 20, fontWeight: '900', color: colors.primario },
+  tarjetaHora: { fontSize: 12, color: colors.textoSuave },
 
+  // Vacío
   vacio: { alignItems: 'center', marginTop: espacio.xl * 2, paddingHorizontal: espacio.lg },
-  vacioTxt: { fontSize: 18, fontWeight: '700', color: colors.texto, marginTop: espacio.md },
-  vacioSub: { fontSize: 13, color: colors.textoSuave, marginTop: 4, textAlign: 'center' },
+  vacioEmoji: { fontSize: 56 },
+  vacioTxt: { fontSize: 18, fontWeight: '800', color: colors.texto, marginTop: espacio.md },
+  vacioSub: { fontSize: 13, color: colors.textoSuave, marginTop: 4, textAlign: 'center', lineHeight: 19 },
 
-  footer: { padding: espacio.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.borde, backgroundColor: colors.superficie, gap: espacio.sm },
-  footerBotones: { flexDirection: 'row', gap: espacio.sm },
-  tokenBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#FFF3E8', borderRadius: radio.full, borderWidth: 1, borderColor: colors.primario },
-  tokenBtnTxt: { color: colors.primario, fontSize: 14, fontWeight: '700' },
-  fotosBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#EFF6FF', borderRadius: radio.full, borderWidth: 1, borderColor: '#3B82F6' },
-  fotosBtnTxt: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
-  perfilBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#F0FDF4', borderRadius: radio.full, borderWidth: 1, borderColor: '#16A34A' },
-  perfilBtnTxt: { color: '#16A34A', fontSize: 14, fontWeight: '700' },
-  salir: { color: colors.error, fontSize: 14, fontWeight: '600' },
+  // Footer
+  footer: {
+    flexDirection: 'row',
+    paddingVertical: espacio.sm,
+    paddingHorizontal: espacio.md,
+    backgroundColor: colors.superficie,
+    borderTopWidth: 1,
+    borderTopColor: colors.borde,
+  },
+  footerTab: { flex: 1, alignItems: 'center', paddingVertical: espacio.xs },
+  footerTabTxt: { fontSize: 11, fontWeight: '700', color: colors.textoSuave, marginTop: 2 },
 });

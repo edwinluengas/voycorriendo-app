@@ -8,15 +8,18 @@
  *   - Apagado: no recibe pedidos, mensaje "Estas fuera de linea".
  *   - Encendido: pide ubicacion y muestra pedidos disponibles.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator,
-  Alert, RefreshControl, Switch,
+  Alert, RefreshControl, Switch, Vibration,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { repartidoresAPI, usuariosAPI } from '../../api/client';
+import * as Notifications from 'expo-notifications';
+import { repartidoresAPI } from '../../api/client';
+import { conectarSocket } from '../../api/socket';
+import { MAX_PEDIDOS_RUTA } from '../../config/businessRules';
 import { useAuth } from '../../context/AuthContext';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -24,18 +27,36 @@ import { colors, espacio, radio } from '../../theme/colors';
 export default function InicioRepartidorScreen({ navigation }) {
   const { usuario, roles, cargarRoles, cambiarModo, cerrarSesion } = useAuth();
   const [conectado, setConectado]   = useState(false);
+  // Localidad en la que quedó al conectarse — la decide el servidor con su GPS.
+  const [plazaNombre, setPlazaNombre] = useState(null);
   const [pedidos, setPedidos]       = useState([]);
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [conectando, setConectando] = useState(false);
+  const pedidosAnterioresRef = useRef(new Set());
+  // Ref para que el socket siempre llame la versión más reciente de cargarPedidos
+  const cargarPedidosRef    = useRef(null);
 
   const r = roles?.repartidor;
   const aprobado = r?.estado === 'aprobado';
+
+  // Pedidos YA ACEPTADOS y aún no entregados (mi ruta activa). Sin esto, si
+  // el repartidor cierra la app o cambia de rol a media entrega, el pedido
+  // "desaparecía": la única navegación a PedidoActivo era el instante de
+  // aceptar, y esta pantalla solo lista pedidos disponibles (sin asignar).
+  const [rutaActiva, setRutaActiva] = useState([]);
+  const cargarRuta = useCallback(async () => {
+    try {
+      const { data } = await repartidoresAPI.miRuta();
+      setRutaActiva(data.data?.batch?.pedidos || []);
+    } catch (_) {}
+  }, []);
 
   // Cargar estado actual al entrar
   useFocusEffect(useCallback(() => {
     (async () => {
       await cargarRoles();
+      cargarRuta();
       setCargando(false);
     })();
   }, []));
@@ -56,17 +77,94 @@ export default function InicioRepartidorScreen({ navigation }) {
     return () => clearInterval(intervalo);
   }, [conectado, aprobado]);
 
-  const cargarPedidos = async () => {
+  const cargarPedidos = useCallback(async () => {
     try {
       const { data } = await repartidoresAPI.pedidosDisponibles();
-      setPedidos(data.data?.pedidos || []);
-    } catch (e) {
-      // 403: no esta conectado / no aprobado / etc. Silenciamos.
+      const nuevos = data.data?.pedidos || [];
+      const nuevosIds = nuevos.map((p) => p.id);
+      const hayNuevos = nuevosIds.some((id) => !pedidosAnterioresRef.current.has(id));
+      if (hayNuevos && pedidosAnterioresRef.current.size > 0) {
+        Vibration.vibrate([0, 300, 200, 300]);
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: '🛵 ¡Nuevo pedido disponible!',
+            body: 'Hay un pedido cerca de ti. ¡Tómalo antes que alguien más!',
+            sound: true,
+            channelId: 'repartidor',
+            data: { tipo: 'pedido_disponible' },
+          },
+          trigger: null,
+        }).catch(() => {});
+        Alert.alert(
+          '🛵 ¡Nuevo pedido!',
+          'Hay un pedido disponible cerca de ti.',
+          [{ text: '¡Ver ahora!', style: 'default' }],
+          { cancelable: true },
+        );
+      }
+      pedidosAnterioresRef.current = new Set(nuevosIds);
+      setPedidos(nuevos);
+    } catch (_) {
       setPedidos([]);
     } finally {
       setRefrescar(false);
     }
-  };
+    cargarRuta();
+  }, [cargarRuta]);
+
+  // Mantener ref actualizada para el socket (evita stale closure)
+  useEffect(() => { cargarPedidosRef.current = cargarPedidos; }, [cargarPedidos]);
+
+  // Socket para notificación inmediata de pedidos disponibles
+  useEffect(() => {
+    if (!conectado || !aprobado || !usuario?.id) return;
+    const socket = conectarSocket();
+
+    // Entrar al room del repartidor — y volver a entrar si el socket reconecta
+    const unirse = () => socket.emit('unirse_repartidor', usuario.id);
+    if (socket.connected) unirse();
+    socket.on('connect', unirse);
+
+    const onDisponible = () => { cargarPedidosRef.current?.(); };
+    socket.on('pedido_disponible', onDisponible);
+
+    // Aviso dirigido: el backend ya verificó que este pedido le queda de paso
+    // en la ruta que trae (services/ruta.service). Vale más que el aviso
+    // general — es otra tarifa completa en el mismo viaje — así que se
+    // muestra con su propio diálogo y opción de tomarlo al instante.
+    const onEnTuRuta = (info) => {
+      cargarPedidosRef.current?.();
+      Vibration.vibrate([0, 250, 150, 250, 150, 250]);
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '➕ Otro pedido en tu misma ruta',
+          body: `${info?.negocio || 'Un negocio cercano'} · +$${Number(info?.pago || 0).toFixed(0)} en el mismo viaje`,
+          sound: true,
+          channelId: 'repartidor',
+          data: { tipo: 'pedido_en_tu_ruta', pedidoId: info?.pedido_id },
+        },
+        trigger: null,
+      }).catch(() => {});
+      Alert.alert(
+        '➕ Otro pedido en tu ruta',
+        `${info?.negocio || 'Un negocio cercano'}\n`
+        + `+$${Number(info?.pago || 0).toFixed(0)} por este pedido\n`
+        + `${info?.motivo || ''}\n\n`
+        + `Te ${info?.lugares_libres === 1 ? 'queda 1 lugar' : `quedan ${info?.lugares_libres} lugares`} en esta ruta.`,
+        [
+          { text: 'Ahora no', style: 'cancel' },
+          { text: 'Tomarlo', onPress: () => info?.pedido_id && aceptarRef.current?.(info.pedido_id) },
+        ],
+      );
+    };
+    socket.on('pedido_en_tu_ruta', onEnTuRuta);
+
+    return () => {
+      socket.off('connect', unirse);
+      socket.off('pedido_disponible', onDisponible);
+      socket.off('pedido_en_tu_ruta', onEnTuRuta);
+    };
+  }, [conectado, aprobado, usuario?.id]);
 
   // ─── Conectarse / desconectarse ──────────────────────────
   const togglearConexion = async (nuevoEstado) => {
@@ -89,6 +187,7 @@ export default function InicioRepartidorScreen({ navigation }) {
 
       const { data } = await repartidoresAPI.conectarse(nuevoEstado, lat, lng);
       setConectado(data.data?.conectado);
+      setPlazaNombre(data.data?.ciudad_nombre || null);
       if (nuevoEstado) cargarPedidos();
     } catch (e) {
       Alert.alert('No se pudo cambiar', e.mensajeAmigable || 'Intenta de nuevo.');
@@ -102,10 +201,16 @@ export default function InicioRepartidorScreen({ navigation }) {
       await repartidoresAPI.aceptarPedido(id);
       navigation.navigate('PedidoActivo', { pedidoId: id });
     } catch (e) {
-      Alert.alert('No se pudo aceptar', e.mensajeAmigable || 'Otro repartidor lo tomo primero.');
+      // El backend distingue "fuera de tu ruta" de "ya lo tomaron": son
+      // situaciones distintas y el repartidor necesita saber cuál fue.
+      const titulo = e?.codigoError === 'FUERA_DE_RUTA' ? 'No va en tu ruta' : 'No se pudo aceptar';
+      Alert.alert(titulo, e.mensajeAmigable || 'Otro repartidor lo tomó primero.');
       cargarPedidos();
     }
   };
+  // Ref para que el listener del socket llame siempre a la versión vigente
+  const aceptarRef = useRef(null);
+  useEffect(() => { aceptarRef.current = aceptar; });
 
   const volverACliente = async () => {
     try { await cambiarModo('cliente'); } catch (_) {}
@@ -158,7 +263,9 @@ export default function InicioRepartidorScreen({ navigation }) {
           </Text>
           <Text style={estilos.subtitulo}>
             {conectado
-              ? `Hola ${usuario?.nombre?.split(' ')[0]}, esperando pedidos cercanos`
+              // La plaza va en el encabezado: el repartidor SOLO ve pedidos de
+              // la localidad desde donde se conectó, y tiene que saber cual es.
+              ? `Hola ${usuario?.nombre?.split(' ')[0]}, esperando pedidos${plazaNombre ? ` en ${plazaNombre}` : ' cercanos'}`
               : 'Conectate para empezar a recibir pedidos'}
           </Text>
         </View>
@@ -173,6 +280,43 @@ export default function InicioRepartidorScreen({ navigation }) {
           />
         )}
       </View>
+
+      {/* Pedido(s) en curso — SIEMPRE visible, conectado o no */}
+      {rutaActiva.map((p) => (
+        <Pressable
+          key={p.id}
+          style={estilos.enCurso}
+          onPress={() => navigation.navigate('PedidoActivo', { pedidoId: p.id })}
+        >
+          <Text style={{ fontSize: 28 }}>🛵</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={estilos.enCursoTitulo}>Pedido en curso — {p.numero}</Text>
+            <Text style={estilos.enCursoSub} numberOfLines={1}>→ {p.direccion_entrega}</Text>
+          </View>
+          <Text style={estilos.enCursoIr}>Continuar ›</Text>
+        </Pressable>
+      ))}
+
+      {/* Cupo de la ruta: hasta 3 pedidos en el mismo viaje si van por el
+          mismo rumbo. Se dice explícito para que el repartidor sepa que
+          puede seguir tomando sin terminar la entrega actual. */}
+      {rutaActiva.length > 0 && rutaActiva.length < MAX_PEDIDOS_RUTA && (
+        <View style={estilos.cupoRuta}>
+          <Text style={estilos.cupoRutaTxt}>
+            {`➕ Puedes tomar ${MAX_PEDIDOS_RUTA - rutaActiva.length} pedido${MAX_PEDIDOS_RUTA - rutaActiva.length > 1 ? 's' : ''} más en este mismo viaje`}
+          </Text>
+          <Text style={estilos.cupoRutaSub}>
+            Solo los que van por tu mismo rumbo — te avisamos en cuanto salga uno.
+          </Text>
+        </View>
+      )}
+      {rutaActiva.length >= MAX_PEDIDOS_RUTA && (
+        <View style={estilos.cupoRutaLleno}>
+          <Text style={estilos.cupoRutaTxt}>
+            {`🛵 Ruta llena (${MAX_PEDIDOS_RUTA} pedidos) — entrega para poder tomar más`}
+          </Text>
+        </View>
+      )}
 
       {/* Indicadores rapidos */}
       <View style={estilos.statsBar}>
@@ -220,7 +364,21 @@ export default function InicioRepartidorScreen({ navigation }) {
               <View style={estilos.pie}>
                 <View>
                   <Text style={estilos.total}>${parseFloat(item.total).toFixed(2)}</Text>
-                  <Text style={estilos.ganancia}>Ganancia: ${item.ganancia_estimada || '35'}</Text>
+                  {/* Lo que REALMENTE va a cobrar. Antes se leía un campo
+                      `ganancia_estimada` que no existe en ninguna respuesta,
+                      así que SIEMPRE caía al respaldo "$35" escrito a mano
+                      —y la tarifa subió a $40 en julio—: al repartidor se le
+                      prometían $5 menos de los que iba a cobrar.
+                      Se usa `fee_cliente` (la tarifa de envío, que es
+                      exactamente su pago) porque `pago_repartidor` vale 0
+                      hasta que la entrega se liquida. */}
+                  <Text style={estilos.ganancia}>
+                    Ganancia: ${parseFloat(
+                      Number(item.pago_repartidor) > 0
+                        ? item.pago_repartidor
+                        : (item.fee_cliente ?? item.costo_envio ?? 0),
+                    ).toFixed(2)}
+                  </Text>
                 </View>
                 <Boton
                   titulo="Tomar pedido"
@@ -234,9 +392,12 @@ export default function InicioRepartidorScreen({ navigation }) {
       )}
 
       <View style={estilos.footer}>
-        <View style={{ flexDirection: 'row', gap: espacio.md, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: espacio.md, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Pressable onPress={volverACliente}>
             <Text style={estilos.cambiarModo}>← Modo cliente</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate('GananciasRepartidor')}>
+            <Text style={estilos.cambiarModo}>💰 Mis ganancias</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('Perfil')}>
             <Text style={estilos.cambiarModo}>👤 Mi perfil</Text>
@@ -311,6 +472,35 @@ const estilos = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borde,
   },
+
+  // Banner de pedido en curso (ruta activa)
+  enCurso: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espacio.sm,
+    backgroundColor: colors.primario,
+    marginHorizontal: espacio.md,
+    marginTop: espacio.sm,
+    padding: espacio.md,
+    borderRadius: radio.md,
+  },
+  enCursoTitulo: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  enCursoSub:    { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  enCursoIr:     { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  cupoRuta: {
+    backgroundColor: '#E8F5E9', borderRadius: radio.md,
+    paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    marginHorizontal: espacio.lg, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: '#A5D6A7',
+  },
+  cupoRutaLleno: {
+    backgroundColor: '#FFF4ED', borderRadius: radio.md,
+    paddingVertical: espacio.sm, paddingHorizontal: espacio.md,
+    marginHorizontal: espacio.lg, marginBottom: espacio.sm,
+    borderWidth: 1, borderColor: colors.primario,
+  },
+  cupoRutaTxt: { fontSize: 14, fontWeight: '800', color: '#1B5E20' },
+  cupoRutaSub: { fontSize: 12, color: '#388E3C', marginTop: 2 },
   stat: { flex: 1, alignItems: 'center' },
   statBtn: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   statBtnEmoji: { fontSize: 18 },

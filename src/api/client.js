@@ -36,6 +36,10 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Callback registrado por AuthContext para manejar cierre de sesión automático en 401
+let _onUnauthorized = null;
+export const setUnauthorizedCallback = (fn) => { _onUnauthorized = fn; };
+
 // Interceptor: manejo de errores en español (con logs detallados)
 api.interceptors.response.use(
   (resp) => {
@@ -51,12 +55,49 @@ api.interceptors.response.use(
     console.log('   data:', JSON.stringify(error.response?.data));
     console.log('   url:', error.config?.url);
 
-    const mensaje =
-      error.response?.data?.mensaje ||
-      (error.code === 'ECONNABORTED'
-        ? 'La conexión tardó demasiado. Revisa tu internet.'
-        : 'No pudimos conectarnos al servidor. Intenta de nuevo.');
-    return Promise.reject({ ...error, mensajeAmigable: mensaje });
+    // JWT expirado o inválido → cerrar sesión automáticamente
+    if (error.response?.status === 401 && _onUnauthorized) {
+      _onUnauthorized();
+    }
+
+    // El usuario debe VER el motivo real. Antes, cualquier respuesta sin
+    // campo `mensaje` (por ejemplo las validaciones de express-validator, que
+    // llegan como { ok:false, errores:[{msg}] }) caía en el genérico "no
+    // pudimos conectarnos al servidor" — y parecía un problema de internet
+    // cuando en realidad era un dato mal escrito en el formulario.
+    const datos = error.response?.data;
+    const detalleValidacion = Array.isArray(datos?.errores) && datos.errores.length
+      ? datos.errores.map((e) => e.msg || e.mensaje || e.message).filter(Boolean).join('\n• ')
+      : null;
+
+    let mensaje;
+    if (datos?.mensaje) {
+      mensaje = datos.mensaje;
+    } else if (detalleValidacion) {
+      mensaje = datos.errores.length > 1 ? `• ${detalleValidacion}` : detalleValidacion;
+    } else if (error.response) {
+      // Hubo respuesta del servidor pero sin cuerpo entendible: se informa el
+      // código real en vez de culpar a la conexión.
+      mensaje = error.response.status >= 500
+        ? `El servidor tuvo un problema (error ${error.response.status}). Intenta de nuevo en un momento.`
+        : `El servidor rechazó la solicitud (error ${error.response.status}).`;
+    } else if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+      // Se agotó NUESTRO tiempo de espera: la petición salió bien, el
+      // servidor simplemente no contestó a tiempo. Culpar al internet del
+      // usuario lo manda a revisar su wifi por un problema que no es suyo
+      // — pasó de verdad con el correo de recuperación, donde el servidor
+      // tardaba dos minutos esperando al proveedor de correo.
+      mensaje = 'El servidor está tardando más de lo normal. Espera un momento y vuelve a intentar.';
+    } else {
+      mensaje = `No pudimos conectarnos al servidor (${error.code || error.message || 'sin respuesta'}). Revisa tu internet.`;
+    }
+
+    return Promise.reject({
+      ...error,
+      mensajeAmigable: mensaje,
+      campoError: datos?.campo || null,
+      codigoError: datos?.codigo || null,
+    });
   }
 );
 
@@ -65,11 +106,20 @@ api.interceptors.response.use(
 export const authAPI = {
   registro: (data) => api.post('/auth/registro', data),
   login:    (data) => api.post('/auth/login', data),
+  // Segundo factor de las cuentas admin (código de un solo uso)
+  loginSegundoFactor: (data) => api.post('/auth/login-2fa', data),
   yo:       ()     => api.get('/auth/perfil'),
+  // Recuperación de contraseña: pide código por SMS o correo, y luego lo canjea
+  // por una contraseña nueva (el backend devuelve token, se entra directo).
+  recuperarPassword:   (data) => api.post('/auth/recuperar-password', data),
+  restablecerPassword: (data) => api.post('/auth/restablecer-password', data),
 };
 
 export const negociosAPI = {
-  listar:     ()      => api.get('/negocios'),
+  // La ciudad decide QUÉ catálogo se ve: son pueblos distintos y a decenas
+  // de km, así que sin este parámetro un cliente de Putla veía restaurantes
+  // de Puerto Escondido a los que jamás podría pedir.
+  listar:     (ciudad) => api.get('/negocios', { params: ciudad ? { ciudad } : {} }),
   detalle:    (id)    => api.get(`/negocios/${id}`),
   productos:  async (id) => {
     const resp = await api.get(`/negocios/${id}`);
@@ -85,12 +135,25 @@ export const pedidosAPI = {
   crear:       (data)        => api.post('/pedidos', data),
   misPedidos:  ()            => api.get('/pedidos'),
   detalle:     (id)          => api.get(`/pedidos/${id}`),
+  // Ruta por calles para el mapa en vivo (repartidor → negocio → entrega).
+  // `ruta` viene null si Google no está disponible: el mapa dibuja entonces
+  // la línea recta, no se queda sin nada.
+  ruta:        (id, lat, lng) => api.get(`/pedidos/${id}/ruta`, { params: { lat, lng } }),
   // Cotiza costo de envío y zona antes de crear el pedido
-  cotizar:     (negocio_id, lat, lng) =>
-    api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng } }),
+  cotizar:     (negocio_id, lat, lng, tipo_envio = 'standard') =>
+    api.get('/pedidos/cotizar', { params: { negocio_id, lat, lng, tipo_envio } }),
+  // Qué tipos de entrega se pueden ofrecer ahora mismo (si no hay repartidor
+  // en línea con cupo, el backend responde solo pickup)
+  disponibilidadEnvio: (negocio_id) =>
+    api.get('/pedidos/disponibilidad', { params: { negocio_id } }),
+  // Reglas vigentes de la plataforma (métodos de pago activos, límites,
+  // tarifas). Permite prender/apagar cosas sin compilar un APK nuevo.
+  configPublica: () => api.get('/config-publica'),
   // Cancelar = transición de estado a 'cancelado' (solo el cliente puede hacerla mientras el pedido esté pendiente)
   cancelar:    (id, motivo)  => api.patch(`/pedidos/${id}/estado`, { estado: 'cancelado', nota: motivo }),
   calificar:   (id, data)    => api.post(`/pedidos/${id}/calificar`, data),
+  // Sube la foto del INE a Supabase Storage y devuelve la URL pública
+  subirFotoINE: (base64, mime) => api.post('/pedidos/ine-foto', { base64, mime }),
   // Actualización genérica de estado (usada por negocio y repartidor)
   actualizarEstado: (id, estado, nota, extra = {}) =>
     api.patch(`/pedidos/${id}/estado`, { estado, nota, ...extra }),
@@ -118,20 +181,43 @@ export const negocioOnboardingAPI = {
   misProductos:      ()                    => api.get('/negocios/mi-negocio/productos'),
   crearProducto:     (data)                => api.post('/negocios/mi-negocio/productos', data),
   actualizarProducto: (id, data)           => api.patch(`/negocios/mi-negocio/productos/${id}`, data),
+  eliminarProducto:  (id)                  => api.delete(`/negocios/mi-negocio/productos/${id}`),
   subirFotoProducto: (id, base64, mime)    => api.post(`/negocios/mi-negocio/productos/${id}/foto`, { base64, mime }),
+  ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
+  pagarDeuda:        (referencia_spei, monto) => api.post('/negocios/mi-negocio/pagar-deuda', { referencia_spei, monto }),
+  retiroDiario:      ()                    => api.post('/negocios/mi-negocio/retiro-diario'),
 };
 
 export const pagosAPI = {
   preferencia:     (pedido_id)                         => api.post('/pagos/preferencia', { pedido_id }),
   efectivo:        (pedido_id, monto_recibido)         => api.post('/pagos/efectivo', { pedido_id, monto_recibido }),
   transferencia:   (pedido_id, referencia, comprobante)=> api.post('/pagos/transferencia', { pedido_id, referencia, comprobante_url: comprobante }),
+  tarjeta:         (payload)                           => api.post('/pagos/tarjeta', payload),
+};
+
+export const tarjetasAPI = {
+  listar:   ()       => api.get('/tarjetas'),
+  agregar:  (token)  => api.post('/tarjetas', { token }),
+  eliminar: (id)      => api.delete(`/tarjetas/${id}`),
 };
 
 // Multi-rol (estilo Uber/Rappi): consultar y cambiar modo activo
 export const usuariosAPI = {
-  misRoles:         ()      => api.get('/usuarios/mis-roles'),
-  cambiarModo:      (modo)  => api.post('/usuarios/cambiar-modo', { modo }),
-  guardarPushToken: (token) => api.patch('/usuarios/push-token', { token }),
+  misRoles:              ()           => api.get('/usuarios/mis-roles'),
+  cambiarModo:           (modo)       => api.post('/usuarios/cambiar-modo', { modo }),
+  guardarPushToken:      (token)      => api.patch('/usuarios/push-token', { token }),
+  misDirecciones:        ()           => api.get('/usuarios/mis-direcciones'),
+  agregarDireccion:      (data)       => api.post('/usuarios/mis-direcciones', data),
+  eliminarDireccion:     (id)         => api.delete(`/usuarios/mis-direcciones/${id}`),
+  misCalificaciones:     ()           => api.get('/usuarios/mis-calificaciones'),
+  getMetodoPagoDefault:  ()           => api.get('/usuarios/metodo-pago-default'),
+  setMetodoPagoDefault:  (metodo)     => api.patch('/usuarios/metodo-pago-default', { metodo }),
+  getNotificaciones:     ()           => api.get('/usuarios/notificaciones'),
+  setNotificaciones:     (prefs)      => api.patch('/usuarios/notificaciones', prefs),
+  // Eliminación de cuenta: el GET dice qué se borra, qué se conserva y qué
+  // lo impide; el DELETE ejecuta y exige la contraseña.
+  estadoEliminacion:     ()           => api.get('/usuarios/mi-cuenta/eliminacion'),
+  eliminarMiCuenta:      (password)   => api.delete('/usuarios/mi-cuenta', { data: { password } }),
 };
 
 export const repartidoresAPI = {
@@ -146,28 +232,32 @@ export const repartidoresAPI = {
     api.patch('/repartidores/conectarse', { conectado: true, latitud: lat, longitud: lng }),
   pedidosDisponibles: ()                   => api.get('/repartidores/pedidos-disponibles'),
   aceptarPedido:      (pedido_id)          => api.post('/repartidores/aceptar-pedido', { pedido_id }),
-  actualizarEstado:   (pedido_id, estado)  => api.patch(`/pedidos/${pedido_id}/estado`, { estado }),
+  marcarRecogido:     (pedido_id)          => api.patch(`/repartidores/pedidos/${pedido_id}/recogido`),
+  actualizarEstado:   (pedido_id, estado, extra = {}) => api.patch(`/pedidos/${pedido_id}/estado`, { estado, ...extra }),
   disponibilidad:     (disponible, lat, lng) =>
     api.patch('/repartidores/disponibilidad', { disponible, latitud: lat, longitud: lng }),
   misEntregas:        ()                   => api.get('/repartidores/mis-entregas'),
   miRuta:             ()                   => api.get('/repartidores/mi-ruta'),
   crearPerfil:        (data)               => api.post('/repartidores/perfil', data),
+  ganancias:          ()                   => api.get('/repartidores/ganancias'),
+  solicitarDeposito:  ()                   => api.post('/repartidores/solicitar-deposito'),
+  retiroDiario:       ()                   => api.post('/repartidores/retiro-diario'),
 };
 
 export const adminAPI = {
   dashboard:          ()                    => api.get('/admin/dashboard'),
+  obtenerNegocio:     (id)                  => api.get(`/admin/negocios/${id}`),
   aprobarNegocio:     (id)                  => api.patch(`/admin/negocios/${id}/aprobar`),
   rechazarNegocio:    (id, motivo)          => api.patch(`/admin/negocios/${id}/rechazar`, { motivo }),
+  obtenerRepartidor:  (id)                  => api.get(`/admin/repartidores/${id}`),
   aprobarRepartidor:  (id)                  => api.patch(`/admin/repartidores/${id}/aprobar`),
   rechazarRepartidor: (id, motivo)          => api.patch(`/admin/repartidores/${id}/rechazar`, { motivo }),
   revenue:            (periodo = 'semana')  => api.get('/admin/revenue', { params: { periodo } }),
   usuarios:           (buscar)              => api.get('/admin/usuarios', { params: buscar ? { buscar } : {} }),
 };
 
-export const tokensAPI = {
-  packs:   ()         => api.get('/tokens/packs'),
-  saldo:   ()         => api.get('/tokens/saldo'),
-  comprar: (pack_type) => api.post('/tokens/comprar', { pack_type }),
+export const telegramAPI = {
+  vincularLink: () => api.get('/telegram/vincular-link'),
 };
 
 export default api;

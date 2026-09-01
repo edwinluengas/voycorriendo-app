@@ -18,16 +18,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { pedirImagen, tomarFoto } from '../../utils/imagenes';
 import { repartidoresAPI } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const TOTAL_PASOS = 5;
+const TOTAL_PASOS = 6;
 
 export default function OnboardingRepartidorScreen({ navigation }) {
-  const { cargarRoles } = useAuth();
+  const { cargarRoles, usuario } = useAuth();
   const [paso, setPaso] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -44,6 +45,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
     foto_ine_reverso: null,
     foto_licencia: null,
     foto_tarjeta_circulacion: null,
+    foto_perfil: null,
   });
 
   // Activamos modo repartidor al abrir (idempotente: si ya existe, no truena)
@@ -67,6 +69,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
             foto_ine_reverso: r.foto_ine_reverso,
             foto_licencia:    r.foto_licencia,
             foto_tarjeta_circulacion: r.foto_tarjeta_circulacion,
+            foto_perfil:      usuario?.foto_perfil || null,
           }));
         }
       } catch (e) {
@@ -107,25 +110,20 @@ export default function OnboardingRepartidorScreen({ navigation }) {
   };
 
   const seleccionarYSubir = (tipo, columnaLocal) => {
-    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
-      {
-        text: '📷 Tomar foto',
-        onPress: async () => {
-          const r = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, allowsEditing: false });
-          if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      {
-        text: '🖼️ Elegir de galería',
-        onPress: async () => {
-          const r = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.6, allowsEditing: false,
-          });
-          if (!r.canceled && r.assets?.length) await _subirFotoConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    // La selfie se toma en vivo con cámara frontal — no se permite elegir de
+    // galería (verifica que sea la persona registrándose ahora mismo).
+    if (tipo === 'foto_perfil') {
+      (async () => {
+        const asset = await tomarFoto({ cameraType: ImagePicker.CameraType.front });
+        if (asset) await _subirFotoConAsset(tipo, columnaLocal, asset);
+      })();
+      return;
+    }
+
+    (async () => {
+      const asset = await pedirImagen();
+      if (asset) await _subirFotoConAsset(tipo, columnaLocal, asset);
+    })();
   };
 
   // ── Avanzar / retroceder ──────────────────────────────────
@@ -155,6 +153,11 @@ export default function OnboardingRepartidorScreen({ navigation }) {
       }
     }
     if (paso === 4) {
+      if (!datos.foto_perfil) {
+        return Alert.alert('Falta foto', 'Toma una selfie de tu cara para completar tu perfil.');
+      }
+    }
+    if (paso === 5) {
       if (datos.clabe_bancaria.length !== 18) {
         return Alert.alert('CLABE inválida', 'La CLABE debe tener exactamente 18 dígitos.');
       }
@@ -167,6 +170,7 @@ export default function OnboardingRepartidorScreen({ navigation }) {
       });
       if (!ok) return;
     }
+    if (paso === 6) return;
     setPaso((p) => Math.min(p + 1, TOTAL_PASOS));
   };
 
@@ -204,15 +208,15 @@ export default function OnboardingRepartidorScreen({ navigation }) {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        keyboardVerticalOffset={0}
       >
         <BarraProgreso paso={paso} total={TOTAL_PASOS} />
 
         <ScrollView
           contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="always"
           automaticallyAdjustKeyboardInsets={true}
+          showsVerticalScrollIndicator={true}
         >
           {paso === 1 && <PasoVehiculo datos={datos} setDatos={setDatos} />}
           {paso === 2 && (
@@ -239,8 +243,9 @@ export default function OnboardingRepartidorScreen({ navigation }) {
               seleccionar={seleccionarYSubir}
             />
           )}
-          {paso === 4 && <PasoBancario datos={datos} setDatos={setDatos} />}
-          {paso === 5 && <PasoResumen datos={datos} />}
+          {paso === 4 && <PasoSelfie datos={datos} seleccionar={seleccionarYSubir} />}
+          {paso === 5 && <PasoBancario datos={datos} setDatos={setDatos} />}
+          {paso === 6 && <PasoResumen datos={datos} />}
         </ScrollView>
 
         <View style={estilos.botones}>
@@ -291,25 +296,11 @@ function PasoVehiculo({ datos, setDatos }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
   return (
     <View>
-      <Text style={estilos.tituloPaso}>🛵 Tu vehículo</Text>
+      <Text style={estilos.tituloPaso}>🛵 Tu motocicleta</Text>
       <Text style={estilos.subtitulo}>
-        ¿Con qué vas a entregar los pedidos?
+        Todas las entregas de VoyCorriendo son en motocicleta. Registra los
+        datos de la tuya — deben coincidir con tu tarjeta de circulación.
       </Text>
-
-      <View style={estilos.opcionesFila}>
-        <OpcionTipo
-          activo={datos.tipo_vehiculo === 'motocicleta'}
-          icono="🛵"
-          label="Motocicleta"
-          onPress={() => set('tipo_vehiculo')('motocicleta')}
-        />
-        <OpcionTipo
-          activo={datos.tipo_vehiculo === 'bicicleta'}
-          icono="🚲"
-          label="Bicicleta"
-          onPress={() => set('tipo_vehiculo')('bicicleta')}
-        />
-      </View>
 
       <Campo
         etiqueta="Placa *"
@@ -349,18 +340,6 @@ function PasoVehiculo({ datos, setDatos }) {
   );
 }
 
-function OpcionTipo({ activo, icono, label, onPress }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[estilos.opcionTarjeta, activo && estilos.opcionTarjetaActiva]}
-    >
-      <Text style={{ fontSize: 36 }}>{icono}</Text>
-      <Text style={[estilos.opcionTexto, activo && { color: colors.primario }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 // ─── Paso 2 y 3: Fotos genericas ────────────────────────────
 function PasoFotos({ titulo, subtitulo, fotos, datos, seleccionar }) {
   return (
@@ -390,7 +369,52 @@ function PasoFotos({ titulo, subtitulo, fotos, datos, seleccionar }) {
   );
 }
 
-// ─── Paso 4: Cuenta bancaria ────────────────────────────────
+// ─── Paso 4: Selfie / foto de cara ─────────────────────────
+function PasoSelfie({ datos, seleccionar }) {
+  return (
+    <View>
+      <Text style={estilos.tituloPaso}>🤳 Tu foto de perfil</Text>
+      <Text style={estilos.subtitulo}>
+        Los clientes verán tu cara cuando reciban su pedido. Usa buena iluminación y mira directo a la cámara.
+      </Text>
+
+      <View style={{ alignItems: 'center', marginVertical: espacio.lg }}>
+        {datos.foto_perfil ? (
+          <Image
+            source={{ uri: datos.foto_perfil }}
+            style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: colors.primario }}
+          />
+        ) : (
+          <View style={{
+            width: 140, height: 140, borderRadius: 70,
+            backgroundColor: '#FFE6D1', alignItems: 'center', justifyContent: 'center',
+            borderWidth: 2, borderColor: colors.borde, borderStyle: 'dashed',
+          }}>
+            <Text style={{ fontSize: 48 }}>🧑</Text>
+            <Text style={{ fontSize: 12, color: colors.textoSuave, marginTop: 4 }}>Sin foto</Text>
+          </View>
+        )}
+      </View>
+
+      <Pressable
+        style={[estilos.fotoBoton, { alignSelf: 'stretch' }]}
+        onPress={() => seleccionar('foto_perfil', 'foto_perfil')}
+      >
+        <Text style={estilos.fotoBotonTxt}>
+          {datos.foto_perfil ? '🔄 Cambiar foto' : '📷 Tomar selfie'}
+        </Text>
+      </Pressable>
+
+      <View style={[estilos.aviso, { marginTop: espacio.lg }]}>
+        <Text style={estilos.avisoTxt}>
+          📌 Tu cara debe ser claramente visible. No uses lentes oscuros ni sombreros que cubran tu rostro.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Paso 5: Cuenta bancaria ────────────────────────────────
 function PasoBancario({ datos, setDatos }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
   const bancos = ['BBVA', 'Banamex', 'Santander', 'Banorte', 'HSBC', 'Azteca', 'Mercado Pago', 'Otro'];
@@ -428,7 +452,7 @@ function PasoBancario({ datos, setDatos }) {
   );
 }
 
-// ─── Paso 5: Resumen ────────────────────────────────────────
+// ─── Paso 6: Resumen ────────────────────────────────────────
 function PasoResumen({ datos }) {
   return (
     <View>
@@ -449,10 +473,11 @@ function PasoResumen({ datos }) {
 
       <View style={estilos.tarjetaResumen}>
         <Text style={estilos.resumenSeccion}>Documentos</Text>
-        <Item label="INE frente"     valor={datos.foto_ine_frente ? '✅ Subida' : '❌ Falta'} />
-        <Item label="INE reverso"    valor={datos.foto_ine_reverso ? '✅ Subida' : '❌ Falta'} />
-        <Item label="Licencia"       valor={datos.foto_licencia ? '✅ Subida' : '❌ Falta'} />
-        <Item label="Tarjeta circ."  valor={datos.foto_tarjeta_circulacion ? '✅ Subida' : '— Opcional'} />
+        <Item label="Foto de perfil"  valor={datos.foto_perfil ? '✅ Subida' : '❌ Falta'} />
+        <Item label="INE frente"      valor={datos.foto_ine_frente ? '✅ Subida' : '❌ Falta'} />
+        <Item label="INE reverso"     valor={datos.foto_ine_reverso ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Licencia"        valor={datos.foto_licencia ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Tarjeta circ."   valor={datos.foto_tarjeta_circulacion ? '✅ Subida' : '— Opcional'} />
       </View>
 
       <View style={estilos.tarjetaResumen}>

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, Pressable, Alert, Modal,
   ActivityIndicator, StyleSheet, RefreshControl,
-  TextInput, ScrollView, KeyboardAvoidingView, Platform,
+  TextInput, ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -100,6 +100,93 @@ function ModalRechazo({ visible, titulo, onCancelar, onConfirmar }) {
   );
 }
 
+// ─── Modal de documentos (foto/INE/licencia/etc) ─────────────
+function FotoDoc({ label, url, onVerGrande }) {
+  if (!url) {
+    return (
+      <View style={estilos.docFalta}>
+        <Text style={estilos.docFaltaTxt}>❌ {label} — no subida</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={estilos.docBox}>
+      <Text style={estilos.docLabel}>{label}</Text>
+      <Pressable onPress={() => onVerGrande(url, label)}>
+        <Image source={{ uri: url }} style={estilos.docImagen} resizeMode="contain" />
+        <Text style={estilos.docVerGrandeTxt}>🔍 Toca para ver completo (incluye CURP)</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ─── Visor de documento en pantalla completa (pinch-to-zoom nativo) ──
+function VisorDocumento({ url, label, onCerrar }) {
+  return (
+    <Modal visible={!!url} transparent animationType="fade" onRequestClose={onCerrar}>
+      <View style={estilos.visorFondo}>
+        <Pressable style={estilos.visorCerrar} onPress={onCerrar} hitSlop={16}>
+          <Text style={estilos.visorCerrarTxt}>✕ Cerrar</Text>
+        </Pressable>
+        {!!label && <Text style={estilos.visorLabel}>{label}</Text>}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={estilos.visorScrollContenido}
+          minimumZoomScale={1}
+          maximumZoomScale={4}
+          pinchGestureEnabled
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+        >
+          {!!url && <Image source={{ uri: url }} style={estilos.visorImagen} resizeMode="contain" />}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function ModalDocumentos({ visible, cargando, tipo, data, onCerrar }) {
+  const docs = data?.documentos_firmados || {};
+  const [grande, setGrande] = useState(null); // { url, label }
+  const verGrande = (url, label) => setGrande({ url, label });
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onCerrar}>
+      <SafeAreaView style={estilos.docContenedor} edges={['top', 'bottom']}>
+        <View style={estilos.docHeader}>
+          <Text style={estilos.docTitulo}>
+            {tipo === 'negocio' ? `🏪 ${data?.nombre || ''}` : `🛵 ${data?.usuario?.nombre || ''}`}
+          </Text>
+          <Pressable onPress={onCerrar}><Text style={estilos.docCerrar}>✕</Text></Pressable>
+        </View>
+        {cargando ? (
+          <ActivityIndicator size="large" color={colors.primario} style={{ marginTop: 40 }} />
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: espacio.md }}>
+            {tipo === 'repartidor' ? (
+              <>
+                <FotoDoc label="Selfie de perfil" url={data?.usuario?.foto_perfil} onVerGrande={verGrande} />
+                <FotoDoc label="INE — frente" url={docs.ine_frente} onVerGrande={verGrande} />
+                <FotoDoc label="INE — reverso (aquí suele estar la CURP)" url={docs.ine_reverso} onVerGrande={verGrande} />
+                <FotoDoc label="Licencia de conducir" url={docs.licencia} onVerGrande={verGrande} />
+                <FotoDoc label="Tarjeta de circulación" url={docs.tarjeta_circulacion} onVerGrande={verGrande} />
+              </>
+            ) : (
+              <>
+                <FotoDoc label="Foto de portada" url={docs.foto_portada} onVerGrande={verGrande} />
+                <FotoDoc label="Foto del local" url={docs.foto_local} onVerGrande={verGrande} />
+                <FotoDoc label="Comprobante de domicilio" url={docs.comprobante_domicilio} onVerGrande={verGrande} />
+                <FotoDoc label="INE del dueño" url={docs.documento_ine_dueno} onVerGrande={verGrande} />
+                <FotoDoc label="RFC" url={docs.documento_rfc} onVerGrande={verGrande} />
+              </>
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+      <VisorDocumento url={grande?.url} label={grande?.label} onCerrar={() => setGrande(null)} />
+    </Modal>
+  );
+}
+
 // ─── Pantalla principal ──────────────────────────────────────
 export default function AprobacionesScreen() {
   const [tabMain, setTabMain]         = useState('pendientes');
@@ -113,7 +200,27 @@ export default function AprobacionesScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [accionando, setAccionando]   = useState(null);
   const [rechazo, setRechazo]         = useState(null); // { id, nombre, tipo }
+  const [verDoc, setVerDoc]           = useState(null); // { tipo }
+  const [docData, setDocData]        = useState(null);
+  const [cargandoDoc, setCargandoDoc] = useState(false);
   const buscarTimer                   = useRef(null);
+
+  const abrirDocumentos = async (tipo, id) => {
+    setVerDoc({ tipo });
+    setDocData(null);
+    setCargandoDoc(true);
+    try {
+      const { data } = tipo === 'negocio'
+        ? await adminAPI.obtenerNegocio(id)
+        : await adminAPI.obtenerRepartidor(id);
+      setDocData(data.data?.negocio || data.data?.repartidor || null);
+    } catch (e) {
+      Alert.alert('Error', e?.mensajeAmigable || 'No se pudieron cargar los documentos.');
+      setVerDoc(null);
+    } finally {
+      setCargandoDoc(false);
+    }
+  };
 
   const cargarDash = useCallback(async () => {
     const { data } = await adminAPI.dashboard();
@@ -313,6 +420,7 @@ export default function AprobacionesScreen() {
                 <TarjetaNegocio
                   negocio={item}
                   enProceso={accionando === item.id}
+                  onVerDocumentos={() => abrirDocumentos('negocio', item.id)}
                   onAprobar={() => aprobarNeg(item.id, item.nombre)}
                   onRechazar={() => setRechazo({ id: item.id, nombre: item.nombre, tipo: 'negocio' })}
                 />
@@ -320,6 +428,7 @@ export default function AprobacionesScreen() {
                 <TarjetaRepartidor
                   repartidor={item}
                   enProceso={accionando === item.id}
+                  onVerDocumentos={() => abrirDocumentos('repartidor', item.id)}
                   onAprobar={() => aprobarRep(item.id, item.usuario?.nombre || 'Sin nombre')}
                   onRechazar={() => setRechazo({ id: item.id, nombre: item.usuario?.nombre || 'Sin nombre', tipo: 'repartidor' })}
                 />
@@ -457,6 +566,15 @@ export default function AprobacionesScreen() {
         onCancelar={() => setRechazo(null)}
         onConfirmar={rechazo?.tipo === 'negocio' ? rechazarNegConMotivo : rechazarRepConMotivo}
       />
+
+      {/* Modal de documentos */}
+      <ModalDocumentos
+        visible={!!verDoc}
+        cargando={cargandoDoc}
+        tipo={verDoc?.tipo}
+        data={docData}
+        onCerrar={() => { setVerDoc(null); setDocData(null); }}
+      />
     </SafeAreaView>
   );
 }
@@ -510,7 +628,7 @@ function EstadoBadge({ estado }) {
   );
 }
 
-function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
+function TarjetaNegocio({ negocio, enProceso, onVerDocumentos, onAprobar, onRechazar }) {
   return (
     <View style={estilos.tarjeta}>
       <View style={estilos.encabFila}>
@@ -527,6 +645,9 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
       {negocio.verificacion_nota && (
         <Text style={estilos.nota}>📝 {negocio.verificacion_nota}</Text>
       )}
+      <Pressable style={estilos.btnVerDocs} onPress={onVerDocumentos}>
+        <Text style={estilos.btnVerDocsTxt}>📄 Ver documentos</Text>
+      </Pressable>
       <View style={estilos.botonesRow}>
         <Pressable
           style={[estilos.btnRechazar, enProceso && estilos.btnDis]}
@@ -549,7 +670,7 @@ function TarjetaNegocio({ negocio, enProceso, onAprobar, onRechazar }) {
   );
 }
 
-function TarjetaRepartidor({ repartidor, enProceso, onAprobar, onRechazar }) {
+function TarjetaRepartidor({ repartidor, enProceso, onVerDocumentos, onAprobar, onRechazar }) {
   const nombre = repartidor.usuario?.nombre || 'Sin nombre';
   const tel    = repartidor.usuario?.telefono || '';
   return (
@@ -568,6 +689,9 @@ function TarjetaRepartidor({ repartidor, enProceso, onAprobar, onRechazar }) {
       {repartidor.verificacion_nota && (
         <Text style={estilos.nota}>📝 {repartidor.verificacion_nota}</Text>
       )}
+      <Pressable style={estilos.btnVerDocs} onPress={onVerDocumentos}>
+        <Text style={estilos.btnVerDocsTxt}>📄 Ver documentos</Text>
+      </Pressable>
       <View style={estilos.botonesRow}>
         <Pressable
           style={[estilos.btnRechazar, enProceso && estilos.btnDis]}
@@ -657,6 +781,12 @@ const estilos = StyleSheet.create({
     borderRadius: radio.full, borderWidth: 1,
   },
   pillTxt: { fontSize: 11, fontWeight: '700' },
+
+  btnVerDocs: {
+    marginTop: espacio.sm, paddingVertical: 8, borderRadius: radio.sm,
+    borderWidth: 1.5, borderColor: colors.primario, alignItems: 'center',
+  },
+  btnVerDocsTxt: { color: colors.primario, fontWeight: '700', fontSize: 13 },
 
   botonesRow: { flexDirection: 'row', gap: espacio.sm, marginTop: espacio.md },
   btnRechazar: {
@@ -769,4 +899,42 @@ const estilos = StyleSheet.create({
   modalBtnRechazar:   { backgroundColor: colors.error },
   modalBtnCancelarTxt: { fontSize: 15, fontWeight: '700', color: colors.textoSuave },
   modalBtnRechazarTxt: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+
+  // Modal de documentos
+  docContenedor: { flex: 1, backgroundColor: colors.fondo },
+  docHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: espacio.md, backgroundColor: colors.superficie,
+    borderBottomWidth: 1, borderBottomColor: colors.borde,
+  },
+  docTitulo: { fontSize: 17, fontWeight: '800', color: colors.texto },
+  docCerrar: { fontSize: 22, color: colors.textoSuave, paddingHorizontal: espacio.sm },
+  docBox: { marginBottom: espacio.lg },
+  docLabel: { fontSize: 14, fontWeight: '700', color: colors.texto, marginBottom: espacio.xs },
+  docImagen: {
+    width: '100%', height: 220, borderRadius: radio.md,
+    backgroundColor: colors.borde,
+  },
+  docVerGrandeTxt: {
+    fontSize: 12, color: colors.primario, fontWeight: '700',
+    textAlign: 'center', marginTop: 4,
+  },
+  visorFondo: { flex: 1, backgroundColor: '#000' },
+  visorCerrar: {
+    position: 'absolute', top: 48, right: espacio.lg, zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: radio.md,
+  },
+  visorCerrarTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  visorLabel: {
+    color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center',
+    marginTop: 48, marginBottom: espacio.sm, paddingHorizontal: espacio.xl,
+  },
+  visorScrollContenido: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  visorImagen: { width: '100%', height: 500 },
+  docFalta: {
+    backgroundColor: '#FEF2F2', borderRadius: radio.md, padding: espacio.md,
+    marginBottom: espacio.lg, borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  docFaltaTxt: { color: '#991B1B', fontWeight: '700', fontSize: 13 },
 });

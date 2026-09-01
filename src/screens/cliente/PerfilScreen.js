@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable,
+  Alert, ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
+import { usePlaza } from '../../context/PlazaContext';
 
 export default function PerfilScreen({ navigation }) {
   const { usuario, roles, cerrarSesion, cambiarModo, cargarRoles } = useAuth();
+  const plaza = usePlaza();
   const [cambiando, setCambiando] = useState(false);
 
-  // Refresca roles cada vez que abren la pantalla
   useEffect(() => { cargarRoles(); }, []);
 
   const salir = () => {
-    Alert.alert('Cerrar sesion', '¿Quieres salir de tu cuenta?', [
+    Alert.alert('Cerrar sesión', '¿Quieres salir de tu cuenta?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Salir', style: 'destructive', onPress: cerrarSesion },
     ]);
@@ -32,66 +35,62 @@ export default function PerfilScreen({ navigation }) {
   };
 
   const modoActivo = usuario?.modo_activo || 'cliente';
+  const inicial = usuario?.nombre?.charAt(0).toUpperCase() || '?';
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
-        <View style={estilos.avatar}>
-          <Text style={estilos.avatarTxt}>
-            {usuario?.nombre?.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
-        <Text style={estilos.nombre}>{usuario?.nombre}</Text>
-        <Text style={estilos.dato}>📱 {usuario?.telefono}</Text>
-        {usuario?.email && <Text style={estilos.dato}>📧 {usuario.email}</Text>}
-
-        {/* ─── Mis modos (multi-rol estilo Uber/Rappi) ──────────── */}
-        <Text style={estilos.tituloSeccion}>Mis modos</Text>
-        <Text style={estilos.subtituloSeccion}>
-          Cambia entre cliente, repartidor y negocio. Activa los modos que quieras usar.
-        </Text>
-
-        {cambiando && (
-          <View style={estilos.cargando}>
-            <ActivityIndicator color={colors.primario} />
+      <ScrollView
+        contentContainerStyle={estilos.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero del perfil */}
+        <View style={estilos.hero}>
+          <View style={estilos.avatarWrap}>
+            <View style={estilos.avatar}>
+              <Text style={estilos.avatarTxt}>{inicial}</Text>
+            </View>
           </View>
-        )}
+          <Text style={estilos.nombre}>{usuario?.nombre}</Text>
+          <View style={estilos.datosFila}>
+            <Text style={estilos.dato}>📱 {usuario?.telefono}</Text>
+            {usuario?.email && <Text style={estilos.dato}>  ·  📧 {usuario.email}</Text>}
+          </View>
+        </View>
 
-        <ModoTarjeta
+        {/* Modos */}
+        <View style={estilos.seccionHeader}>
+          <Text style={estilos.seccionTit}>Mis modos</Text>
+          {cambiando && <ActivityIndicator color={colors.primario} size="small" />}
+        </View>
+        <Text style={estilos.seccionSub}>Sé cliente, repartidor y negocio con una sola cuenta</Text>
+
+        <ModoCard
           icono="🛒"
+          iconoColor="#FF5C00"
           titulo="Cliente"
-          subtitulo="Pide comida y productos a domicilio"
+          subtitulo="Pide comida y productos"
           activo={modoActivo === 'cliente'}
           estado={roles?.cliente?.estado || 'aprobado'}
           mensaje={roles?.cliente?.mensaje}
-          onPress={() => cambiar('cliente')}
           onAccion={() => cambiar('cliente')}
           textoAccion="Usar este modo"
         />
-
-        <ModoTarjeta
+        <ModoCard
           icono="🛵"
+          iconoColor="#00B341"
           titulo="Repartidor"
-          subtitulo="Recibe pedidos y gana dinero entregando"
+          subtitulo="Gana dinero repartiendo"
           activo={modoActivo === 'repartidor'}
           estado={roles?.repartidor?.estado || 'inactivo'}
           mensaje={roles?.repartidor?.mensaje}
           calificacion={roles?.repartidor?.calificacion}
           onAccion={() => {
             const r = roles?.repartidor;
-            if (!r?.activo) {
-              // No tiene perfil de repartidor todavia: arrancamos el wizard
-              navigation.navigate('OnboardingRepartidor');
-              return;
-            }
-            if (r.estado === 'pendiente' || r.estado === 'rechazado') {
-              // Tiene perfil pero falta info / fue rechazado: regresar al wizard
-              navigation.navigate('OnboardingRepartidor');
-              return;
+            if (!r?.activo || r.estado === 'pendiente' || r.estado === 'rechazado') {
+              navigation.navigate('OnboardingRepartidor'); return;
             }
             if (r.estado !== 'aprobado') {
-              Alert.alert('Aun no disponible', r.mensaje || 'Tu cuenta de repartidor aun esta en revision.');
-              return;
+              Alert.alert('Aún no disponible', r.mensaje || 'Tu cuenta está en revisión.'); return;
             }
             cambiar('repartidor');
           }}
@@ -99,15 +98,14 @@ export default function PerfilScreen({ navigation }) {
             !roles?.repartidor?.activo ? 'Activar modo' :
             roles?.repartidor?.estado === 'pendiente' ? 'Continuar registro' :
             roles?.repartidor?.estado === 'rechazado' ? 'Corregir y reenviar' :
-            roles?.repartidor?.estado === 'aprobado' ? 'Usar este modo' :
-            'Ver estado'
+            roles?.repartidor?.estado === 'aprobado' ? 'Usar este modo' : 'Ver estado'
           }
         />
-
-        <ModoTarjeta
+        <ModoCard
           icono="🏪"
+          iconoColor="#3B82F6"
           titulo="Negocio"
-          subtitulo="Administra tu tienda o restaurante"
+          subtitulo="Administra tu tienda"
           activo={modoActivo === 'negocio'}
           estado={roles?.negocio?.estado || 'inactivo'}
           mensaje={roles?.negocio?.mensaje}
@@ -115,19 +113,11 @@ export default function PerfilScreen({ navigation }) {
           destacado={roles?.negocio?.destacado_calidad}
           onAccion={() => {
             const n = roles?.negocio;
-            if (!n?.activo) {
-              // No tiene negocio: arrancamos el wizard
-              navigation.navigate('OnboardingNegocio');
-              return;
-            }
-            if (n.estado === 'pendiente' || n.estado === 'rechazado') {
-              // Tiene negocio pero falta info / fue rechazado: regresar al wizard
-              navigation.navigate('OnboardingNegocio');
-              return;
+            if (!n?.activo || n.estado === 'pendiente' || n.estado === 'rechazado') {
+              navigation.navigate('OnboardingNegocio'); return;
             }
             if (n.estado !== 'aprobado') {
-              Alert.alert('Aun no disponible', n.mensaje || 'Tu negocio aun esta en revision.');
-              return;
+              Alert.alert('Aún no disponible', n.mensaje || 'Tu negocio está en revisión.'); return;
             }
             cambiar('negocio');
           }}
@@ -135,222 +125,236 @@ export default function PerfilScreen({ navigation }) {
             !roles?.negocio?.activo ? 'Activar modo' :
             roles?.negocio?.estado === 'pendiente' ? 'Continuar registro' :
             roles?.negocio?.estado === 'rechazado' ? 'Corregir y reenviar' :
-            roles?.negocio?.estado === 'aprobado' ? 'Usar este modo' :
-            'Ver estado'
+            roles?.negocio?.estado === 'aprobado' ? 'Usar este modo' : 'Ver estado'
           }
         />
 
-        {/* ─── VoyTokens ─────────────────────────────────────── */}
-        {(usuario?.voytokens >= 0) && (
-          <View style={estilos.tokensBox}>
-            <View style={estilos.tokensEncab}>
-              <Text style={estilos.tokensEmoji}>🪙</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={estilos.tokensTitulo}>{usuario.voytokens || 0} VoyTokens</Text>
-                <Text style={estilos.tokensSub}>
-                  {(usuario.voytokens || 0) >= 50
-                    ? '¡Tienes envío gratis! Úsalo en tu próximo pedido.'
-                    : `${50 - (usuario.voytokens || 0)} tokens más para tu próximo envío gratis`}
-                </Text>
-              </View>
-              <Text style={estilos.tokensCont}>{Math.min(usuario.voytokens || 0, 50)}/50</Text>
-            </View>
-            <View style={estilos.tokensBarFondo}>
-              <View style={[estilos.tokensBarRelleno, {
-                width: `${Math.min(((usuario.voytokens || 0) / 50) * 100, 100)}%`,
-              }]} />
-            </View>
-          </View>
-        )}
-
-        {/* ─── Opciones de cuenta ─────────────────────────────── */}
-        <Text style={estilos.tituloSeccion}>Mi cuenta</Text>
-        <View style={estilos.opciones}>
-          <Opcion icono="📍" titulo="Mis direcciones" onPress={() => Alert.alert('Proximamente')} />
-          <Opcion icono="💳" titulo="Metodos de pago" onPress={() => Alert.alert('Proximamente')} />
-          <Opcion icono="⭐" titulo="Mis calificaciones" onPress={() => Alert.alert('Proximamente')} />
-          <Opcion icono="🔔" titulo="Notificaciones" onPress={() => Alert.alert('Proximamente')} />
-          <Opcion icono="📄" titulo="Terminos y privacidad" onPress={() => Alert.alert('Proximamente')} />
+        {/* Opciones de cuenta */}
+        <Text style={[estilos.seccionTit, { marginTop: espacio.lg }]}>Mi cuenta</Text>
+        <View style={estilos.menuCard}>
+          <MenuItem icono="📍" titulo="Mis direcciones" onPress={() => navigation.navigate('Direcciones')} />
+          <View style={estilos.divider} />
+          <MenuItem icono="💳" titulo="Métodos de pago" onPress={() => navigation.navigate('MetodosPago')} />
+          <View style={estilos.divider} />
+          <MenuItem icono="⭐" titulo="Mis calificaciones" onPress={() => navigation.navigate('Calificaciones')} />
+          <View style={estilos.divider} />
+          <MenuItem icono="🔔" titulo="Notificaciones" onPress={() => navigation.navigate('Notificaciones')} />
+          <View style={estilos.divider} />
+          <MenuItem icono="📄" titulo="Términos y privacidad" onPress={() => navigation.navigate('PoliticaPrivacidad')} />
+          <View style={estilos.divider} />
+          {/* Requisito de Google Play desde 2024: el borrado de cuenta tiene
+              que estar DENTRO de la app, no solo por correo. */}
+          <MenuItem icono="🗑️" titulo="Eliminar mi cuenta" onPress={() => navigation.navigate('EliminarCuenta')} ultima />
         </View>
 
-        <Boton titulo="Cerrar sesion" variante="secundario" onPress={salir} />
-        <Text style={estilos.version}>VoyCorriendo v1.0 · Puerto Escondido</Text>
+        <Pressable style={estilos.btnSalir} onPress={salir}>
+          <Text style={estilos.btnSalirTxt}>Cerrar sesión</Text>
+        </Pressable>
+
+        <Text style={estilos.version}>{plaza.marca || 'VoyCorriendo'}</Text>
       </ScrollView>
+
     </SafeAreaView>
   );
 }
 
-// ─── Tarjeta de un modo (cliente/repartidor/negocio) ────────────
-const ModoTarjeta = ({ icono, titulo, subtitulo, activo, estado, mensaje, calificacion, destacado, onAccion, textoAccion }) => {
-  const colorEstado = colorPorEstado(estado);
+function ModoCard({ icono, iconoColor, titulo, subtitulo, activo, estado, mensaje, calificacion, destacado, onAccion, textoAccion }) {
+  const infoEstado = estadoInfo(estado);
   return (
-    <View style={[estilos.tarjeta, activo && estilos.tarjetaActiva]}>
-      <View style={estilos.tarjetaCabecera}>
-        <Text style={estilos.tarjetaIcono}>{icono}</Text>
+    <View style={[estilos.modoCard, activo && estilos.modoCardActivo]}>
+      <View style={estilos.modoCabecera}>
+        <View style={[estilos.modoIconoWrap, { backgroundColor: iconoColor + '20' }]}>
+          <Text style={estilos.modoIcono}>{icono}</Text>
+        </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={estilos.tarjetaTitulo}>{titulo}</Text>
-            {activo && <View style={estilos.bagdgeActivo}><Text style={estilos.bagdgeTxt}>EN USO</Text></View>}
-            {destacado && <View style={estilos.badgeDestacado}><Text style={estilos.bagdgeTxt}>TOP</Text></View>}
+          <View style={estilos.modoTituloFila}>
+            <Text style={estilos.modoTitulo}>{titulo}</Text>
+            {activo && <View style={estilos.badgeActivo}><Text style={estilos.badgeActivoTxt}>EN USO</Text></View>}
+            {destacado && <View style={estilos.badgeTop}><Text style={estilos.badgeActivoTxt}>TOP</Text></View>}
           </View>
-          <Text style={estilos.tarjetaSub}>{subtitulo}</Text>
+          <Text style={estilos.modoSub}>{subtitulo}</Text>
+          {calificacion && <Text style={estilos.calif}>⭐ {Number(calificacion).toFixed(1)}</Text>}
         </View>
       </View>
 
-      <View style={[estilos.estadoFila, { backgroundColor: colorEstado.fondo }]}>
-        <Text style={[estilos.estadoTxt, { color: colorEstado.texto }]}>
-          {etiquetaEstado(estado)}
-        </Text>
-        {calificacion ? (
-          <Text style={estilos.calif}>⭐ {Number(calificacion).toFixed(1)}</Text>
-        ) : null}
+      <View style={[estilos.estadoFila, { backgroundColor: infoEstado.fondo }]}>
+        <Text style={[estilos.estadoTxt, { color: infoEstado.color }]}>{infoEstado.texto}</Text>
       </View>
 
-      {mensaje ? <Text style={estilos.mensaje}>{mensaje}</Text> : null}
+      {mensaje && <Text style={estilos.mensaje}>{mensaje}</Text>}
 
       <Pressable
-        style={[estilos.botonModo, activo && estilos.botonModoActivo]}
+        style={[estilos.modoBtn, activo && estilos.modoBtnActivo]}
         onPress={onAccion}
         disabled={activo}
       >
-        <Text style={[estilos.botonModoTxt, activo && estilos.botonModoTxtActivo]}>
-          {activo ? '✓ Estás aquí' : textoAccion}
+        <Text style={[estilos.modoBtnTxt, activo && estilos.modoBtnTxtActivo]}>
+          {activo ? '✓ Modo activo' : textoAccion}
         </Text>
       </Pressable>
     </View>
   );
-};
+}
 
-function colorPorEstado(estado) {
+function estadoInfo(estado) {
   switch (estado) {
-    case 'aprobado':    return { fondo: '#E7F7EE', texto: '#1B7F3A' };
-    case 'pendiente':   return { fondo: '#FFF3D6', texto: '#A66B00' };
-    case 'rechazado':   return { fondo: '#FFE2E0', texto: '#B3261E' };
-    case 'suspendido':  return { fondo: '#FFE2E0', texto: '#B3261E' };
-    case 'bloqueado':   return { fondo: '#3A2A2A', texto: '#FFFFFF' };
-    case 'inactivo':
-    default:            return { fondo: '#EEE',    texto: '#666' };
+    case 'aprobado':   return { texto: '✓ Aprobado',     color: '#1B7F3A', fondo: '#E7F7EE' };
+    case 'pendiente':  return { texto: '⏳ En revisión', color: '#A66B00', fondo: '#FFF3D6' };
+    case 'rechazado':  return { texto: '✕ Rechazado',    color: '#B3261E', fondo: '#FFE2E0' };
+    case 'suspendido': return { texto: '⛔ Suspendido',  color: '#B3261E', fondo: '#FFE2E0' };
+    case 'bloqueado':  return { texto: '🚫 Bloqueado',   color: '#FFFFFF', fondo: '#3A2A2A' };
+    default:           return { texto: 'No activo',      color: '#666',    fondo: '#EEE' };
   }
 }
 
-function etiquetaEstado(estado) {
-  switch (estado) {
-    case 'aprobado':   return '✓ Aprobado';
-    case 'pendiente':  return '⏳ En revision';
-    case 'rechazado':  return '✕ Rechazado';
-    case 'suspendido': return '⛔ Suspendido';
-    case 'bloqueado':  return '🚫 Bloqueado';
-    case 'inactivo':
-    default:           return 'No activo';
-  }
-}
-
-const Opcion = ({ icono, titulo, onPress }) => (
-  <Pressable style={estilos.opcion} onPress={onPress}>
-    <Text style={estilos.opcionIcono}>{icono}</Text>
-    <Text style={estilos.opcionTxt}>{titulo}</Text>
-    <Text style={estilos.opcionFlecha}>›</Text>
+const MenuItem = ({ icono, titulo, onPress, ultima = false }) => (
+  <Pressable
+    style={({ pressed }) => [estilos.menuItem, pressed && { backgroundColor: colors.fondo }]}
+    onPress={onPress}
+  >
+    <View style={estilos.menuIconoWrap}>
+      <Text style={estilos.menuIcono}>{icono}</Text>
+    </View>
+    <Text style={estilos.menuTxt}>{titulo}</Text>
+    <Text style={estilos.menuChevron}>›</Text>
   </Pressable>
 );
 
 const estilos = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: colors.fondo },
-  scroll: { padding: espacio.lg, alignItems: 'stretch' },
-  avatar: {
-    alignSelf: 'center',
-    width: 96, height: 96, borderRadius: 48,
+  scroll: { paddingBottom: espacio.xl },
+
+  hero: {
+    backgroundColor: colors.oscuro,
+    paddingVertical: espacio.xl,
+    paddingHorizontal: espacio.lg,
+    alignItems: 'center',
+  },
+  avatarWrap: {
+    padding: 3,
+    borderRadius: 52,
     backgroundColor: colors.primario,
-    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.primario,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
     marginBottom: espacio.md,
   },
-  avatarTxt: { color: '#FFF', fontSize: 40, fontWeight: '800' },
-  nombre: { fontSize: 22, fontWeight: '700', color: colors.texto, textAlign: 'center' },
-  dato: { fontSize: 14, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.xs },
-
-  tituloSeccion: {
-    fontSize: 16, fontWeight: '800', color: colors.texto,
-    marginTop: espacio.lg, marginBottom: espacio.xs,
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.oscuroCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primario,
   },
-  subtituloSeccion: {
-    fontSize: 12, color: colors.textoSuave, marginBottom: espacio.md,
+  avatarTxt: { color: '#FFF', fontSize: 36, fontWeight: '900' },
+  nombre: { fontSize: 24, fontWeight: '900', color: '#FFFFFF', marginBottom: espacio.xs },
+  datosFila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  dato: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
+
+
+  seccionHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: espacio.lg,
+    marginTop: espacio.lg,
+  },
+  seccionTit: {
+    fontSize: 18, fontWeight: '900', color: colors.texto,
+    paddingHorizontal: espacio.lg,
+    marginTop: espacio.lg,
+  },
+  seccionSub: {
+    fontSize: 13, color: colors.textoSuave,
+    paddingHorizontal: espacio.lg,
+    marginTop: 2, marginBottom: espacio.md,
   },
 
-  cargando: { marginVertical: espacio.sm, alignItems: 'center' },
-
-  // Tarjeta de modo
-  tarjeta: {
+  modoCard: {
     backgroundColor: colors.superficie,
-    borderRadius: radio.md,
-    padding: espacio.md,
+    marginHorizontal: espacio.lg,
     marginBottom: espacio.sm,
+    borderRadius: radio.lg,
+    padding: espacio.md,
     borderWidth: 2,
     borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  tarjetaActiva: { borderColor: colors.primario },
-  tarjetaCabecera: { flexDirection: 'row', alignItems: 'center' },
-  tarjetaIcono: { fontSize: 32, marginRight: espacio.md },
-  tarjetaTitulo: { fontSize: 17, fontWeight: '800', color: colors.texto },
-  tarjetaSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  modoCardActivo: { borderColor: colors.primario },
+  modoCabecera: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm, gap: espacio.md },
+  modoIconoWrap: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  modoIcono: { fontSize: 26 },
+  modoTituloFila: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
+  modoTitulo: { fontSize: 17, fontWeight: '800', color: colors.texto },
+  modoSub: { fontSize: 12, color: colors.textoSuave, marginTop: 2 },
+  calif: { fontSize: 12, fontWeight: '700', color: '#A66B00', marginTop: 2 },
 
-  bagdgeActivo: {
-    marginLeft: espacio.sm, paddingHorizontal: 8, paddingVertical: 2,
-    backgroundColor: colors.primario, borderRadius: 6,
-  },
-  badgeDestacado: {
-    marginLeft: espacio.sm, paddingHorizontal: 8, paddingVertical: 2,
-    backgroundColor: '#FFB300', borderRadius: 6,
-  },
-  bagdgeTxt: { color: '#FFF', fontSize: 10, fontWeight: '800' },
+  badgeActivo: { backgroundColor: colors.primario, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeTop: { backgroundColor: '#F59E0B', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeActivoTxt: { color: '#FFF', fontSize: 9, fontWeight: '800' },
 
-  estadoFila: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8,
-    marginTop: espacio.sm,
-  },
+  estadoFila: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginBottom: espacio.sm },
   estadoTxt: { fontSize: 12, fontWeight: '700' },
-  calif: { fontSize: 12, fontWeight: '700', color: '#A66B00' },
+  mensaje: { fontSize: 12, color: colors.textoSuave, marginBottom: espacio.sm, fontStyle: 'italic' },
 
-  mensaje: { fontSize: 12, color: colors.textoSuave, marginTop: espacio.sm, fontStyle: 'italic' },
-
-  botonModo: {
-    marginTop: espacio.md, paddingVertical: 10, borderRadius: radio.sm,
+  modoBtn: {
+    paddingVertical: 11, borderRadius: radio.md,
     backgroundColor: colors.primario, alignItems: 'center',
   },
-  botonModoActivo: { backgroundColor: '#E7F7EE' },
-  botonModoTxt: { color: '#FFF', fontWeight: '700' },
-  botonModoTxtActivo: { color: '#1B7F3A' },
+  modoBtnActivo: { backgroundColor: '#E7F7EE' },
+  modoBtnTxt: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  modoBtnTxtActivo: { color: '#1B7F3A' },
 
-  opciones: { marginTop: espacio.sm, marginBottom: espacio.lg },
-  opcion: {
-    flexDirection: 'row', alignItems: 'center',
+  menuCard: {
+    backgroundColor: colors.superficie,
+    marginHorizontal: espacio.lg,
+    marginTop: espacio.sm,
+    borderRadius: radio.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: espacio.md,
     backgroundColor: colors.superficie,
-    borderRadius: radio.md,
-    marginBottom: espacio.xs,
   },
-  opcionIcono: { fontSize: 22, marginRight: espacio.md },
-  opcionTxt: { flex: 1, fontSize: 15, color: colors.texto, fontWeight: '600' },
-  opcionFlecha: { fontSize: 24, color: colors.textoSuave },
-  version: { fontSize: 12, color: colors.textoSuave, textAlign: 'center', marginTop: espacio.lg },
+  menuIconoWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: colors.fondo,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: espacio.md,
+  },
+  menuIcono: { fontSize: 18 },
+  menuTxt: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.texto },
+  menuChevron: { fontSize: 22, color: colors.textoSuave },
+  divider: { height: 1, backgroundColor: colors.borde, marginLeft: espacio.md + 36 + espacio.md },
 
-  tokensBox: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: radio.md,
-    padding: espacio.md,
-    marginTop: espacio.lg,
-    marginBottom: espacio.xs,
+  btnSalir: {
+    margin: espacio.lg,
+    marginTop: espacio.xl,
+    paddingVertical: 14,
+    borderRadius: radio.lg,
     borderWidth: 1.5,
-    borderColor: '#FDE68A',
+    borderColor: colors.error + '40',
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
   },
-  tokensEncab: { flexDirection: 'row', alignItems: 'center', marginBottom: espacio.sm },
-  tokensEmoji: { fontSize: 28, marginRight: espacio.sm },
-  tokensTitulo: { fontSize: 17, fontWeight: '800', color: '#92400E' },
-  tokensSub: { fontSize: 12, color: '#92400E', marginTop: 2, lineHeight: 16 },
-  tokensCont: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  tokensBarFondo: {
-    height: 8, backgroundColor: '#FDE68A', borderRadius: 4, overflow: 'hidden',
-  },
-  tokensBarRelleno: {
-    height: 8, backgroundColor: '#F59E0B', borderRadius: 4,
+  btnSalirTxt: { color: colors.error, fontSize: 15, fontWeight: '800' },
+  version: {
+    fontSize: 12, color: colors.textoSuave,
+    textAlign: 'center', marginBottom: espacio.lg,
   },
 });

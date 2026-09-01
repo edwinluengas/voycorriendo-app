@@ -2,7 +2,8 @@
   "expo": {
     "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.1.5",
+    "version": "1.2.53",
+    "scheme": "voycorriendo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -29,19 +30,19 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "mx.voycorriendo.app",
-      "versionCode": 8,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
       ],
       "config": {
         "googleMaps": {
-          "apiKey": ""
+          "apiKey": "AIzaSyBabHgOYrF4W8qGbksXhE_TIOjGpa4oXGM"
         }
-      }
+      },
+      "versionCode": 13
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -52,7 +53,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "VoyCorriendo usa tu ubicación para asignarte pedidos cercanos.",
+          "locationWhenInUsePermission": "VoyCorriendo usa tu ubicación para mostrarte los negocios de tu localidad y calcular tu entrega.",
           "locationAlwaysPermission": "VoyCorriendo usa tu ubicación para rastrear entregas en curso."
         }
       ],
@@ -60,21 +61,27 @@
         "expo-image-picker",
         {
           "photosPermission": "VoyCorriendo necesita tu galería para subir fotos de documentos.",
-          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos."
+          "cameraPermission": "VoyCorriendo necesita la cámara para fotografiar documentos.",
+          "microphonePermission": false
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#F97316",
-          "defaultChannel": "default"
+          "icon": "./assets/notification-icon.png",
+          "color": "#00B341",
+          "defaultChannel": "general"
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "eas": {
         "projectId": "1b3b85c7-7e86-4acc-8825-a4d1e0f92285"
-      }
+      },
+      "apiUrl": "https://voycorriendo-backend-production.up.railway.app",
+      "socketUrl": "https://voycorriendo-backend-production.up.railway.app",
+      "mpPublicKey": "APP_USR-f31c7db3-6585-4c4a-a02b-ad74165440c2"
     },
     "owner": "edwinluengas"
   }

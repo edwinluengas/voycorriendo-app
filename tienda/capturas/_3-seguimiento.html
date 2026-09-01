@@ -1,0 +1,85 @@
+<meta charset="utf-8">
+<style>
+  :root{--primario:#FF5C00;--oscuro:#1C1C1E;--secundario:#00B341;--fondo:#F8F9FA;--superficie:#FFFFFF;--texto:#111827;--textoSuave:#6B7280;--borde:#E5E7EB}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .tel{width:1080px;height:1920px;background:var(--fondo);position:relative;overflow:hidden}
+
+  .status{display:flex;justify-content:space-between;align-items:center;color:var(--texto);font-size:26px;font-weight:700;padding:60px 48px 20px;background:#fff}
+  .status .ic{display:flex;gap:14px;font-size:22px;opacity:.7}
+  .topbar{background:#fff;padding:6px 48px 26px;border-bottom:1px solid var(--borde)}
+  .topbar h1{font-size:44px;font-weight:900;color:var(--texto);letter-spacing:-.5px}
+  .topbar .num{font-size:28px;color:var(--textoSuave);font-weight:600;margin-top:4px}
+
+  /* Mapa estilizado */
+  .mapa{height:1120px;position:relative;overflow:hidden;
+    background:
+      linear-gradient(0deg,rgba(0,0,0,.04),rgba(0,0,0,0) 30%),
+      #E8EDF2}
+  .mapa .calle{position:absolute;background:#fff}
+  .c1{left:0;right:0;top:200px;height:38px}
+  .c2{left:0;right:0;top:480px;height:52px}
+  .c3{top:0;bottom:0;left:260px;width:40px}
+  .c4{top:0;bottom:0;left:720px;width:56px}
+  .mapa .parque{position:absolute;left:340px;top:250px;width:320px;height:200px;background:#CDEBD4;border-radius:20px}
+  .mapa .agua{position:absolute;right:-40px;bottom:-40px;width:420px;height:360px;background:#BFE0F0;border-radius:50%}
+  /* Ruta trazada */
+  .ruta{position:absolute;left:180px;top:170px;width:640px;height:430px;z-index:2}
+  .marca{position:absolute;z-index:3;display:flex;flex-direction:column;align-items:center}
+  .marca .pin{width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 16px rgba(0,0,0,.3);font-size:34px}
+  .marca .lbl{margin-top:8px;background:#fff;padding:8px 18px;border-radius:12px;font-size:22px;font-weight:800;
+    color:var(--texto);box-shadow:0 4px 12px rgba(0,0,0,.15);white-space:nowrap}
+  .m-neg{left:150px;top:120px}     .m-neg .pin{background:var(--oscuro)}
+  .m-rep{left:470px;top:300px}     .m-rep .pin{background:var(--primario);width:88px;height:88px;font-size:42px;border:4px solid #fff}
+  .m-cli{left:760px;top:470px}     .m-cli .pin{background:var(--secundario)}
+
+  /* Tarjeta de estado inferior */
+  .estado{position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:44px 44px 0 0;
+    padding:44px 48px 60px;box-shadow:0 -10px 40px rgba(0,0,0,.12)}
+  .raya{width:90px;height:8px;border-radius:4px;background:#D1D5DB;margin:0 auto 34px}
+  .pill{display:inline-flex;align-items:center;gap:12px;background:#FFF1E8;color:var(--primario);
+    font-size:26px;font-weight:800;padding:12px 26px;border-radius:999px}
+  .pill .dot{width:16px;height:16px;border-radius:50%;background:var(--primario)}
+  .estado h2{font-size:52px;font-weight:900;color:var(--texto);margin-top:26px;letter-spacing:-1px}
+  .estado .sub{font-size:30px;color:var(--textoSuave);margin-top:12px}
+  .rep{display:flex;align-items:center;gap:26px;margin-top:38px;padding-top:38px;border-top:1px solid var(--borde)}
+  .rep .av{width:110px;height:110px;border-radius:50%;background:linear-gradient(135deg,#FF8533,#FF5C00);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px;font-weight:900;flex:none}
+  .rep .d h3{font-size:36px;font-weight:800;color:var(--texto)}
+  .rep .d p{font-size:26px;color:var(--textoSuave);margin-top:6px}
+  .rep .moto{margin-left:auto;font-size:64px}
+  /* Barra de progreso de estados */
+  .prog{display:flex;gap:16px;margin-top:34px}
+  .step{flex:1;height:12px;border-radius:6px;background:#E5E7EB}
+  .step.on{background:var(--secundario)}
+</style>
+
+<div class="tel">
+  <div class="status"><div>9:41</div><div class="ic"><span>▲</span><span>◗</span><span>▮▮▮</span></div></div>
+  <div class="topbar"><h1>Tu pedido va en camino</h1><div class="num">Pedido MND-482910 · Yard House</div></div>
+
+  <div class="mapa">
+    <div class="calle c1"></div><div class="calle c2"></div><div class="calle c3"></div><div class="calle c4"></div>
+    <div class="parque"></div><div class="agua"></div>
+    <svg class="ruta" viewBox="0 0 640 430" fill="none">
+      <path d="M40 40 C 180 120, 260 200, 360 250 S 540 360, 610 400" stroke="#FF5C00" stroke-width="12" stroke-linecap="round" stroke-dasharray="4 26"/>
+    </svg>
+    <div class="marca m-neg"><div class="pin">🏪</div><div class="lbl">Yard House</div></div>
+    <div class="marca m-rep"><div class="pin">🛵</div></div>
+    <div class="marca m-cli"><div class="pin">📍</div><div class="lbl">Tú</div></div>
+  </div>
+
+  <div class="estado">
+    <div class="raya"></div>
+    <div class="pill"><span class="dot"></span>En camino</div>
+    <h2>¡Tu pedido va en camino!</h2>
+    <div class="sub">Llega en aproximadamente 12 minutos</div>
+    <div class="prog"><div class="step on"></div><div class="step on"></div><div class="step on"></div><div class="step"></div></div>
+    <div class="rep">
+      <div class="av">CR</div>
+      <div class="d"><h3>Carlos R.</h3><p>Italika negra · Placa ABC-123</p></div>
+      <div class="moto">🛵</div>
+    </div>
+  </div>
+</div>
