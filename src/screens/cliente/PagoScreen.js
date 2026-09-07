@@ -312,11 +312,9 @@ export default function PagoScreen({ route, navigation }) {
 
   const elegirDeGaleria = async () => {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('Permiso denegado', 'Necesitamos acceso a tus fotos.');
-        return;
-      }
+      // Sin permisos de galería: launchImageLibraryAsync abre el selector de
+      // fotos del sistema (PickVisualMedia), que no requiere READ_MEDIA_IMAGES
+      // — permiso que además Google Play rechaza con target API 33+.
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.6,

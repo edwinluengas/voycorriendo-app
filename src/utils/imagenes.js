@@ -1,14 +1,22 @@
 /**
- * Elegir una imagen (cámara o galería) con permisos y errores VISIBLES.
+ * Elegir una imagen (cámara o galería) con errores VISIBLES.
  *
  * Por qué existe: cada pantalla llamaba a expo-image-picker por su cuenta y
- * solo una pedía el permiso de galería. En Android, abrir la galería sin ese
- * permiso no truena con un mensaje: simplemente no pasa nada. El usuario
- * toca "Elegir de galería", no se abre nada y no hay forma de saber por qué
- * — que es exactamente lo que se reportó al dar de alta un repartidor.
+ * ninguna llamada estaba envuelta en try/catch, así que cualquier error del
+ * selector se perdía en silencio — el usuario tocaba "Elegir de galería",
+ * no pasaba nada y no había forma de saber por qué.
  *
- * Además, ninguna llamada estaba envuelta en try/catch, así que cualquier
- * error del selector se perdía en silencio.
+ * GALERÍA SIN PERMISOS: `launchImageLibraryAsync` abre el **selector de fotos
+ * del sistema** de Android (ActivityResultContracts.PickVisualMedia). Ese
+ * selector corre fuera de la app y solo nos devuelve lo que el usuario eligió,
+ * así que NO requiere READ_MEDIA_IMAGES / READ_MEDIA_VIDEO ni
+ * READ_EXTERNAL_STORAGE. Pedir esos permisos además viola la política de
+ * Google Play para apps con target API 33+ (bloqueo de revisión en el
+ * versionCode 3). No vuelvas a meter un requestMediaLibraryPermissionsAsync()
+ * aquí: en Android 13+ no pide nada y en versiones viejas solo reintroduce el
+ * permiso de almacenamiento que Play rechaza.
+ *
+ * La cámara SÍ necesita permiso (CAMERA) porque ahí sí grabamos nosotros.
  */
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
@@ -20,7 +28,7 @@ const OPCIONES_BASE = { base64: true, quality: 0.6, allowsEditing: false };
 const avisarPermiso = (queEs) => {
   Alert.alert(
     'Permiso necesario',
-    `VoyCorriendo necesita acceso a ${queEs} para subir tus documentos. `
+    `VoyCorriendo necesita acceso a ${queEs} para tomar la foto. `
     + 'Actívalo en los ajustes del teléfono.',
     [
       { text: 'Ahora no', style: 'cancel' },
@@ -52,9 +60,7 @@ export const tomarFoto = async (extra = {}) => {
  */
 export const elegirDeGaleria = async (extra = {}) => {
   try {
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) { avisarPermiso('tus fotos'); return null; }
-
+    // Sin permisos: el selector de fotos del sistema los hace innecesarios.
     const r = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       ...OPCIONES_BASE,
