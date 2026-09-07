@@ -197,7 +197,7 @@ export const pagosAPI = {
 
 export const tarjetasAPI = {
   listar:   ()       => api.get('/tarjetas'),
-  agregar:  (token)  => api.post('/tarjetas', { token }),
+  agregar:  (token, deviceId)  => api.post('/tarjetas', { token, device_id: deviceId }),
   eliminar: (id)      => api.delete(`/tarjetas/${id}`),
 };
 

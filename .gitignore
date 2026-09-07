@@ -43,3 +43,4 @@ yarn-error.*
 # Local build artifacts
 *.apk
 *.aab
+Claude outputs/

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { usuariosAPI, tarjetasAPI, pedidosAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, mpConfigurado } from '../../api/mercadoPago';
+import { obtenerDeviceId } from '../../utils/mpDeviceId';
 import Boton from '../../components/Boton';
 import FormularioTarjeta, { tarjetaCompleta } from '../../components/FormularioTarjeta';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -88,8 +89,9 @@ export default function MetodosPagoScreen() {
     }
     setGuardandoTarjeta(true);
     try {
-      const token = await tokenizarTarjetaNueva(datosTarjeta);
-      await tarjetasAPI.agregar(token);
+      const deviceId = await obtenerDeviceId();
+      const token = await tokenizarTarjetaNueva({ ...datosTarjeta, deviceId });
+      await tarjetasAPI.agregar(token, deviceId);
       setDatosTarjeta({ numero: '', nombre: '', mes: '', anio: '', cvv: '' });
       setMetodoDetectado(null);
       setMostrarForm(false);

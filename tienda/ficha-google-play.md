@@ -98,11 +98,11 @@ Pide de los negocios de tu localidad y sigue a tu repartidor en el mapa, en vivo
 - Eliminación de cuenta (OBLIGATORIA desde 2024): https://voycorriendo-backend-production.up.railway.app/eliminar-cuenta
 - Correo de contacto: voycorriendoadmin@gmail.com
 
-## Assets pendientes
+## Assets (listos — dimensiones verificadas)
 
-- Icono 512×512 px
-- Gráfico de portada 1024×500 px
-- Capturas: catálogo, seguimiento con mapa, ganancias, alta de negocio (mín. 2, ideal 4-8)
+- ✅ Icono 512×512 px — `tienda/icono-512.png`
+- ✅ Gráfico de portada 1024×500 px — `tienda/feature-graphic.png`
+- ✅ Capturas 1080×1920 px (4): `tienda/capturas/1-catalogo.png`, `2-menu.png`, `3-seguimiento.png`, `4-codigo.png`
 
 ## Acceso para los revisores de Google
 

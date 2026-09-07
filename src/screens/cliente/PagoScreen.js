@@ -9,6 +9,7 @@ import Campo from '../../components/Campo';
 import FormularioTarjeta, { tarjetaCompleta, cvvEsperadoPorMarca } from '../../components/FormularioTarjeta';
 import { pedidosAPI, pagosAPI, tarjetasAPI } from '../../api/client';
 import { tokenizarTarjetaNueva, buscarMetodoPago, mpConfigurado } from '../../api/mercadoPago';
+import { obtenerDeviceId } from '../../utils/mpDeviceId';
 import { getCarrito, vaciarCarrito } from './NegocioScreen';
 import { useAuth } from '../../context/AuthContext';
 import { usePlaza } from '../../context/PlazaContext';
@@ -456,6 +457,7 @@ export default function PagoScreen({ route, navigation }) {
       if (metodo === 'tarjeta' && pedido?.pago_estado !== 'capturado') {
         try {
           let datosPago;
+          const deviceId = await obtenerDeviceId();
           if (tarjetaElegida !== 'nueva') {
             const tarjeta = tarjetas.find((t) => t.id === tarjetaElegida);
             if (!tarjeta) throw new Error('Esa tarjeta ya no está disponible. Elige otra desde "Métodos de pago".');
@@ -475,12 +477,12 @@ export default function PagoScreen({ route, navigation }) {
               // una tarjeta nueva primero se guarda (consume ese token) y
               // luego el backend genera uno nuevo desde la tarjeta ya
               // guardada para el cobro — nunca se reusa el mismo token dos veces.
-              const tokenParaGuardar = await tokenizarTarjetaNueva(datosTarjetaNueva);
-              const resGuardar = await tarjetasAPI.agregar(tokenParaGuardar);
+              const tokenParaGuardar = await tokenizarTarjetaNueva({ ...datosTarjetaNueva, deviceId });
+              const resGuardar = await tarjetasAPI.agregar(tokenParaGuardar, deviceId);
               const tarjetaGuardada = resGuardar.data.data.tarjeta;
               datosPago = { tarjeta_id: tarjetaGuardada.id, cvv: datosTarjetaNueva.cvv, payment_method_id, issuer_id };
             } else {
-              const token = await tokenizarTarjetaNueva(datosTarjetaNueva);
+              const token = await tokenizarTarjetaNueva({ ...datosTarjetaNueva, deviceId });
               datosPago = { token, payment_method_id, issuer_id };
             }
           }
@@ -489,6 +491,7 @@ export default function PagoScreen({ route, navigation }) {
             pedido_id: pedido.id,
             ...datosPago,
             installments: 1,
+            device_id: deviceId,
           });
 
           const status = resPago.data?.data?.status;

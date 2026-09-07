@@ -11,6 +11,7 @@ import * as Notifications from 'expo-notifications';
 import { AuthProvider } from './src/context/AuthContext';
 import { PlazaProvider } from './src/context/PlazaContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import { MPDeviceIdCollector } from './src/utils/mpDeviceId';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -75,6 +76,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <MPDeviceIdCollector />
       <AuthProvider>
         <PlazaProvider>
           <NavigationContainer ref={navigationRef}>

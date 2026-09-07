@@ -53,7 +53,9 @@ export const buscarMetodoPago = async (bin) => {
 };
 
 // ─── Tokeniza una tarjeta nueva capturada en el formulario ─────
-export const tokenizarTarjetaNueva = async ({ numero, nombre, mes, anio, cvv }) => {
+// `deviceId`: huella de MP (ver src/utils/mpDeviceId.js) — sin ella, MP
+// rechaza operaciones de tarjeta con PA_UNAUTHORIZED_RESULT_FROM_POLICIES.
+export const tokenizarTarjetaNueva = async ({ numero, nombre, mes, anio, cvv, deviceId }) => {
   asegurarPublicKey();
   const { data } = await mp.post('/v1/card_tokens', {
     card_number: numero.replace(/\s+/g, ''),
@@ -61,7 +63,10 @@ export const tokenizarTarjetaNueva = async ({ numero, nombre, mes, anio, cvv }) 
     expiration_month: Number(mes),
     expiration_year: Number(anio.length === 2 ? `20${anio}` : anio),
     security_code: cvv,
-  }, { params: { public_key: MP_PUBLIC_KEY } });
+  }, {
+    params: { public_key: MP_PUBLIC_KEY },
+    headers: deviceId ? { 'X-meli-session-id': deviceId } : {},
+  });
   return data.id;
 };
 
