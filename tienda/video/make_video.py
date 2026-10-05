@@ -191,7 +191,7 @@ def esc_cierre(t, dur):
     txt = "Descarga VoyCorriendo"
     fw = d.textlength(txt, font=font(F_BLACK, 66))
     d.text(((W - fw) / 2, by + bh / 2 - 48), txt, font=font(F_BLACK, 66), fill=BLANCO + (int(255 * ac),))
-    texto_centrado(d, 1480, "Pide de los negocios de tu pueblo y recíbelo en tu puerta", font(F_REG, 46), BLANCO,
+    texto_centrado(d, 1480, "Descárgala hoy y no te pierdas las promociones especiales", font(F_BOLD, 46), BLANCO,
                    int(255 * ac), 900)
     texto_centrado(d, 1650, "WhatsApp 56 6952 4404", font(F_BLACK, 58), VERDE, int(255 * ac))
     texto_centrado(d, 1740, "voycorriendoadmin@gmail.com", font(F_BOLD, 44), NARANJA, int(255 * ac))
@@ -211,7 +211,7 @@ def esc_modos(t, dur):
     im = BG_OSCURO.copy(); d = ImageDraw.Draw(im)
     texto_centrado(d, 330, "Una sola app,", font(F_BLACK, 96), BLANCO, int(255 * ease(t / 0.4)))
     texto_centrado(d, 450, "tres maneras de usarla", font(F_BLACK, 84), NARANJA, int(255 * ease((t - 0.2) / 0.4)))
-    items = [("cliente", "Pide comida y mandados"), ("negocio", "Vende a domicilio"), ("repartidor", "Gana entregando")]
+    items = [("cliente", "Pide comida y mandados"), ("negocio", "Vende a domicilio"), ("repartidor", "Gana dinero entregando")]
     for i, (k, s) in enumerate(items):
         a = ease((t - 0.7 - i * 0.35) / 0.4)
         if a <= 0:
@@ -278,54 +278,107 @@ def esc_funciones(modo, titulo, items):
         return im
     return f
 
+def estrella(cx, cy, r_ext, r_int, picos, giro):
+    pts = []
+    for i in range(picos * 2):
+        r = r_ext if i % 2 == 0 else r_int
+        ang = giro + math.pi * i / picos
+        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
+    return pts
+
+def esc_promos(t, dur):
+    """Énfasis: habrá promociones especiales dentro de la app."""
+    im = fondo_degradado((255, 120, 20), (200, 40, 0)); d = ImageDraw.Draw(im)
+    a = int(255 * ease(t / 0.4))
+    texto_centrado(d, 230, "MUY PRONTO", font(F_BLACK, 70), NEGRO, a)
+    # Sello giratorio con %
+    s = ease((t - 0.2) / 0.5)
+    if s > 0:
+        r = int(250 * (0.4 + 0.6 * s) * (1 + 0.03 * math.sin(t * 6)))
+        d.polygon(estrella(W / 2, 640, r, r * 0.82, 18, t * 0.6), fill=(255, 214, 0, int(255 * s)))
+        d.ellipse([W / 2 - r * 0.72, 640 - r * 0.72, W / 2 + r * 0.72, 640 + r * 0.72], fill=BLANCO + (int(255 * s),))
+        fp = font(F_BLACK, int(220 * (0.4 + 0.6 * s)))
+        pw = d.textlength("%", font=fp)
+        d.text((W / 2 - pw / 2, 640 - fp.size * 0.68), "%", font=fp, fill=NARANJA + (int(255 * s),))
+    a2 = int(255 * ease((t - 0.7) / 0.4))
+    y = texto_centrado(d, 960, "PROMOCIONES ESPECIALES", font(F_BLACK, 92), BLANCO, a2, 960)
+    a3 = int(255 * ease((t - 1.2) / 0.4))
+    y = texto_centrado(d, y + 30, "Descuentos y ofertas exclusivas, solo dentro de la app", font(F_BOLD, 54), BLANCO, a3, 900)
+    a4 = ease((t - 1.9) / 0.4)
+    if a4 > 0:
+        txt = "Descárgala y sé de los primeros"
+        fw = d.textlength(txt, font=font(F_BLACK, 52))
+        bw, bh = fw + 100, 120
+        bx, by = (W - bw) / 2, y + 90
+        d.rounded_rectangle([bx, by, bx + bw, by + bh], bh // 2, fill=NEGRO + (int(255 * a4),))
+        d.text((bx + 50, by + 24), txt, font=font(F_BLACK, 52), fill=(255, 214, 0, int(255 * a4)))
+    return im
+
+def esc_impacto(modo, linea1, linea2, sub):
+    """Frase grande de impacto en el color del modo."""
+    def f(t, dur):
+        nombre, col = MODOS[modo]
+        im = fondo_degradado(col, tuple(max(0, c - 60) for c in col)); d = ImageDraw.Draw(im)
+        a1 = int(255 * ease(t / 0.4))
+        texto_centrado(d, 620 - 40 * (1 - ease(t / 0.4)), linea1, font(F_BLACK, 110), BLANCO, a1, 980)
+        a2 = ease((t - 0.45) / 0.4)
+        if a2 > 0:
+            f2 = font(F_BLACK, int(150 * (0.85 + 0.15 * a2)))
+            texto_centrado(d, 790, linea2, f2, (255, 214, 0), int(255 * a2), 1000)
+        texto_centrado(d, 1100, sub, font(F_BOLD, 56), BLANCO, int(255 * ease((t - 1.0) / 0.4)), 900)
+        return im
+    return f
+
 ESCENAS = [
     (3.2, esc_gancho),
     (3.0, esc_marca),
     (4.2, esc_modos),
     (2.4, esc_capitulo("cliente", "Pide lo que quieras", "Comida, tiendita, farmacia y Voy Store®")),
-    (4.6, esc_paso(1, "Elige un negocio", "Restaurantes, tiendita y farmacia de tu localidad", "1-catalogo.png", tap=(330, 1020))),
-    (4.6, esc_paso(2, "Arma tu pedido", "Elige sabores y extras, y confirma tu dirección", "2-menu.png", tap=(1033, 990))),
-    (4.6, esc_paso(3, "Síguelo en vivo", "Ves a tu repartidor en el mapa, con su nombre y placas", "3-seguimiento.png")),
-    (4.6, esc_paso(4, "Recibe y listo", "Dale tu código de 4 dígitos: así nadie más recibe tu pedido", "4-codigo.png", tap=(540, 1790))),
-    (5.6, esc_funciones("cliente", "Paga como prefieras", [
-        ("Efectivo al recibir", "Le dices al repartidor con cuánto pagas y lleva tu cambio"),
-        ("Tarjeta desde la app", "Sin cuenta de Mercado Pago. Guárdala y la próxima vez solo confirmas"),
-        ("Recoger en tienda", "Pasas tú por tu pedido y no pagas envío"),
+    (4.6, esc_paso(1, "Elige tu antojo", "Los restaurantes, tienditas y farmacias de tu pueblo", "1-catalogo.png", tap=(330, 1020))),
+    (4.6, esc_paso(2, "Pide en segundos", "A tu gusto: sabores, extras y tu dirección", "2-menu.png", tap=(1033, 990))),
+    (4.6, esc_paso(3, "Síguelo en vivo", "Ve a tu repartidor en el mapa, minuto a minuto", "3-seguimiento.png")),
+    (4.6, esc_paso(4, "¡Llegó!", "Tu código de 4 dígitos: solo tú recibes tu pedido", "4-codigo.png", tap=(540, 1790))),
+    (5.0, esc_funciones("cliente", "Paga como quieras", [
+        ("Efectivo", "Paga al recibir. Tu repartidor lleva tu cambio"),
+        ("Tarjeta", "Se aceptan pagos con tarjeta para tu facilidad"),
+        ("Recoger en tienda", "¿Prefieres pasar tú? Cero costo de envío"),
     ])),
     (4.2, esc_precio),
-    (6.4, esc_funciones("cliente", "Y además", [
-        ("Mis direcciones", "Guarda casa, trabajo y más"),
-        ("Califica y da propina", "Al negocio y al repartidor"),
-        ("Notificaciones", "Te avisamos cada paso de tu pedido"),
-        ("Soporte por WhatsApp", "Te ayudamos si algo sale mal"),
+    (5.6, esc_funciones("cliente", "Y hay más", [
+        ("Tus direcciones guardadas", "Casa, trabajo… pide con un toque"),
+        ("Califica y deja propina", "Premia el buen servicio"),
+        ("Avisos en tu celular", "Sabes en qué va tu pedido, siempre"),
+        ("Ayuda por WhatsApp", "Gente real que te responde"),
     ])),
-    (2.4, esc_capitulo("negocio", "Vende a domicilio", "Sin pagar cuota mensual")),
-    (6.4, esc_funciones("negocio", "Tu negocio en la app", [
-        ("Tu menú con fotos", "Categorías, precios y opciones: sabores, extras, tamaños"),
-        ("Tus horarios", "Abre y cierra cada día cuando tú decidas"),
-        ("Pedidos ordenados", "Nuevos, preparando, listos e historial"),
-        ("Ubicación confirmada", "Con GPS, para que el repartidor siempre llegue"),
+    (4.6, esc_promos),
+    (2.4, esc_capitulo("negocio", "¿Tienes un negocio?", "Llega a todo tu pueblo desde su celular")),
+    (3.6, esc_impacto("negocio", "Incrementa", "TUS VENTAS", "Tu menú en el celular de todo el pueblo, las 24 horas")),
+    (6.0, esc_funciones("negocio", "Más clientes, más pedidos", [
+        ("Nuevos clientes cada día", "Te encuentran sin que gastes en publicidad"),
+        ("Promociones especiales", "Súmate a las ofertas de la app y atrae más pedidos"),
+        ("Tu menú que antoja", "Fotos, precios y opciones: sabores, extras, tamaños"),
+        ("Pedidos en orden", "Nuevos, preparando, listos. Cero confusión"),
     ])),
-    (5.6, esc_funciones("negocio", "Cuentas claras", [
-        ("Comisión fija de $35", "Por pedido entregado, sin porcentajes"),
-        ("Cobra cada viernes gratis", "O adelanta tu dinero el mismo día"),
-        ("Ganancias al día", "El desglose de cada pedido, más alertas en Telegram"),
+    (5.4, esc_funciones("negocio", "Cuentas claras", [
+        ("Solo $35 por pedido", "Comisión fija. Sin porcentajes ni cuota mensual"),
+        ("Tu dinero cuando quieras", "Cobra el viernes gratis o adelántalo el mismo día"),
+        ("Tú pones las reglas", "Tus horarios, tus precios, tu menú"),
     ])),
-    (2.4, esc_capitulo("repartidor", "Gana entregando", "En tus tiempos, en tu pueblo")),
-    (5.6, esc_funciones("repartidor", "Trabaja cuando quieras", [
-        ("Conéctate con un botón", "Te llega un aviso cada vez que hay un pedido nuevo"),
-        ("Hasta 3 pedidos por ruta", "Más entregas en el mismo viaje"),
-        ("Registro verificado", "INE, licencia y selfie: confianza para todos"),
+    (2.4, esc_capitulo("repartidor", "Gana dinero entregando", "En tus tiempos, en tu pueblo")),
+    (5.4, esc_funciones("repartidor", "Tú eres tu jefe", [
+        ("Conéctate y gana", "Un botón y empiezas a recibir pedidos"),
+        ("Hasta 3 pedidos por viaje", "Más entregas, más dinero en cada ruta"),
+        ("Propinas 100% tuyas", "Todo lo que te dan, es tuyo"),
     ])),
-    (5.6, esc_funciones("repartidor", "Tu dinero", [
-        ("Propinas 100% tuyas", "Lo que te dan, es tuyo completo"),
-        ("Depósito del viernes gratis", "O retira el mismo día cuando lo necesites"),
-        ("Tu calificación y entregas", "Todo tu historial en un solo lugar"),
+    (5.0, esc_funciones("repartidor", "Cobra fácil", [
+        ("Depósito cada viernes", "Gratis, directo a tu cuenta"),
+        ("¿Lo necesitas hoy?", "Retira el mismo día"),
+        ("Tu historial a la mano", "Entregas, ganancias y calificación"),
     ])),
-    (5.6, esc_funciones("seguridad", "Tu seguridad primero", [
-        ("Código de entrega", "Sin tu código, nadie puede marcar tu pedido como entregado"),
-        ("Repartidores verificados", "Ves su nombre, foto y placas antes de que llegue"),
-        ("Pagos protegidos", "Mercado Pago procesa tu tarjeta. No guardamos el número"),
+    (5.0, esc_funciones("seguridad", "Pide con confianza", [
+        ("Código de entrega", "Sin tu código, nadie se queda con tu pedido"),
+        ("Repartidores verificados", "Ves su nombre, foto y placas"),
+        ("Pagos seguros", "Tu tarjeta protegida por Mercado Pago"),
     ])),
     (5.6, esc_cierre),
 ]
