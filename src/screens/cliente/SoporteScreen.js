@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
 import { LIMITE_EFECTIVO } from '../../config/businessRules';
 
-const WHATSAPP = '529541234567';
+const WHATSAPP = '525669524404';
 const EMAIL    = 'voycorriendoadmin@gmail.com';
 
 export default function SoporteScreen({ navigation }) {

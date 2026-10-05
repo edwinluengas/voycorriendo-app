@@ -11,7 +11,7 @@ import MapaSeguimiento from '../../components/MapaSeguimiento';
 import useRutaPedido from '../../hooks/useRutaPedido';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const WA_VOYCORRIENDO = '527542462564';
+const WA_VOYCORRIENDO = '525669524404';
 
 const SIGUIENTE = {
   confirmado: { estado: 'preparando', label: 'Estoy en el negocio' },

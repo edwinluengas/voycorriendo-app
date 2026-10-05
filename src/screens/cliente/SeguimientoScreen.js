@@ -10,7 +10,7 @@ import useRutaPedido from '../../hooks/useRutaPedido';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const WA_VOYCORRIENDO = '527542462564';
+const WA_VOYCORRIENDO = '525669524404';
 
 const ESTADOS_LOCAL = [
   { id: 'pendiente',  label: 'Recibimos tu pedido',        icono: 'receipt-outline' },
