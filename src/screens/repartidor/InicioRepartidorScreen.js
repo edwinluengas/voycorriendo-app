@@ -180,9 +180,20 @@ export default function InicioRepartidorScreen({ navigation }) {
           setConectando(false);
           return;
         }
-        const loc = await Location.getCurrentPositionAsync({});
-        lat = loc.coords.latitude;
-        lng = loc.coords.longitude;
+        // El GPS puede no responder nunca (ubicación del sistema apagada, bajo
+        // techo): sin tope, el switch se quedaba girando y la petición jamás
+        // salía (Soledad, Putla, 2026-10-12). Se espera 12 s; si no hay fix se
+        // usa la última posición conocida, y si tampoco hay se conecta igual —
+        // el backend acepta coordenadas nulas y conserva la plaza que ya tiene.
+        const loc = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 12000)),
+        ]).catch(() => null)
+          || await Location.getLastKnownPositionAsync().catch(() => null);
+        if (loc) {
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
       }
 
       const { data } = await repartidoresAPI.conectarse(nuevoEstado, lat, lng);
