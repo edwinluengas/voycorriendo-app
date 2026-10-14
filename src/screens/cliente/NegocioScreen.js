@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { negociosAPI } from '../../api/client';
+import { FEE_ENVIO } from '../../config/businessRules';
 import Boton from '../../components/Boton';
+import MapaUbicacion from '../../components/MapaUbicacion';
 import { colors, espacio, radio } from '../../theme/colors';
 
 // ─────────────────────────────────────────────────────────────
@@ -115,10 +117,12 @@ const agruparPorCategoria = (productos) => {
 
 export default function NegocioScreen({ route, navigation }) {
   const { id } = route.params;
-  const [negocio, setNegocio]       = useState(null);
-  const [productos, setProductos]   = useState([]);
-  const [cargando, setCargando]     = useState(true);
+  const [negocio, setNegocio]           = useState(null);
+  const [productos, setProductos]       = useState([]);
+  const [cargando, setCargando]         = useState(true);
   const [itemsCarrito, setItemsCarrito] = useState(0);
+  const [categoriaActiva, setCategoriaActiva] = useState(null);
+  const sectionListRef = useRef(null);
 
   // Modal de opciones / notas
   const [modalProducto, setModalProducto] = useState(null);
@@ -130,8 +134,14 @@ export default function NegocioScreen({ route, navigation }) {
       try {
         const { data } = await negociosAPI.detalle(id);
         const neg = data.data?.negocio;
+        const ts = Date.now();
+        const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
+        if (neg) {
+          neg.foto_portada = bust(neg.foto_portada);
+          neg.logo = bust(neg.logo);
+        }
         setNegocio(neg);
-        setProductos(neg?.productos || []);
+        setProductos((neg?.productos || []).map((p) => ({ ...p, imagen: bust(p.imagen) })));
 
         // Si el carrito actual pertenece a este negocio, mostrar su badge
         const c = getCarrito();
@@ -148,25 +158,67 @@ export default function NegocioScreen({ route, navigation }) {
 
   const secciones = useMemo(() => agruparPorCategoria(productos), [productos]);
 
+  // Salto a una sección del menú. Antes esto NO funcionaba: `scrollToLocation`
+  // lanza si la sección destino todavía no está renderizada (SectionList es
+  // virtualizada y no hay getItemLayout), el error se tragaba en el catch y el
+  // tap simplemente no hacía nada. Ahora se reintenta cuando la lista avisa
+  // que falló, hasta que la sección existe.
+  const scrollPendiente = useRef(null);
+
+  const scrollASeccion = (idx) => {
+    if (idx == null || idx < 0) return;
+    try {
+      sectionListRef.current?.scrollToLocation({
+        sectionIndex: idx,
+        itemIndex: 0,       // 0 = el encabezado de la sección
+        animated: true,
+        viewPosition: 0,
+        viewOffset: 0,
+      });
+    } catch (_) {
+      // Se reintenta desde onScrollToIndexFailed
+    }
+  };
+
+  const irACategoria = (titulo, idx) => {
+    setCategoriaActiva(titulo);
+    scrollPendiente.current = { idx, intentos: 0 };
+    scrollASeccion(idx);
+  };
+
+  const reintentarScroll = () => {
+    const pendiente = scrollPendiente.current;
+    if (!pendiente || pendiente.intentos >= 4) { scrollPendiente.current = null; return; }
+    pendiente.intentos += 1;
+    setTimeout(() => scrollASeccion(pendiente.idx), 250);
+  };
+
+  // Mientras el usuario hace scroll a mano, la pestaña activa sigue a la
+  // sección visible (como UberEats). La referencia debe ser estable: React
+  // Native lanza si cambia la identidad de onViewableItemsChanged.
+  const alCambiarVisibles = useRef(({ viewableItems }) => {
+    const visible = viewableItems.find((v) => v?.section?.title);
+    if (visible) setCategoriaActiva(visible.section.title);
+  }).current;
+  const configVisibilidad = useRef({ itemVisiblePercentThreshold: 30, minimumViewTime: 80 }).current;
+
   // Abre el modal (o agrega directo si el producto no tiene opciones)
   const agregar = (p) => {
-    // Advertir si cambia de negocio con items pendientes
+    // Un pedido es de un solo negocio — si hay items de otro, se bloquea
+    // (el cliente debe terminar o vaciar su carrito a propósito, nunca se
+    // vacía automáticamente ni se ofrece esa opción aquí).
     const c = getCarrito();
     if (c.negocio && c.negocio.id !== negocio.id && c.items.length > 0) {
+      // El botón "Ver carrito" de esta pantalla solo aparece si el carrito
+      // es del negocio que se está viendo — aquí es de OTRO negocio, así
+      // que sin esta acción el cliente no tenía ninguna ruta visible para
+      // llegar a CarritoScreen y usar "Vaciar carrito" a propósito.
       Alert.alert(
-        'Cambiar de negocio',
-        `Tienes productos de "${c.negocio.nombre}" en tu carrito. ¿Quieres vaciarlo y empezar uno nuevo en "${negocio.nombre}"?`,
+        'Ya tienes un pedido en curso',
+        `Tienes productos de "${c.negocio.nombre}" en tu carrito. Termina o vacía ese carrito antes de pedir en "${negocio.nombre}".`,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Sí, vaciar',
-            style: 'destructive',
-            onPress: () => {
-              vaciarCarrito();
-              setItemsCarrito(0);
-              abrirOOAgregar(p);
-            },
-          },
+          { text: 'Entendido', style: 'cancel' },
+          { text: 'Ir a mi carrito', onPress: () => navigation.navigate('Carrito') },
         ],
       );
       return;
@@ -228,35 +280,99 @@ export default function NegocioScreen({ route, navigation }) {
   }
 
   const emojiNegocio = EMOJI_POR_CATEGORIA_NEGOCIO[negocio.categoria] || '🏪';
-  const envioTxt = negocio.tipo_entrega === 'paqueteria' ? 'Envío por paquetería' : 'Envío desde $35 MXN';
+  const envioTxt = negocio.tipo_entrega === 'paqueteria'
+    ? 'Envío por paquetería'
+    : `Envío $${FEE_ENVIO.standard} MXN — tarifa única, sin importar la distancia`;
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
+      {/* ── Barra de secciones — SIEMPRE visible (antes vivía dentro del
+          encabezado de la lista y desaparecía al hacer scroll, así que solo
+          se podía saltar de sección estando hasta arriba) ── */}
+      {secciones.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={estilos.categoriasBar}
+          contentContainerStyle={estilos.categoriasBarContent}
+          keyboardShouldPersistTaps="always"
+        >
+          {secciones.map((sec, idx) => {
+            const activa = categoriaActiva === sec.title || (!categoriaActiva && idx === 0);
+            return (
+              <Pressable
+                key={sec.title}
+                style={[estilos.categoriaTab, activa && estilos.categoriaTabActiva]}
+                onPress={() => irACategoria(sec.title, idx)}
+              >
+                <Text style={[estilos.categoriaTabTxt, activa && estilos.categoriaTabTxtActiva]}>
+                  {sec.title}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
       <SectionList
+        ref={sectionListRef}
         sections={secciones}
         keyExtractor={(p) => p.id}
         stickySectionHeadersEnabled
+        onScrollToIndexFailed={reintentarScroll}
+        onViewableItemsChanged={alCambiarVisibles}
+        viewabilityConfig={configVisibilidad}
         ListHeaderComponent={
           <View style={estilos.header}>
             {negocio.foto_portada ? (
               <Image source={{ uri: negocio.foto_portada }} style={estilos.portadaImagen} />
             ) : negocio.categoria === 'ahivoy store' ? (
               <View style={[estilos.portada, estilos.portadaAhivoy]}>
-                <Image source={require('../../../assets/icon.png')} style={estilos.portadaLogoAhivoy} />
+                <View style={estilos.portadaDecor1} />
+                <View style={estilos.portadaDecor2} />
+                <View style={estilos.portadaStoreIcono}>
+                  <Text style={estilos.portadaStoreEmoji}>🛒</Text>
+                </View>
+                <View style={estilos.portadaStoreBadgeRow}>
+                  <View style={estilos.portadaStoreBadge}>
+                    <Text style={estilos.portadaStoreBadgeTxt}>TIENDA EN LÍNEA</Text>
+                  </View>
+                </View>
               </View>
             ) : (
               <View style={estilos.portada}>
                 <Text style={estilos.portadaEmoji}>{emojiNegocio}</Text>
               </View>
             )}
-            <View style={{ padding: espacio.lg }}>
+            {/* Foto OFICIAL del restaurante, montada sobre la portada. La
+                portada es el ambiente del lugar; ésta es su identidad —la que
+                el cliente reconoce— y hasta ahora no se mostraba en ninguna
+                parte aunque el dueño la subiera desde su panel. */}
+            {!!negocio.logo && (
+              <View style={estilos.oficialWrap}>
+                <Image source={{ uri: negocio.logo }} style={estilos.oficialFoto} />
+              </View>
+            )}
+
+            <View style={[{ padding: espacio.lg }, !!negocio.logo && estilos.datosConOficial]}>
               <Text style={estilos.nombre}>{negocio.nombre}</Text>
               <Text style={estilos.meta}>
                 ⭐ {parseFloat(negocio.calificacion_promedio || 4.5).toFixed(1)}   ·   {formatoTiempoEntrega(negocio)}
               </Text>
               <Text style={estilos.envio}>🛵 {envioTxt}</Text>
               {!!negocio.descripcion && <Text style={estilos.descripcion}>{negocio.descripcion}</Text>}
+              {!!(negocio.direccion || negocio.colonia) && (
+                <Text style={estilos.direccion}>
+                  📍 {[negocio.direccion, negocio.colonia].filter(Boolean).join(', ')}
+                </Text>
+              )}
+              <MapaUbicacion
+                lat={negocio.latitud ? parseFloat(negocio.latitud) : null}
+                lng={negocio.longitud ? parseFloat(negocio.longitud) : null}
+                titulo={negocio.nombre}
+              />
             </View>
+
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
@@ -323,10 +439,12 @@ export default function NegocioScreen({ route, navigation }) {
         <Pressable style={estilos.modalBackdrop} onPress={cerrarModal}>
           <Pressable style={estilos.modalContenido} onPress={() => {}}>
             <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={0}
             >
               <ScrollView
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
+                automaticallyAdjustKeyboardInsets={true}
                 showsVerticalScrollIndicator={false}
               >
                 {/* Handle visual */}
@@ -334,6 +452,16 @@ export default function NegocioScreen({ route, navigation }) {
 
                 {modalProducto && (
                   <>
+                    {/* La comida, en grande. En la lista la foto es una
+                        miniatura de 72 px —suficiente para reconocer el
+                        platillo, no para antojarse—; aquí se ve completa
+                        antes de decidir. */}
+                    {!!(modalProducto.imagen || modalProducto.foto_url) && (
+                      <Image
+                        source={{ uri: modalProducto.imagen || modalProducto.foto_url }}
+                        style={estilos.modalFoto}
+                      />
+                    )}
                     <Text style={estilos.modalTitulo}>{modalProducto.nombre}</Text>
                     <Text style={estilos.modalPrecio}>
                       ${parseFloat(modalProducto.precio).toFixed(2)}
@@ -420,37 +548,127 @@ const estilos = StyleSheet.create({
   // Header (portada + info)
   header: { backgroundColor: colors.superficie, marginBottom: espacio.sm },
   portada: {
-    height: 140,
-    backgroundColor: '#FFE6D1',
+    height: 160,
+    backgroundColor: colors.oscuro,
     alignItems: 'center',
     justifyContent: 'center',
   },
   portadaImagen: {
     width: '100%',
-    height: 180,
+    height: 200,
     resizeMode: 'cover',
   },
-  portadaAhivoy: {
-    backgroundColor: '#F97316',
+
+  // Foto oficial del restaurante: círculo montado sobre el borde inferior de
+  // la portada, como una foto de perfil. `marginTop` negativo para que
+  // sobresalga, y los datos de abajo se recorren para no quedar tapados.
+  oficialWrap: {
+    marginTop: -44,
+    marginLeft: espacio.lg,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: colors.superficie,
+    backgroundColor: colors.superficie,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
-  portadaLogoAhivoy: {
-    width: 110,
-    height: 110,
-    borderRadius: 22,
+  oficialFoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+  datosConOficial: { paddingTop: espacio.sm },
+  portadaAhivoy: {
+    backgroundColor: colors.oscuro,
+    height: 180,
+    overflow: 'hidden',
+  },
+  portadaDecor1: {
+    position: 'absolute', top: -30, right: -30,
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: colors.primario, opacity: 0.3,
+  },
+  portadaDecor2: {
+    position: 'absolute', bottom: -20, left: 40,
+    width: 90, height: 90, borderRadius: 45,
+    backgroundColor: colors.acento, opacity: 0.15,
+  },
+  portadaStoreIcono: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.primario,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.primario, shadowOpacity: 0.7,
+    shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  portadaStoreEmoji: { fontSize: 40 },
+  portadaStoreBadgeRow: {
+    alignItems: 'center', marginTop: espacio.sm,
+  },
+  portadaStoreBadge: {
+    backgroundColor: colors.acento,
+    paddingHorizontal: 14, paddingVertical: 4,
+    borderRadius: radio.full,
+  },
+  portadaStoreBadgeTxt: {
+    color: '#1A1A00', fontSize: 11, fontWeight: '900', letterSpacing: 1.5,
   },
   portadaEmoji: { fontSize: 72 },
+  modalFoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: radio.md,
+    resizeMode: 'cover',
+    marginBottom: espacio.md,
+    backgroundColor: '#FFE6D1',
+  },
   productoFoto: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
     borderRadius: radio.sm,
     marginRight: espacio.sm,
     resizeMode: 'cover',
     backgroundColor: '#FFE6D1',
   },
-  nombre: { fontSize: 24, fontWeight: '800', color: colors.texto },
+  nombre: { fontSize: 24, fontWeight: '900', color: colors.texto, letterSpacing: -0.3 },
   meta: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
-  envio: { fontSize: 13, color: colors.secundario, fontWeight: '600', marginTop: 2 },
+  envio: { fontSize: 13, color: colors.secundario, fontWeight: '700', marginTop: 2 },
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
+  direccion:   { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
+
+  // Tabs de secciones — barra fija arriba de la lista
+  categoriasBar: {
+    flexGrow: 0,
+    backgroundColor: colors.superficie,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borde,
+  },
+  categoriasBarContent: {
+    paddingHorizontal: espacio.md,
+    paddingVertical: espacio.sm,
+    gap: espacio.xs,
+  },
+  categoriaTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radio.full,
+    backgroundColor: colors.fondo,
+    borderWidth: 1.5,
+    borderColor: colors.borde,
+  },
+  categoriaTabActiva: {
+    backgroundColor: colors.primario,
+    borderColor: colors.primario,
+  },
+  categoriaTabTxt: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textoSuave,
+    textTransform: 'capitalize',
+  },
+  categoriaTabTxtActiva: { color: '#FFF' },
 
   // Sección
   seccionHeader: {

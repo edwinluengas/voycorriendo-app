@@ -1,0 +1,156 @@
+<meta charset="utf-8">
+<style>
+  /* Gráfico destacado de Google Play: 1024×500 exactos, sin transparencia.
+     Usa la identidad real de la app — fondo oscuro (#1C1C1E) con el naranja
+     de marca (#FF5C00), igual que el encabezado del inicio y la pantalla de
+     bienvenida. El texto va al centro-izquierda porque Play recorta los
+     bordes en algunas vistas. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1024px; height: 500px; overflow: hidden; background: #1C1C1E; }
+
+  .lienzo {
+    position: relative;
+    width: 1024px; height: 500px;
+    background: #1C1C1E;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Manchas de color difusas — el mismo recurso que usa la bienvenida. */
+  .mancha { position: absolute; border-radius: 50%; filter: blur(1px); }
+  .m1 { width: 620px; height: 620px; right: -170px; top: -230px;
+        background: radial-gradient(circle, rgba(255,92,0,.95) 0%, rgba(255,92,0,.35) 45%, rgba(255,92,0,0) 70%); }
+  .m2 { width: 420px; height: 420px; right: 60px; bottom: -190px;
+        background: radial-gradient(circle, rgba(255,133,51,.55) 0%, rgba(255,133,51,0) 70%); }
+  .m3 { width: 260px; height: 260px; left: -110px; bottom: -110px;
+        background: radial-gradient(circle, rgba(0,179,65,.30) 0%, rgba(0,179,65,0) 70%); }
+
+  .contenido {
+    position: absolute; left: 72px; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; gap: 34px;
+  }
+
+  /* Logo: círculo naranja con V blanca y punto — idéntico al de la app. */
+  .logo {
+    position: relative; flex: none;
+    width: 150px; height: 150px; border-radius: 50%;
+    background: linear-gradient(145deg, #FF7A2B 0%, #FF5C00 55%, #E04F00 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 18px 48px rgba(255,92,0,.45);
+  }
+  .logo .v {
+    font-size: 88px; font-weight: 900; color: #fff;
+    letter-spacing: -3px; line-height: 1; margin-right: 13px;
+  }
+  .logo .punto {
+    position: absolute; right: 26px; bottom: 30px;
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  }
+
+  .marca {
+    font-size: 62px; font-weight: 900; color: #fff;
+    letter-spacing: -2.2px; line-height: 1;
+  }
+  .barra { width: 62px; height: 5px; border-radius: 3px; background: #FF5C00; margin: 18px 0 16px; }
+  .tagline {
+    font-size: 25px; font-weight: 600; color: #C9C9CE;
+    line-height: 1.38; letter-spacing: -.2px;
+  }
+  .tagline b { color: #fff; font-weight: 700; }
+
+  .plazas {
+    margin-top: 22px; display: flex; gap: 9px; flex-wrap: wrap; max-width: 470px;
+  }
+  .plaza {
+    font-size: 13px; font-weight: 700; color: #FFB07A;
+    border: 1px solid rgba(255,92,0,.42); border-radius: 999px;
+    padding: 6px 13px; letter-spacing: .2px;
+    background: rgba(255,92,0,.10);
+  }
+
+  /* Bloque derecho: sugiere el catálogo sin inventar capturas falsas. */
+  .tarjetas { position: absolute; right: 74px; top: 50%; transform: translateY(-50%); }
+  .tarjeta {
+    width: 244px; background: #26262A; border-radius: 18px;
+    padding: 15px 17px; margin-bottom: 13px;
+    border: 1px solid rgba(255,255,255,.07);
+    box-shadow: 0 12px 32px rgba(0,0,0,.34);
+    display: flex; align-items: center; gap: 13px;
+  }
+  .tarjeta:last-child { margin-bottom: 0; }
+  .icono {
+    width: 44px; height: 44px; border-radius: 13px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icono svg { width: 23px; height: 23px; fill: none; stroke-width: 2.1;
+               stroke-linecap: round; stroke-linejoin: round; }
+  .i1 { background: rgba(255,92,0,.20); }
+  .i2 { background: rgba(0,179,65,.20); }
+  .i3 { background: rgba(255,214,10,.18); }
+  .t-titulo { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: -.2px; }
+  .t-sub { font-size: 12.5px; color: #9A9AA2; margin-top: 3px; font-weight: 500; }
+</style>
+
+<div class="lienzo">
+  <div class="mancha m1"></div>
+  <div class="mancha m2"></div>
+  <div class="mancha m3"></div>
+
+  <div class="contenido">
+    <div class="logo">
+      <span class="v">V</span>
+      <span class="punto"></span>
+    </div>
+    <div>
+      <div class="marca">VoyCorriendo</div>
+      <div class="barra"></div>
+      <div class="tagline">
+        Comida, medicinas y despensa<br><b>de los negocios de tu pueblo.</b>
+      </div>
+      <div class="plazas">
+        <span class="plaza">Puerto Escondido</span>
+        <span class="plaza">Putla</span>
+        <span class="plaza">Zacatepec</span>
+        <span class="plaza">Pinotepa</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tarjetas">
+    <div class="tarjeta">
+      <div class="icono i1">
+        <svg viewBox="0 0 24 24" stroke="#FF8533">
+          <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/>
+          <path d="M15 17.5H9l-2.5-6H4"/><path d="M13 5h3l2.5 12.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="t-titulo">Envío de $40</div>
+        <div class="t-sub">Sin importar la distancia</div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <div class="icono i2">
+        <svg viewBox="0 0 24 24" stroke="#3DD47A">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="2.8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="t-titulo">Sigue tu pedido</div>
+        <div class="t-sub">En el mapa, en vivo</div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <div class="icono i3">
+        <svg viewBox="0 0 24 24" stroke="#FFD60A">
+          <rect x="4" y="10.5" width="16" height="10.5" rx="2.2"/>
+          <path d="M8 10.5V7a4 4 0 018 0v3.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="t-titulo">Código de entrega</div>
+        <div class="t-sub">Solo tú lo ves</div>
+      </div>
+    </div>
+  </div>
+</div>

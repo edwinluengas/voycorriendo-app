@@ -1,0 +1,65 @@
+<meta charset="utf-8">
+<style>
+  :root{--primario:#FF5C00;--oscuro:#1C1C1E;--secundario:#00B341;--fondo:#F8F9FA;--superficie:#FFFFFF;--texto:#111827;--textoSuave:#6B7280;--borde:#E5E7EB}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .tel{width:1080px;height:1920px;background:var(--fondo);position:relative;overflow:hidden;display:flex;flex-direction:column}
+
+  .status{display:flex;justify-content:space-between;align-items:center;color:var(--texto);font-size:26px;font-weight:700;padding:60px 48px 20px}
+  .status .ic{display:flex;gap:14px;font-size:22px;opacity:.7}
+  .top{padding:6px 48px 20px}
+  .top h1{font-size:44px;font-weight:900;color:var(--texto);letter-spacing:-.5px}
+  .top .num{font-size:28px;color:var(--textoSuave);font-weight:600;margin-top:4px}
+
+  .centro{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 60px}
+  .pill{display:inline-flex;align-items:center;gap:14px;background:#E8F8EE;color:var(--secundario);
+    font-size:28px;font-weight:800;padding:14px 30px;border-radius:999px;margin-bottom:50px}
+  .pill svg{width:34px;height:34px;stroke:var(--secundario);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  .titulo{font-size:44px;font-weight:800;color:var(--texto);text-align:center;letter-spacing:-.5px}
+  .aviso{font-size:30px;color:var(--textoSuave);text-align:center;margin-top:18px;line-height:1.45;max-width:720px}
+
+  /* El código gigante — como en la app (72px naranja) */
+  .codigo{margin-top:66px;display:flex;gap:26px}
+  .digito{width:150px;height:200px;border-radius:32px;background:#fff;border:4px solid #FFD9C2;
+    display:flex;align-items:center;justify-content:center;font-size:120px;font-weight:900;color:var(--primario);
+    box-shadow:0 12px 30px rgba(255,92,0,.15)}
+
+  .nota{margin-top:66px;display:flex;align-items:flex-start;gap:20px;background:#fff;border:1px solid var(--borde);
+    border-radius:28px;padding:34px 38px;max-width:820px}
+  .nota .lock{width:64px;height:64px;border-radius:18px;background:#FFF1E8;flex:none;display:flex;align-items:center;justify-content:center}
+  .nota .lock svg{width:34px;height:34px;stroke:var(--primario);stroke-width:2.4;fill:none}
+  .nota p{font-size:28px;color:var(--texto);line-height:1.45}
+  .nota b{font-weight:800}
+
+  .footer{padding:0 48px 70px}
+  .btn{height:120px;border-radius:28px;background:var(--primario);display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:36px;font-weight:800;box-shadow:0 12px 30px rgba(255,92,0,.35)}
+</style>
+
+<div class="tel">
+  <div class="status"><div>9:41</div><div class="ic"><span>▲</span><span>◗</span><span>▮▮▮</span></div></div>
+  <div class="top"><h1>Tu pedido llegó</h1><div class="num">Pedido MND-482910 · Yard House</div></div>
+
+  <div class="centro">
+    <div class="pill"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg> ¡Listo para recibir!</div>
+    <div class="titulo">Dile este código a tu repartidor</div>
+    <div class="aviso">Solo tú lo ves. Así nadie más puede recibir lo que pediste.</div>
+
+    <div class="codigo">
+      <div class="digito">4</div>
+      <div class="digito">7</div>
+      <div class="digito">2</div>
+      <div class="digito">9</div>
+    </div>
+
+    <div class="nota">
+      <div class="lock"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
+      <p>Verás el <b>nombre, la foto y las placas</b> de tu repartidor desde que acepta tu pedido.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="btn">Ya recibí mi pedido</div>
+  </div>
+</div>

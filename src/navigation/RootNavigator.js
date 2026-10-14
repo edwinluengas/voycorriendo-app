@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { colors } from '../theme/colors';
 import BienvenidaScreen from '../screens/auth/BienvenidaScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegistroScreen from '../screens/auth/RegistroScreen';
+import RecuperarPasswordScreen from '../screens/auth/RecuperarPasswordScreen';
 
 // Pantallas Cliente
 import InicioClienteScreen from '../screens/cliente/InicioClienteScreen';
@@ -22,6 +23,12 @@ import SeguimientoScreen from '../screens/cliente/SeguimientoScreen';
 import MisPedidosScreen from '../screens/cliente/MisPedidosScreen';
 import PerfilScreen from '../screens/cliente/PerfilScreen';
 import SoporteScreen from '../screens/cliente/SoporteScreen';
+import PoliticaPrivacidadScreen from '../screens/cliente/PoliticaPrivacidadScreen';
+import DireccionesScreen from '../screens/cliente/DireccionesScreen';
+import MetodosPagoScreen from '../screens/cliente/MetodosPagoScreen';
+import CalificacionesScreen from '../screens/cliente/CalificacionesScreen';
+import NotificacionesScreen from '../screens/cliente/NotificacionesScreen';
+import EliminarCuentaScreen from '../screens/cliente/EliminarCuentaScreen';
 
 // Pantallas Repartidor
 import InicioRepartidorScreen    from '../screens/repartidor/InicioRepartidorScreen';
@@ -29,14 +36,16 @@ import PedidoActivoScreen        from '../screens/repartidor/PedidoActivoScreen'
 import MisEntregasScreen         from '../screens/repartidor/MisEntregasScreen';
 import OnboardingRepartidorScreen from '../screens/repartidor/OnboardingRepartidorScreen';
 import TierScreen                from '../screens/repartidor/TierScreen';
+import GananciasRepartidorScreen from '../screens/repartidor/GananciasRepartidorScreen';
 
 // Pantallas Negocio (dueño de la tienda/restaurante)
 import DashboardNegocioScreen      from '../screens/negocio/DashboardNegocioScreen';
 import PedidoDetalleNegocioScreen  from '../screens/negocio/PedidoDetalleNegocioScreen';
 import OnboardingNegocioScreen     from '../screens/negocio/OnboardingNegocioScreen';
-import TokenesScreen               from '../screens/negocio/TokenesScreen';
 import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
+import HorariosNegocioScreen       from '../screens/negocio/HorariosNegocioScreen';
 import ProductosNegocioScreen      from '../screens/negocio/ProductosNegocioScreen';
+import GananciasNegocioScreen      from '../screens/negocio/GananciasNegocioScreen';
 
 // Pantallas Admin
 import AprobacionesScreen from '../screens/admin/AprobacionesScreen';
@@ -50,6 +59,12 @@ const AuthStack = () => (
     <Stack.Screen name="Bienvenida" component={BienvenidaScreen} />
     <Stack.Screen name="Login"      component={LoginScreen} />
     <Stack.Screen name="Registro"   component={RegistroScreen} />
+    <Stack.Screen name="RecuperarPassword" component={RecuperarPasswordScreen} />
+    <Stack.Screen
+      name="PoliticaPrivacidad"
+      component={PoliticaPrivacidadScreen}
+      options={{ headerShown: true, title: 'Privacidad y Términos', headerStyle: { backgroundColor: colors.primario }, headerTintColor: '#FFF', headerTitleStyle: { fontWeight: '800' } }}
+    />
   </Stack.Navigator>
 );
 
@@ -63,15 +78,21 @@ const ClienteTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: colors.primario,
         tabBarInactiveTintColor: colors.textoSuave,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: colors.borde,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
         },
         headerStyle: { backgroundColor: colors.primario },
         headerTintColor: '#FFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
       }}
     >
       <Tab.Screen
@@ -81,7 +102,7 @@ const ClienteTabs = () => {
           title: '¿Qué se te antoja?',
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'storefront' : 'storefront-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -92,7 +113,7 @@ const ClienteTabs = () => {
           title: 'Mis pedidos',
           tabBarLabel: 'Pedidos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -103,7 +124,7 @@ const ClienteTabs = () => {
           title: 'Ayuda 24/7',
           tabBarLabel: 'Ayuda',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'help-buoy' : 'help-buoy-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -114,7 +135,7 @@ const ClienteTabs = () => {
           title: 'Mi perfil',
           tabBarLabel: 'Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -128,7 +149,7 @@ const ClienteStack = () => (
     screenOptions={{
       headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
     }}
   >
     <Stack.Screen name="Home"        component={ClienteTabs}       options={{ headerShown: false }} />
@@ -136,6 +157,11 @@ const ClienteStack = () => (
     <Stack.Screen name="Carrito"     component={CarritoScreen}     options={{ title: 'Tu carrito' }} />
     <Stack.Screen name="Pago"        component={PagoScreen}        options={{ title: 'Forma de pago' }} />
     <Stack.Screen name="Seguimiento" component={SeguimientoScreen} options={{ title: 'Tu pedido' }} />
+    <Stack.Screen name="Direcciones"    component={DireccionesScreen}    options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"    component={MetodosPagoScreen}    options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones" component={CalificacionesScreen} options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: 'Notificaciones' }} />
+    <Stack.Screen name="EliminarCuenta" component={EliminarCuentaScreen} options={{ title: 'Eliminar mi cuenta' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}
@@ -145,6 +171,11 @@ const ClienteStack = () => (
       name="OnboardingNegocio"
       component={OnboardingNegocioScreen}
       options={{ title: 'Registra tu negocio' }}
+    />
+    <Stack.Screen
+      name="PoliticaPrivacidad"
+      component={PoliticaPrivacidadScreen}
+      options={{ title: 'Privacidad y Términos' }}
     />
   </Stack.Navigator>
 );
@@ -157,17 +188,20 @@ const RepartidorTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.secundario,
+        tabBarActiveTintColor: colors.primario,
         tabBarInactiveTintColor: colors.textoSuave,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarStyle: {
           paddingTop: 6,
           paddingBottom: 6 + bottomInset,
           height: 62 + bottomInset,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: colors.borde,
+          elevation: 12,
         },
-        headerStyle: { backgroundColor: colors.secundario },
+        headerStyle: { backgroundColor: colors.primario },
         headerTintColor: '#FFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '800' },
       }}
     >
       <Tab.Screen
@@ -177,7 +211,7 @@ const RepartidorTabs = () => {
           title: 'Pedidos disponibles',
           tabBarLabel: 'Pedidos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'bicycle' : 'bicycle-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'flash' : 'flash-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -186,9 +220,9 @@ const RepartidorTabs = () => {
         component={MisEntregasScreen}
         options={{
           title: 'Mis entregas',
-          tabBarLabel: 'Entregas',
+          tabBarLabel: 'Ganancias',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'cash' : 'cash-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -200,22 +234,27 @@ const RepartidorTabs = () => {
 const RepartidorStack = () => (
   <Stack.Navigator
     screenOptions={{
-      headerStyle: { backgroundColor: colors.secundario },
+      headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
-    <Stack.Screen name="InicioRep"    component={RepartidorTabs}        options={{ headerShown: false }} />
-    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}    options={{ title: 'Pedido en curso' }} />
-    <Stack.Screen name="Tier"         component={TierScreen}            options={{ title: 'Tipo de cobro' }} />
+    <Stack.Screen name="InicioRep"    component={RepartidorTabs}           options={{ headerShown: false }} />
+    <Stack.Screen name="PedidoActivo" component={PedidoActivoScreen}       options={{ title: 'Pedido en curso' }} />
+    <Stack.Screen name="Tier"         component={TierScreen}               options={{ title: 'Tipo de cobro' }} />
+    <Stack.Screen name="GananciasRepartidor" component={GananciasRepartidorScreen} options={{ title: 'Mis ganancias' }} />
     <Stack.Screen
       name="OnboardingRepartidor"
       component={OnboardingRepartidorScreen}
       options={{ title: 'Completa tu registro' }}
     />
-    <Stack.Screen name="Perfil"       component={PerfilScreen}          options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Perfil"       component={PerfilScreen}             options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Direcciones"    component={DireccionesScreen}    options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"    component={MetodosPagoScreen}    options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones" component={CalificacionesScreen} options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: 'Notificaciones' }} />
     {/* Alias "Inicio" para compatibilidad con navigation.replace('Inicio') en PedidoActivoScreen */}
-    <Stack.Screen name="Inicio"       component={RepartidorTabs}        options={{ headerShown: false }} />
+    <Stack.Screen name="Inicio"       component={RepartidorTabs}           options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -225,16 +264,22 @@ const NegocioStack = () => (
     screenOptions={{
       headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
     <Stack.Screen name="DashboardNegocio"     component={DashboardNegocioScreen}     options={{ title: 'Mis pedidos' }} />
     <Stack.Screen name="PedidoDetalleNegocio" component={PedidoDetalleNegocioScreen}  options={{ title: 'Detalle del pedido' }} />
-    <Stack.Screen name="Tokens"               component={TokenesScreen}               options={{ title: 'Tokens' }} />
-    <Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
+<Stack.Screen name="FotosNegocio"         component={FotosNegocioScreen}          options={{ title: 'Fotos del negocio' }} />
+    <Stack.Screen name="HorariosNegocio"      component={HorariosNegocioScreen}       options={{ title: 'Horarios de atención' }} />
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
+    <Stack.Screen name="GananciasNegocio"     component={GananciasNegocioScreen}      options={{ title: 'Mis ganancias' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="Direcciones"          component={DireccionesScreen}           options={{ title: 'Mis direcciones' }} />
+    <Stack.Screen name="MetodosPago"          component={MetodosPagoScreen}           options={{ title: 'Métodos de pago' }} />
+    <Stack.Screen name="Calificaciones"       component={CalificacionesScreen}        options={{ title: 'Mis calificaciones' }} />
+    <Stack.Screen name="Notificaciones"       component={NotificacionesScreen}        options={{ title: 'Notificaciones' }} />
     <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}     options={{ title: 'Completa tu negocio' }} />
+    <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}    options={{ title: 'Privacidad y Términos' }} />
   </Stack.Navigator>
 );
 
@@ -244,14 +289,25 @@ const AdminStack = () => (
     screenOptions={{
       headerStyle: { backgroundColor: colors.primario },
       headerTintColor: '#FFF',
-      headerTitleStyle: { fontWeight: '700' },
+      headerTitleStyle: { fontWeight: '800' },
     }}
   >
     <Stack.Screen
       name="Aprobaciones"
       component={AprobacionesScreen}
-      options={{ title: 'Panel de administración' }}
+      options={({ navigation }) => ({
+        title: 'Panel de administración',
+        headerRight: () => (
+          <Pressable onPress={() => navigation.navigate('Perfil')} style={{ marginRight: 4, padding: 4 }}>
+            <Ionicons name="person-circle-outline" size={26} color="#FFF" />
+          </Pressable>
+        ),
+      })}
     />
+    <Stack.Screen name="Perfil"               component={PerfilScreen}               options={{ title: 'Mi perfil' }} />
+    <Stack.Screen name="OnboardingRepartidor" component={OnboardingRepartidorScreen} options={{ title: 'Quiero ser repartidor' }} />
+    <Stack.Screen name="OnboardingNegocio"    component={OnboardingNegocioScreen}    options={{ title: 'Registra tu negocio' }} />
+    <Stack.Screen name="PoliticaPrivacidad"   component={PoliticaPrivacidadScreen}   options={{ title: 'Privacidad y Términos' }} />
   </Stack.Navigator>
 );
 
@@ -261,7 +317,7 @@ export default function RootNavigator() {
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.fondo }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
         <ActivityIndicator size="large" color={colors.primario} />
       </View>
     );

@@ -19,8 +19,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { pedirImagen } from '../../utils/imagenes';
+import * as Location from 'expo-location';
 import { negocioOnboardingAPI } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { usePlaza, plazaDePunto } from '../../context/PlazaContext';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import { colors, espacio, radio } from '../../theme/colors';
@@ -62,8 +65,12 @@ export default function OnboardingNegocioScreen({ navigation }) {
     telefono: '',
     direccion: '',
     colonia: '',
+    latitud: null,
+    longitud: null,
     horarios: {}, // { lun: {abre:'09:00', cierra:'21:00'}, ... }
+    foto_portada: null,
     foto_local: null,
+    logo: null,
     comprobante_domicilio: null,
     documento_ine_dueno: null,
     documento_rfc: null,
@@ -87,8 +94,12 @@ export default function OnboardingNegocioScreen({ navigation }) {
             telefono:             n.telefono             || '',
             direccion:            n.direccion            || '',
             colonia:              n.colonia              || '',
+            latitud:              n.latitud              || null,
+            longitud:             n.longitud             || null,
             horarios:             n.horarios             || {},
+            foto_portada:          n.foto_portada,
             foto_local:           n.foto_local,
+            logo:                  n.logo,
             comprobante_domicilio: n.comprobante_domicilio,
             documento_ine_dueno:  n.documento_ine_dueno,
             documento_rfc:        n.documento_rfc,
@@ -133,25 +144,10 @@ export default function OnboardingNegocioScreen({ navigation }) {
   };
 
   const seleccionarYSubir = (tipo, columnaLocal) => {
-    Alert.alert('Seleccionar imagen', '¿De dónde quieres subir la foto?', [
-      {
-        text: '📷 Tomar foto',
-        onPress: async () => {
-          const r = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6, allowsEditing: false });
-          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      {
-        text: '🖼️ Elegir de galería',
-        onPress: async () => {
-          const r = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.6, allowsEditing: false,
-          });
-          if (!r.canceled && r.assets?.length) await _subirDocConAsset(tipo, columnaLocal, r.assets[0]);
-        },
-      },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    (async () => {
+      const asset = await pedirImagen();
+      if (asset) await _subirDocConAsset(tipo, columnaLocal, asset);
+    })();
   };
 
   // ── Avanzar / retroceder ───────────────────────────────
@@ -170,9 +166,14 @@ export default function OnboardingNegocioScreen({ navigation }) {
     }
     if (paso === 2) {
       if (!datos.direccion.trim()) return Alert.alert('Falta', 'Pon la direccion.');
+      if (!datos.latitud || !datos.longitud) {
+        return Alert.alert('Falta confirmar ubicación', 'Toca "Confirmar mi ubicación" parado en la puerta de tu negocio. Es obligatorio para que los repartidores puedan encontrarte.');
+      }
       const ok = await guardarParcial({
         direccion: datos.direccion.trim(),
         colonia:   datos.colonia,
+        latitud:   datos.latitud,
+        longitud:  datos.longitud,
       });
       if (!ok) return;
     }
@@ -185,7 +186,9 @@ export default function OnboardingNegocioScreen({ navigation }) {
       if (!ok) return;
     }
     if (paso === 4) {
+      if (!datos.foto_portada) return Alert.alert('Faltan', 'Sube una foto de portada de tu negocio.');
       if (!datos.foto_local) return Alert.alert('Faltan', 'Sube una foto de tu local.');
+      if (!datos.logo) return Alert.alert('Faltan', 'Sube la foto oficial de tu negocio.');
       if (!datos.comprobante_domicilio) return Alert.alert('Faltan', 'Sube el comprobante de domicilio.');
       if (!datos.documento_ine_dueno) return Alert.alert('Faltan', 'Sube tu INE.');
     }
@@ -203,6 +206,18 @@ export default function OnboardingNegocioScreen({ navigation }) {
 
   const irAtras = () => setPaso((p) => Math.max(p - 1, 1));
 
+  // Si el backend rechaza el envío por un dato faltante, regresa al paso
+  // donde vive ese dato en vez de dejar al usuario varado en el resumen
+  // sin saber qué corregir ni dónde.
+  const pasoDelCampoFaltante = (mensaje) => {
+    const m = (mensaje || '').toLowerCase();
+    if (m.includes('ubicación') || m.includes('gps') || m.includes('direccion')) return 2;
+    if (m.includes('nombre') || m.includes('categoria') || m.includes('telefono')) return 1;
+    if (m.includes('foto') || m.includes('comprobante') || m.includes('ine')) return 4;
+    if (m.includes('clabe') || m.includes('banco')) return 5;
+    return null;
+  };
+
   const enviarSolicitud = async () => {
     setGuardando(true);
     try {
@@ -216,7 +231,12 @@ export default function OnboardingNegocioScreen({ navigation }) {
         }}]
       );
     } catch (e) {
-      Alert.alert('No pudimos enviar', e.mensajeAmigable || 'Verifica que llenaste todo.');
+      const pasoProblema = pasoDelCampoFaltante(e.mensajeAmigable);
+      Alert.alert(
+        'No pudimos enviar',
+        e.mensajeAmigable || 'Verifica que llenaste todo.',
+        pasoProblema ? [{ text: 'Ir a corregir', onPress: () => setPaso(pasoProblema) }] : undefined
+      );
     } finally {
       setGuardando(false);
     }
@@ -240,9 +260,9 @@ export default function OnboardingNegocioScreen({ navigation }) {
         <BarraProgreso paso={paso} total={TOTAL_PASOS} />
         <ScrollView
           contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="always"
           automaticallyAdjustKeyboardInsets={true}
+          showsVerticalScrollIndicator={true}
         >
           {paso === 1 && <PasoBasico       datos={datos} setDatos={setDatos} />}
           {paso === 2 && <PasoDireccion    datos={datos} setDatos={setDatos} />}
@@ -345,6 +365,42 @@ function PasoBasico({ datos, setDatos }) {
 
 function PasoDireccion({ datos, setDatos }) {
   const set = (k) => (v) => setDatos((d) => ({ ...d, [k]: v }));
+  const [detectando, setDetectando] = useState(false);
+
+  const confirmarUbicacion = async () => {
+    setDetectando(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('Permiso necesario', 'Necesitamos tu ubicación para que los repartidores puedan encontrar tu negocio. Actívala en los ajustes del telefono.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setDatos((d) => ({ ...d, latitud: loc.coords.latitude, longitud: loc.coords.longitude }));
+      const geo = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      if (geo?.[0] && !datos.direccion.trim()) {
+        const g = geo[0];
+        const partes = [g.street, g.streetNumber, g.district || g.subregion].filter(Boolean);
+        if (partes.length > 0) set('direccion')(partes.join(' '));
+      }
+    } catch (e) {
+      Alert.alert('No pudimos detectar tu ubicación', 'Verifica que el GPS esté activado e intenta de nuevo.');
+    } finally {
+      setDetectando(false);
+    }
+  };
+
+  const ubicacionConfirmada = !!(datos.latitud && datos.longitud);
+
+  // En qué plaza va a quedar el negocio. La decide el servidor a partir de
+  // estas mismas coordenadas, así que se le dice AQUÍ: es la diferencia entre
+  // enterarse ahora o hasta el final del wizard con un error rojo. Y si queda
+  // fuera de toda plaza hay que decirlo claro — no hay servicio ahí.
+  const { plazas, radioKm } = usePlaza();
+  const destino = ubicacionConfirmada
+    ? plazaDePunto(plazas, datos.latitud, datos.longitud, radioKm)
+    : null;
+
   return (
     <View>
       <Text style={estilos.tituloPaso}>📍 Tu direccion</Text>
@@ -363,11 +419,37 @@ function PasoDireccion({ datos, setDatos }) {
         value={datos.colonia}
         onChangeText={set('colonia')}
       />
-      <View style={estilos.aviso}>
-        <Text style={estilos.avisoTxt}>
-          💡 Despues de la aprobacion podremos pedirte que confirmes tu ubicacion exacta en el mapa.
-        </Text>
-      </View>
+
+      <Boton
+        titulo={detectando ? 'Detectando...' : ubicacionConfirmada ? '📍 Ubicación confirmada — volver a detectar' : '📍 Confirmar mi ubicación (obligatorio)'}
+        variante={ubicacionConfirmada ? 'secundario' : 'primario'}
+        onPress={confirmarUbicacion}
+        cargando={detectando}
+        estilo={{ marginTop: espacio.md }}
+      />
+
+      {ubicacionConfirmada && destino?.plaza && !destino.dentro ? (
+        <View style={[estilos.aviso, { backgroundColor: '#FEE2E2' }]}>
+          <Text style={[estilos.avisoTxt, { color: colors.error }]}>
+            🚫 Sin cobertura en este lugar. La localidad más cercana donde operamos
+            ({destino.plaza.nombre}) queda a unos {Math.round(destino.km)} km, y damos
+            servicio hasta {radioKm} km. Todavía no podemos dar de alta tu negocio aquí.
+          </Text>
+        </View>
+      ) : ubicacionConfirmada ? (
+        <View style={[estilos.aviso, { backgroundColor: '#E8F8EE' }]}>
+          <Text style={[estilos.avisoTxt, { color: colors.secundario }]}>
+            ✅ Ubicación confirmada ({datos.latitud.toFixed(5)}, {datos.longitud.toFixed(5)}). Los repartidores podrán encontrarte con precisión.
+            {destino?.plaza ? `\n\n🏘️ Tu negocio aparecerá en ${destino.plaza.nombre} (${destino.plaza.marca}). Solo lo verán —y le pedirán— los clientes de esa localidad.` : ''}
+          </Text>
+        </View>
+      ) : (
+        <View style={estilos.aviso}>
+          <Text style={estilos.avisoTxt}>
+            ⚠️ Párate en la puerta de tu negocio y toca "Confirmar mi ubicación". Es obligatorio — sin esto no podremos aprobar tu negocio, porque los repartidores no sabrían a dónde ir.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -433,7 +515,9 @@ function PasoHorarios({ datos, setDatos }) {
 
 function PasoDocumentos({ datos, seleccionar }) {
   const docs = [
+    { tipo: 'foto_portada',          columna: 'foto_portada',          label: 'Foto de portada *', desc: 'Esta foto aparece en la app cuando los clientes buscan tu negocio. Que se vea bien.' },
     { tipo: 'foto_local',            columna: 'foto_local',            label: 'Foto del local *', desc: 'Frente o entrada de tu tienda.' },
+    { tipo: 'logo',                  columna: 'logo',                  label: 'Foto oficial *', desc: 'La cara de tu negocio: tu logo o una foto cuadrada que te identifique. Es la que el cliente ve junto a tu nombre.' },
     { tipo: 'comprobante_domicilio', columna: 'comprobante_domicilio', label: 'Comprobante de domicilio *', desc: 'Recibo de luz, agua o predial reciente.' },
     { tipo: 'documento_ine_dueno',   columna: 'documento_ine_dueno',   label: 'INE del dueno *', desc: 'Frente de la credencial.' },
     { tipo: 'documento_rfc',         columna: 'documento_rfc',         label: 'Constancia RFC (opcional)', desc: 'Si tienes RFC, ayuda a la facturacion.' },
@@ -529,7 +613,9 @@ function PasoResumen({ datos }) {
 
       <View style={estilos.tarjetaResumen}>
         <Text style={estilos.resumenSeccion}>Documentos</Text>
+        <Item label="Foto de portada"        valor={datos.foto_portada ? '✅ Subida' : '❌ Falta'} />
         <Item label="Foto del local"         valor={datos.foto_local ? '✅ Subida' : '❌ Falta'} />
+        <Item label="Foto oficial"           valor={datos.logo ? '✅ Subida' : '❌ Falta'} />
         <Item label="Comprobante domicilio"  valor={datos.comprobante_domicilio ? '✅ Subida' : '❌ Falta'} />
         <Item label="INE del dueno"          valor={datos.documento_ine_dueno ? '✅ Subida' : '❌ Falta'} />
         <Item label="RFC"                    valor={datos.documento_rfc ? '✅ Subida' : '— Opcional'} />

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "896331711172",
+    "project_id": "voycorriendo-75c96",
+    "storage_bucket": "voycorriendo-75c96.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896331711172:android:0eb2d31c7665a4e246ff91",
+        "android_client_info": {
+          "package_name": "mx.voycorriendo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB04oheevaAjvMWmq8aAv7C-mBerrXfOHk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

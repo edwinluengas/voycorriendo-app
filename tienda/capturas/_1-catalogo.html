@@ -1,0 +1,135 @@
+<meta charset="utf-8">
+<style>
+  :root{--primario:#FF5C00;--primarioClaro:#FF8533;--oscuro:#1C1C1E;--secundario:#00B341;--fondo:#F8F9FA;--superficie:#FFFFFF;--texto:#111827;--textoSuave:#6B7280;--borde:#E5E7EB}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1920px;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .tel{width:1080px;height:1920px;background:var(--fondo);position:relative;overflow:hidden}
+
+  /* Header oscuro con mancha naranja — como InicioClienteScreen */
+  .header{background:var(--oscuro);padding:60px 48px 56px;position:relative;overflow:hidden}
+  .header .mancha{position:absolute;right:-120px;top:-160px;width:520px;height:520px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,92,0,.9) 0%,rgba(255,92,0,0) 68%)}
+  .status{display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:26px;font-weight:700;margin-bottom:44px;position:relative;z-index:2}
+  .status .ic{display:flex;gap:14px;font-size:22px;opacity:.9}
+  .hola{color:#9A9AA2;font-size:30px;font-weight:600;position:relative;z-index:2}
+  .preg{color:#fff;font-size:58px;font-weight:900;letter-spacing:-1.5px;margin-top:6px;position:relative;z-index:2}
+  .chip{display:inline-flex;align-items:center;gap:10px;margin-top:30px;padding:14px 26px;border-radius:999px;
+    background:rgba(255,255,255,.12);position:relative;z-index:2}
+  .chip .pin{width:22px;height:22px;border-radius:50%;background:var(--primario);position:relative}
+  .chip .pin::after{content:"";position:absolute;left:7px;top:5px;width:8px;height:8px;border-radius:50%;background:#fff}
+  .chip span{color:#fff;font-size:26px;font-weight:700}
+
+  /* Categorías */
+  .cats{display:flex;gap:18px;padding:34px 48px 10px;overflow:hidden}
+  .cat{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:120px}
+  .cat .burbuja{width:104px;height:104px;border-radius:28px;display:flex;align-items:center;justify-content:center;
+    background:#FFF1E8;border:2px solid #FFD9C2}
+  .cat.on .burbuja{background:var(--primario);border-color:var(--primario)}
+  .cat svg{width:48px;height:48px;fill:none;stroke:var(--primario);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .cat.on svg{stroke:#fff}
+  .cat label{font-size:24px;font-weight:700;color:var(--textoSuave)}
+  .cat.on label{color:var(--primario)}
+
+  .seccion{padding:34px 48px 20px;font-size:38px;font-weight:900;color:var(--texto);letter-spacing:-.5px}
+
+  /* Tarjetas de negocio */
+  .lista{padding:0 48px}
+  .card{background:var(--superficie);border-radius:32px;overflow:hidden;margin-bottom:36px;
+    box-shadow:0 10px 30px rgba(0,0,0,.07)}
+  .card .cover{height:300px;position:relative;display:flex;align-items:flex-end;padding:24px}
+  .card .badge{position:absolute;top:24px;left:24px;background:rgba(0,0,0,.62);color:#fff;
+    font-size:24px;font-weight:800;padding:10px 22px;border-radius:999px;display:flex;align-items:center;gap:8px}
+  .card .logo{width:120px;height:120px;border-radius:30px;border:5px solid #fff;object-fit:cover;
+    box-shadow:0 8px 20px rgba(0,0,0,.25)}
+  .card .body{padding:26px 30px 32px}
+  .card h3{font-size:42px;font-weight:900;color:var(--texto);letter-spacing:-.5px}
+  .card .meta{display:flex;gap:22px;margin-top:14px;font-size:28px;color:var(--textoSuave);font-weight:600;align-items:center}
+  .card .estrella{color:#F59E0B;font-weight:800}
+  .card .envio{margin-top:16px;display:inline-flex;align-items:center;gap:10px;
+    background:#FFF1E8;color:var(--primario);font-size:26px;font-weight:800;padding:10px 22px;border-radius:14px}
+  .cov1{background:linear-gradient(135deg,#FF7A2B,#CC4900)}
+  .cov2{background:linear-gradient(135deg,#1C1C1E,#3a3a40)}
+  .cov3{background:linear-gradient(135deg,#00B341,#00872F)}
+  .ph{font-size:120px;position:absolute;right:36px;top:50%;transform:translateY(-50%);opacity:.9}
+  .lg1{background:linear-gradient(135deg,#FF8533,#FF5C00)}
+  .lg2{background:linear-gradient(135deg,#00B341,#00872F)}
+  .lg3{background:linear-gradient(135deg,#FFB07A,#FF5C00)}
+  .lgtxt{width:120px;height:120px;border-radius:30px;border:5px solid #fff;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:52px;font-weight:900;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+
+  /* Barra de tabs inferior */
+  .tabs{position:absolute;bottom:0;left:0;right:0;height:130px;background:#fff;border-top:1px solid var(--borde);
+    display:flex;align-items:center;justify-content:space-around;padding-bottom:22px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .tab svg{width:46px;height:46px;fill:none;stroke:#B4B4BC;stroke-width:2.1}
+  .tab.on svg{stroke:var(--primario)}
+  .tab span{font-size:22px;color:#B4B4BC;font-weight:700}
+  .tab.on span{color:var(--primario)}
+</style>
+
+<div class="tel">
+  <div class="header">
+    <div class="mancha"></div>
+    <div class="status">
+      <div>9:41</div>
+      <div class="ic"><span>▲</span><span>◗</span><span>▮▮▮</span></div>
+    </div>
+    <div class="hola">¡Hola! 👋</div>
+    <div class="preg">¿Qué se te antoja hoy?</div>
+    <div class="chip"><span class="pin"></span><span>Puerto Escondido</span></div>
+  </div>
+
+  <div class="cats">
+    <div class="cat on"><div class="burbuja"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></div><label>Para ti</label></div>
+    <div class="cat"><div class="burbuja"><svg viewBox="0 0 24 24"><path d="M5 12V4h14v8M4 12h16v8H4z"/><path d="M8 4v4M16 4v4"/></svg></div><label>Restaurantes</label></div>
+    <div class="cat"><div class="burbuja"><svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 016 0"/></svg></div><label>Tiendita</label></div>
+    <div class="cat"><div class="burbuja"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M12 8v6M9 11h6"/></svg></div><label>Farmacia</label></div>
+  </div>
+
+  <div class="seccion">Restaurantes en tu localidad</div>
+
+  <div class="lista">
+    <div class="card">
+      <div class="cover cov1">
+        <div class="badge"><span class="estrella">★</span> Popular</div>
+        <span class="ph">🍔</span>
+        <div class="lgtxt lg1">YH</div>
+      </div>
+      <div class="body">
+        <h3>Yard House</h3>
+        <div class="meta"><span class="estrella">★ 4.8</span><span>·</span><span>🕒 20-40 min</span></div>
+        <div class="envio">🛵 Envío $40</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cover cov2">
+        <span class="ph">🌮</span>
+        <div class="lgtxt lg3">TB</div>
+      </div>
+      <div class="body">
+        <h3>Tacos Don Beto</h3>
+        <div class="meta"><span class="estrella">★ 4.6</span><span>·</span><span>🕒 15-30 min</span></div>
+        <div class="envio">🛵 Envío $40</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cover cov3">
+        <span class="ph">🦐</span>
+        <div class="lgtxt lg2">ML</div>
+      </div>
+      <div class="body">
+        <h3>Mariscos La Lupita</h3>
+        <div class="meta"><span class="estrella">★ 4.7</span><span>·</span><span>🕒 15-30 min</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on"><svg viewBox="0 0 24 24"><path d="M4 20h4v-8H4zM10 20h4V6h-4zM16 20h4v-5h-4z"/></svg><span>Inicio</span></div>
+    <div class="tab"><svg viewBox="0 0 24 24"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg><span>Carrito</span></div>
+    <div class="tab"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Pedidos</span></div>
+    <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg><span>Perfil</span></div>
+  </div>
+</div>
