@@ -3,8 +3,9 @@
  * Puerto Escondido, Oaxaca
  */
 import React, { useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
@@ -23,6 +24,13 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+
+// El manifest ya no fija la orientación (Play lo marca para tablets/plegables).
+// En celulares (lado corto < 600dp) se mantiene vertical desde aquí.
+const { width, height } = Dimensions.get('screen');
+if (Math.min(width, height) < 600) {
+  ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+}
 
 function navegarADestino(data) {
   if (!navigationRef.isReady() || !data?.tipo) return;

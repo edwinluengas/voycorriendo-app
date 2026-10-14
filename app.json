@@ -2,9 +2,9 @@
   "expo": {
     "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.2.55",
+    "version": "1.2.56",
     "scheme": "voycorriendo",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -48,7 +48,7 @@
           "apiKey": "AIzaSyBabHgOYrF4W8qGbksXhE_TIOjGpa4oXGM"
         }
       },
-      "versionCode": 16
+      "versionCode": 17
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -79,7 +79,16 @@
           "defaultChannel": "general"
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
