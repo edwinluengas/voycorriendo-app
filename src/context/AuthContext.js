@@ -181,12 +181,18 @@ export const AuthProvider = ({ children }) => {
     })();
   }, []);
 
-  const cargarRoles = useCallback(async () => {
+  // El modo que se ve en ESTE celular no se pisa con el del servidor: una
+  // misma cuenta puede estar abierta en dos equipos (la dueña de un negocio
+  // que también reparte, uno en modo negocio y otro en modo repartidor), y
+  // al volver a la pantalla de repartidor este celular se cambiaba solo al
+  // modo que había elegido el otro. Al iniciar sesión el modo ya viene en el
+  // usuario; solo el alta de un negocio pide sincronizarlo.
+  const cargarRoles = useCallback(async ({ sincronizarModo = false } = {}) => {
     try {
       const { data } = await usuariosAPI.misRoles();
       setRoles(data.data?.roles || null);
       const modo = data.data?.modo_activo;
-      if (modo) setUsuario(u => (u ? { ...u, modo_activo: modo } : u));
+      if (sincronizarModo && modo) setUsuario(u => (u ? { ...u, modo_activo: modo } : u));
       return data.data;
     } catch (e) {
       console.log('[Auth] No se pudieron cargar roles:', e?.mensajeAmigable);
