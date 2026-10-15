@@ -48,6 +48,7 @@ export default function DashboardNegocioScreen({ navigation }) {
   const [tab, setTab]               = useState('nuevos');
   const [pedidos, setPedidos]       = useState([]);
   const [negocio, setNegocio]       = useState(null);
+  const [nombrePlaza, setNombrePlaza] = useState(null);
   const [cargando, setCargando]     = useState(true);
   const [refrescando, setRefrescar] = useState(false);
   const [cambiandoApertura, setCambiandoApertura] = useState(false);
@@ -81,6 +82,13 @@ export default function DashboardNegocioScreen({ navigation }) {
       const respNegocio = await negocioOnboardingAPI.miNegocio();
       const neg = respNegocio.data?.data?.negocio || null;
       setNegocio(neg);
+      // Con más de una sucursal el encabezado dice cuál se está operando.
+      negocioOnboardingAPI.misSucursales()
+        .then(({ data }) => {
+          const lista = data?.data?.sucursales || [];
+          setNombrePlaza(lista.length > 1 ? (lista.find((s) => s.id === neg?.id)?.plaza_nombre || null) : null);
+        })
+        .catch(() => setNombrePlaza(null));
       if (neg?.verificacion_estado === 'aprobado') {
         const respPedidos = await negocioDashboardAPI.misPedidos();
         setPedidos(respPedidos.data.data?.pedidos || []);
@@ -179,6 +187,12 @@ export default function DashboardNegocioScreen({ navigation }) {
         </ScrollView>
 
         <View style={estilos.footerEstado}>
+          {/* Con una sucursal en alta, éste es el camino de regreso a la matriz. */}
+          {negocio && (
+            <Pressable style={estilos.footerLink} onPress={() => navigation.navigate('Sucursales')}>
+              <Text style={estilos.footerLinkTxt}>🏪 Mis sucursales</Text>
+            </Pressable>
+          )}
           <Pressable style={estilos.footerLink} onPress={() => navigation.navigate('Perfil')}>
             <Text style={estilos.footerLinkTxt}>👤 Cambiar de modo</Text>
           </Pressable>
@@ -205,8 +219,18 @@ export default function DashboardNegocioScreen({ navigation }) {
         <View style={estilos.headerTop}>
           <View style={{ flex: 1 }}>
             <Text style={estilos.headerNombre} numberOfLines={1}>{negocio?.nombre || 'Tu negocio'}</Text>
-            <Text style={estilos.headerSub}>Hola {usuario?.nombre?.split(' ')[0]}, aquí van los pedidos</Text>
+            <Text style={estilos.headerSub}>
+              {nombrePlaza ? `Sucursal ${nombrePlaza} · ` : ''}Hola {usuario?.nombre?.split(' ')[0]}
+            </Text>
           </View>
+          <Pressable
+            onPress={() => navigation.navigate('Sucursales')}
+            hitSlop={10}
+            style={estilos.horariosBtn}
+            accessibilityLabel="Mis sucursales"
+          >
+            <Ionicons name="storefront-outline" size={21} color="#FFF" />
+          </Pressable>
           <Pressable
             onPress={() => navigation.navigate('HorariosNegocio')}
             hitSlop={10}

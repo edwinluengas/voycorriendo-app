@@ -46,6 +46,7 @@ import FotosNegocioScreen          from '../screens/negocio/FotosNegocioScreen';
 import HorariosNegocioScreen       from '../screens/negocio/HorariosNegocioScreen';
 import ProductosNegocioScreen      from '../screens/negocio/ProductosNegocioScreen';
 import GananciasNegocioScreen      from '../screens/negocio/GananciasNegocioScreen';
+import SucursalesScreen           from '../screens/negocio/SucursalesScreen';
 
 // Pantallas Admin
 import AprobacionesScreen from '../screens/admin/AprobacionesScreen';
@@ -273,6 +274,7 @@ const NegocioStack = () => (
     <Stack.Screen name="HorariosNegocio"      component={HorariosNegocioScreen}       options={{ title: 'Horarios de atención' }} />
     <Stack.Screen name="ProductosNegocio"     component={ProductosNegocioScreen}      options={{ title: 'Mis productos' }} />
     <Stack.Screen name="GananciasNegocio"     component={GananciasNegocioScreen}      options={{ title: 'Mis ganancias' }} />
+    <Stack.Screen name="Sucursales"           component={SucursalesScreen}            options={{ title: 'Mis sucursales' }} />
     <Stack.Screen name="Perfil"               component={PerfilScreen}                options={{ title: 'Mi perfil' }} />
     <Stack.Screen name="Direcciones"          component={DireccionesScreen}           options={{ title: 'Mis direcciones' }} />
     <Stack.Screen name="MetodosPago"          component={MetodosPagoScreen}           options={{ title: 'Métodos de pago' }} />

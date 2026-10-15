@@ -36,6 +36,36 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Sucursal con la que está operando el dueño de negocio. El servidor la lee
+// del header X-Negocio-Id en todo lo de "mi negocio" (pedidos, menú,
+// apertura, ganancias); sin header usa la matriz. Se guarda en SecureStore
+// para que al reabrir la app siga en la misma sucursal.
+let _negocioActivo = null;
+let _negocioActivoLeido = false;
+export const negocioActivo = {
+  async obtener() {
+    if (!_negocioActivoLeido) {
+      try { _negocioActivo = await SecureStore.getItemAsync('negocio_activo'); } catch (_) { _negocioActivo = null; }
+      _negocioActivoLeido = true;
+    }
+    return _negocioActivo;
+  },
+  async fijar(id) {
+    _negocioActivo = id || null;
+    _negocioActivoLeido = true;
+    try {
+      if (id) await SecureStore.setItemAsync('negocio_activo', id);
+      else await SecureStore.deleteItemAsync('negocio_activo');
+    } catch (_) { /* queda en memoria: basta para esta sesión */ }
+  },
+};
+
+api.interceptors.request.use(async (config) => {
+  const id = await negocioActivo.obtener();
+  if (id) config.headers['X-Negocio-Id'] = id;
+  return config;
+});
+
 // Callback registrado por AuthContext para manejar cierre de sesión automático en 401
 let _onUnauthorized = null;
 export const setUnauthorizedCallback = (fn) => { _onUnauthorized = fn; };
@@ -186,6 +216,9 @@ export const negocioOnboardingAPI = {
   ganancias:         ()                    => api.get('/negocios/mi-negocio/ganancias'),
   pagarDeuda:        (referencia_spei, monto) => api.post('/negocios/mi-negocio/pagar-deuda', { referencia_spei, monto }),
   retiroDiario:      ()                    => api.post('/negocios/mi-negocio/retiro-diario'),
+  // ── Sucursales (un negocio por plaza, mismo dueño) ──
+  misSucursales:     ()                    => api.get('/negocios/mis-sucursales'),
+  crearSucursal:     ()                    => api.post('/negocios/mis-sucursales'),
 };
 
 export const pagosAPI = {

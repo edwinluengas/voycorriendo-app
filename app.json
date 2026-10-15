@@ -2,7 +2,7 @@
   "expo": {
     "name": "VoyCorriendo",
     "slug": "voycorriendo-v2",
-    "version": "1.2.56",
+    "version": "1.2.57",
     "scheme": "voycorriendo",
     "orientation": "default",
     "icon": "./assets/icon.png",
@@ -48,7 +48,7 @@
           "apiKey": "AIzaSyBabHgOYrF4W8qGbksXhE_TIOjGpa4oXGM"
         }
       },
-      "versionCode": 17
+      "versionCode": 18
     },
     "web": {
       "favicon": "./assets/favicon.png"

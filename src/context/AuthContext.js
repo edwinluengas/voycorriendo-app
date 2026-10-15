@@ -3,7 +3,7 @@ import { Platform, Vibration } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { authAPI, usuariosAPI, negocioOnboardingAPI, setUnauthorizedCallback } from '../api/client';
+import { authAPI, usuariosAPI, negocioOnboardingAPI, negocioActivo, setUnauthorizedCallback } from '../api/client';
 import { conectarSocket, desconectarSocket } from '../api/socket';
 import { vaciarCarrito } from '../screens/cliente/NegocioScreen';
 
@@ -107,29 +107,35 @@ export const AuthProvider = ({ children }) => {
     return () => setUnauthorizedCallback(null);
   }, []);
 
-  // Carga el ID del negocio cuando el usuario está en modo negocio
+  // Carga los IDs de TODAS las sucursales aprobadas cuando el usuario está en
+  // modo negocio: el aviso de pedido nuevo tiene que sonar aunque el pedido
+  // sea de una sucursal distinta a la que tiene abierta en pantalla.
   useEffect(() => {
     if (!usuario?.id || usuario?.modo_activo !== 'negocio') {
       setNegocioId(null);
       return;
     }
-    negocioOnboardingAPI.miNegocio()
+    negocioOnboardingAPI.misSucursales()
       .then(({ data }) => {
-        const neg = data?.data?.negocio;
-        if (neg?.id && neg?.verificacion_estado === 'aprobado') {
-          setNegocioId(neg.id);
-        } else {
-          setNegocioId(null);
-        }
+        const ids = (data?.data?.sucursales || [])
+          .filter((s) => s.verificacion_estado === 'aprobado')
+          .map((s) => s.id);
+        setNegocioId(ids.length ? ids.join(',') : null);
       })
-      .catch(() => setNegocioId(null));
+      // Servidor sin sucursales todavía: se cae al negocio único de siempre.
+      .catch(() => negocioOnboardingAPI.miNegocio()
+        .then(({ data }) => {
+          const neg = data?.data?.negocio;
+          setNegocioId(neg?.id && neg?.verificacion_estado === 'aprobado' ? neg.id : null);
+        })
+        .catch(() => setNegocioId(null)));
   }, [usuario?.id, usuario?.modo_activo]);
 
   // Listener global persistente: notifica nuevo_pedido al negocio aunque navegue entre pantallas
   useEffect(() => {
     if (!negocioId) return;
     const socket = conectarSocket();
-    const unirse = () => socket.emit('unirse_negocio', negocioId);
+    const unirse = () => negocioId.split(',').forEach((id) => socket.emit('unirse_negocio', id));
     if (socket.connected) unirse();
     socket.on('connect', unirse);
 
@@ -260,6 +266,9 @@ export const AuthProvider = ({ children }) => {
   const cerrarSesion = async () => {
     desconectarSocket();
     vaciarCarrito();
+    // La sucursal elegida es de ESTA cuenta: otra que entre en el mismo
+    // celular no debe heredarla.
+    await negocioActivo.fijar(null);
     await SecureStore.deleteItemAsync('jwt');
     setUsuario(null);
     setRoles(null);
