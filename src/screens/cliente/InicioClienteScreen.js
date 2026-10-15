@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -143,7 +143,14 @@ export default function InicioClienteScreen({ navigation, route }) {
   // respondía con el de la plaza por defecto, así que un cliente de Zacatepec
   // veía restaurantes de Puerto Escondido pasara lo que pasara. Ése era EL
   // bug: el filtro por plaza estaba bien en el servidor, nunca le llegaba.
+  // Al iniciar sesión se disparan varias cargas casi juntas (montaje, foco y
+  // cambio de plaza al llegar la sesión). Si una respuesta vieja llegaba
+  // DESPUÉS de la buena, la pisaba y el cliente veía "no hay negocios" hasta
+  // refrescar a mano (visto en emulador, 2026-10-15). Solo cuenta la última.
+  const ultimaCargaRef = useRef(0);
   const cargarNegocios = useCallback(async () => {
+    const miCarga = ++ultimaCargaRef.current;
+    const vigente = () => miCarga === ultimaCargaRef.current;
     // Todavía no se sabe dónde estamos: no se pide nada. Pedir sin localidad
     // devolvía el catálogo de la localidad por defecto — ése era el bug.
     if (!plaza?.lista) return;
@@ -153,6 +160,7 @@ export default function InicioClienteScreen({ navigation, route }) {
     if (!plaza?.hayCobertura || !plaza?.slug) { setNegocios([]); setCargando(false); setRefrescar(false); return; }
     try {
       const { data } = await negociosAPI.listar(plaza.slug);
+      if (!vigente()) return;
       const ts = Date.now();
       const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
       const negs = (data.data?.negocios || []).map((n) => ({
@@ -162,10 +170,12 @@ export default function InicioClienteScreen({ navigation, route }) {
       }));
       setNegocios(negs);
     } catch (_) {
-      setNegocios([]);
+      if (vigente()) setNegocios([]);
     } finally {
-      setCargando(false);
-      setRefrescar(false);
+      if (vigente()) {
+        setCargando(false);
+        setRefrescar(false);
+      }
     }
   }, [plaza?.slug, plaza?.lista, plaza?.hayCobertura]);
 
