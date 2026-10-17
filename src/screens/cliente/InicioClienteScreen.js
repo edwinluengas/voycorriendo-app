@@ -168,6 +168,9 @@ export default function InicioClienteScreen({ navigation, route }) {
         logo: bust(n.logo),
         foto_portada: bust(n.foto_portada),
       }));
+      // Abiertos primero: un negocio cerrado no recibe pedidos (el servidor
+      // responde NEGOCIO_CERRADO), así que no debe quedar arriba en la lista.
+      negs.sort((a, b) => (b.abierto_ahora !== false) - (a.abierto_ahora !== false));
       setNegocios(negs);
     } catch (_) {
       if (vigente()) setNegocios([]);
@@ -577,8 +580,9 @@ function SinCobertura({ plaza }) {
 
 const TarjetaNegocio = ({ negocio, onPress }) => {
   const esAhivoy = negocio.categoria === 'ahivoy store';
+  const cerrado = negocio.abierto_ahora === false;
   return (
-  <Pressable style={estilos.tarjeta} onPress={onPress}>
+  <Pressable style={[estilos.tarjeta, cerrado && estilos.tarjetaCerrada]} onPress={onPress}>
     {negocio.foto_portada ? (
       <Image source={{ uri: negocio.foto_portada }} style={estilos.imagenPlaceholder} />
     ) : esAhivoy ? (
@@ -604,6 +608,7 @@ const TarjetaNegocio = ({ negocio, onPress }) => {
       <View style={estilos.filaNombre}>
         <Text style={estilos.nombre} numberOfLines={1}>{negocio.nombre}</Text>
         {negocio.destacado && <Text style={estilos.badgeDestacado}>⭐</Text>}
+        {cerrado && <Text style={estilos.badgeCerrado}>CERRADO</Text>}
       </View>
       <Text style={estilos.meta}>
         ⭐ {negocio.calificacion_promedio || '4.5'} · {formatoTiempoEntrega(negocio)}
@@ -817,6 +822,11 @@ const estilos = StyleSheet.create({
   filaNombre: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   nombre: { fontSize: 16, fontWeight: '800', color: colors.texto, marginBottom: 2, flexShrink: 1 },
   badgeDestacado: { fontSize: 14 },
+  tarjetaCerrada: { opacity: 0.55 },
+  badgeCerrado: {
+    fontSize: 10, fontWeight: '800', color: '#FFF', backgroundColor: '#6B7280',
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', marginLeft: 4,
+  },
   meta: { fontSize: 12, color: colors.textoSuave },
   envio: { fontSize: 12, color: colors.secundario, fontWeight: '700', marginTop: 3 },
 

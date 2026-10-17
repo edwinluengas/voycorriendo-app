@@ -204,6 +204,12 @@ export default function NegocioScreen({ route, navigation }) {
 
   // Abre el modal (o agrega directo si el producto no tiene opciones)
   const agregar = (p) => {
+    // Cerrado: el servidor rechaza el pedido (NEGOCIO_CERRADO). Avisar aquí,
+    // antes de armar el carrito, y no hasta el momento de pagar.
+    if (negocio.abierto_ahora === false) {
+      Alert.alert('Negocio cerrado', `${(negocio.nombre || 'Este negocio').trim()} está cerrado en este momento. Intenta más tarde o elige otro negocio.`);
+      return;
+    }
     // Un pedido es de un solo negocio — si hay items de otro, se bloquea
     // (el cliente debe terminar o vaciar su carrito a propósito, nunca se
     // vacía automáticamente ni se ofrece esa opción aquí).
@@ -356,6 +362,11 @@ export default function NegocioScreen({ route, navigation }) {
 
             <View style={[{ padding: espacio.lg }, !!negocio.logo && estilos.datosConOficial]}>
               <Text style={estilos.nombre}>{negocio.nombre}</Text>
+              {negocio.abierto_ahora === false && (
+                <View style={estilos.avisoCerrado}>
+                  <Text style={estilos.avisoCerradoTxt}>🔒 Cerrado en este momento — no está recibiendo pedidos</Text>
+                </View>
+              )}
               <Text style={estilos.meta}>
                 ⭐ {parseFloat(negocio.calificacion_promedio || 4.5).toFixed(1)}   ·   {formatoTiempoEntrega(negocio)}
               </Text>
@@ -633,6 +644,11 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFE6D1',
   },
   nombre: { fontSize: 24, fontWeight: '900', color: colors.texto, letterSpacing: -0.3 },
+  avisoCerrado: {
+    backgroundColor: '#F3F4F6', borderLeftWidth: 4, borderLeftColor: '#6B7280',
+    borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginTop: espacio.sm,
+  },
+  avisoCerradoTxt: { fontSize: 13, fontWeight: '700', color: '#374151' },
   meta: { fontSize: 13, color: colors.textoSuave, marginTop: espacio.xs },
   envio: { fontSize: 13, color: colors.secundario, fontWeight: '700', marginTop: 2 },
   descripcion: { fontSize: 14, color: colors.textoSuave, marginTop: espacio.sm, lineHeight: 20 },
