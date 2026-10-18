@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Linking, Pressable } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
 import { LIMITE_EFECTIVO } from '../../config/businessRules';
+import useTarjetaActiva from '../../hooks/useTarjetaActiva';
 
 const EMAIL = 'voycorriendoadmin@gmail.com';
 
 export default function PoliticaPrivacidadScreen() {
+  const tarjetaActiva = useTarjetaActiva();
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
       <ScrollView contentContainerStyle={estilos.scroll}>
@@ -34,14 +36,22 @@ export default function PoliticaPrivacidadScreen() {
           <Text style={estilos.itemDestacado}>
             💵 Efectivo — <Text style={estilos.negrita}>máximo ${LIMITE_EFECTIVO} MXN en productos</Text> (el envío se suma encima). Pagas al recibir tu pedido.
           </Text>
-          <Text style={estilos.itemDestacado}>
-            💳 Tarjeta de débito/crédito — <Text style={estilos.negrita}>temporalmente no disponible</Text>, se habilita muy pronto
-          </Text>
-          <View style={estilos.avisoEfectivo}>
-            <Text style={estilos.avisoTxt}>
-              💵 Por ahora aceptamos solo efectivo al entregar, hasta ${LIMITE_EFECTIVO} pesos en productos
+          {tarjetaActiva ? (
+            <Text style={estilos.itemDestacado}>
+              💳 Tarjeta de débito/crédito — <Text style={estilos.negrita}>se paga dentro de la app</Text> a través de Mercado Pago; no necesitas cuenta de Mercado Pago.
             </Text>
-          </View>
+          ) : (
+            <>
+              <Text style={estilos.itemDestacado}>
+                💳 Tarjeta de débito/crédito — <Text style={estilos.negrita}>temporalmente no disponible</Text>, se habilita muy pronto
+              </Text>
+              <View style={estilos.avisoEfectivo}>
+                <Text style={estilos.avisoTxt}>
+                  💵 Por ahora aceptamos solo efectivo al entregar, hasta ${LIMITE_EFECTIVO} pesos en productos
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         <Seccion titulo="5. Verificación de edad">

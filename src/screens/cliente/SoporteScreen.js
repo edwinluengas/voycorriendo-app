@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, espacio, radio } from '../../theme/colors';
 import { LIMITE_EFECTIVO } from '../../config/businessRules';
+import useTarjetaActiva from '../../hooks/useTarjetaActiva';
 
 const WHATSAPP = '525669524404';
 const EMAIL    = 'voycorriendoadmin@gmail.com';
 
 export default function SoporteScreen({ navigation }) {
+  const tarjetaActiva = useTarjetaActiva();
   const whatsapp = () => Linking.openURL(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola VoyCorriendo, necesito ayuda con un pedido')}`);
   const correo   = () => Linking.openURL(`mailto:${EMAIL}?subject=Soporte%20VoyCorriendo`);
 
@@ -51,7 +53,9 @@ export default function SoporteScreen({ navigation }) {
         />
         <Faq
           pregunta="¿Puedo pagar con tarjeta?"
-          respuesta="Por ahora estamos cobrando solo en efectivo al entregar. El pago con tarjeta se habilita muy pronto."
+          respuesta={tarjetaActiva
+            ? 'Sí. Puedes pagar con tarjeta de débito o crédito dentro de la app, sin necesitar cuenta de Mercado Pago. También puedes pagar en efectivo al recibir.'
+            : 'Por ahora estamos cobrando solo en efectivo al entregar. El pago con tarjeta se habilita muy pronto.'}
         />
 
         <Pressable
