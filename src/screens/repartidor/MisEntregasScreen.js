@@ -47,15 +47,10 @@ export default function MisEntregasScreen() {
     return <ActivityIndicator size="large" color={colors.secundario} style={{ flex: 1 }} />;
   }
 
+  const ganancia = (e) => parseFloat(e.pago_repartidor || 0) + parseFloat(e.propina || 0);
   const hoy = entregas.filter((e) => esHoy(e.entregado_en || e.creado_en));
-  const gananciasHoy = hoy.reduce(
-    (s, e) => s + parseFloat(e.ganancia || e.comision_repartidor || 0),
-    0,
-  );
-  const totalGanancias = entregas.reduce(
-    (s, e) => s + parseFloat(e.ganancia || e.comision_repartidor || 0),
-    0,
-  );
+  const gananciasHoy = hoy.reduce((s, e) => s + ganancia(e), 0);
+  const totalGanancias = entregas.reduce((s, e) => s + ganancia(e), 0);
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
@@ -113,7 +108,7 @@ export default function MisEntregasScreen() {
           </>
         }
         renderItem={({ item }) => {
-          const ganancia = parseFloat(item.ganancia || item.comision_repartidor || 0);
+          const gananciaItem = ganancia(item);
           const fecha    = new Date(item.entregado_en || item.creado_en);
           const esDeHoy  = esHoy(item.entregado_en || item.creado_en);
           const metodoEmoji = METODO_TXT[item.metodo_pago] || '💵';
@@ -140,7 +135,7 @@ export default function MisEntregasScreen() {
                   <Text style={estilos.totalSub}>Total del pedido</Text>
                 </View>
                 <View style={estilos.gananciaBox}>
-                  <Text style={estilos.ganancia}>+${ganancia.toFixed(2)}</Text>
+                  <Text style={estilos.ganancia}>+${gananciaItem.toFixed(2)}</Text>
                   <Text style={estilos.gananciaSub}>Tu ganancia</Text>
                 </View>
               </View>

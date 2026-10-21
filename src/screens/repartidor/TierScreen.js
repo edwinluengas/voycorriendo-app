@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { repartidoresAPI } from '../../api/client';
+import { FEE_ENVIO } from '../../config/businessRules';
 import Boton from '../../components/Boton';
 import { colors, espacio, radio } from '../../theme/colors';
 
@@ -14,7 +15,7 @@ const TIERS = [
     id: 'daily',
     label: 'Diario',
     emoji: '⚡',
-    pago: '$35 MXN',
+    pago: `$${FEE_ENVIO.standard} MXN`,
     desc: 'Recibes tu pago el mismo día al completar cada entrega. Ideal si necesitas liquidez inmediata.',
     color: '#F59E0B',
     bg: '#FFFBEB',
@@ -24,7 +25,7 @@ const TIERS = [
     id: 'weekly',
     label: 'Semanal',
     emoji: '📅',
-    pago: '$35 MXN',
+    pago: `$${FEE_ENVIO.standard} MXN`,
     desc: 'Acumulas tus entregas y recibes el total cada viernes vía SPEI. Sin diferencia en la tarifa.',
     color: colors.primario,
     bg: '#FFF3E8',
@@ -109,7 +110,8 @@ export default function TierScreen({ navigation }) {
 
         <Text style={estilos.titulo}>Cuándo cobrar</Text>
         <Text style={estilos.sub}>
-          Tarifa flat $35 por entrega · $50 por entrega express. Elige cuándo quieres recibir tu dinero.
+          {`Tarifa regular $${FEE_ENVIO.standard} por entrega · $${FEE_ENVIO.express} por entrega express. `}
+          Elige cuándo quieres recibir tu dinero.
         </Text>
 
         {TIERS.map((t) => {
@@ -145,15 +147,19 @@ export default function TierScreen({ navigation }) {
           <Text style={estilos.comparativaTitulo}>Ejemplo: 10 entregas estándar en un día</Text>
           <View style={estilos.comparativaFila}>
             <Text style={estilos.comparativaLabel}>💰 Ganancia</Text>
-            <Text style={estilos.comparativaValor}>$350 MXN</Text>
+            <Text style={estilos.comparativaValor}>${FEE_ENVIO.standard * 10} MXN</Text>
           </View>
           <View style={estilos.comparativaFila}>
             <Text style={estilos.comparativaLabel}>⚡ Express (si aplica)</Text>
-            <Text style={estilos.comparativaValor}>$50 por entrega</Text>
+            <Text style={estilos.comparativaValor}>${FEE_ENVIO.express} por entrega</Text>
           </View>
+          {/* El bono por metas NO existe todavía (nada en el backend lo paga).
+              Se quitó de aquí en vez de dejarlo prometido: mostrarle al
+              repartidor un ingreso que nunca va a llegar es peor que no
+              ofrecerlo. Cuando se active de verdad, se vuelve a poner. */}
           <View style={estilos.comparativaFila}>
-            <Text style={estilos.comparativaLabel}>📦 Bono por 10 pedidos/día</Text>
-            <Text style={estilos.comparativaValor}>$50 MXN extra</Text>
+            <Text style={estilos.comparativaLabel}>💵 Propinas</Text>
+            <Text style={estilos.comparativaValor}>100% para ti</Text>
           </View>
         </View>
 

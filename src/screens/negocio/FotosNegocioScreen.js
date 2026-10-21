@@ -11,27 +11,33 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Pressable,
-  ActivityIndicator, Alert, Image, ScrollView,
+  View, Text, StyleSheet, Pressable,
+  ActivityIndicator, Alert, Image, ScrollView, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { elegirDeGaleria, tomarFoto as tomarFotoUtil } from '../../utils/imagenes';
 import { negocioOnboardingAPI } from '../../api/client';
 import { colors, espacio, radio } from '../../theme/colors';
 
-const ASPECT_PORTADA = [16, 9];
-const ASPECT_LOGO    = [1, 1];
-const ASPECT_PRODUCT = [4, 3];
-
 export default function FotosNegocioScreen({ navigation }) {
-  const [negocio, setNegocio]   = useState(null);
-  const [cargando, setCargando] = useState(true);
-  const [subiendo, setSubiendo] = useState(null); // 'portada' | 'logo' | productoId
+  const [negocio, setNegocio]     = useState(null);
+  const [cargando, setCargando]   = useState(true);
+  const [subiendo, setSubiendo]   = useState(null);
+  const [preview, setPreview]     = useState(null); // { asset, onConfirm }
 
   const cargar = useCallback(async () => {
     try {
       const { data } = await negocioOnboardingAPI.miNegocio();
-      setNegocio(data.data?.negocio || null);
+      const neg = data.data?.negocio || null;
+      if (neg) {
+        const ts = Date.now();
+        const bust = (url) => url ? `${url}${url.includes('?') ? '&' : '?'}t=${ts}` : url;
+        neg.logo = bust(neg.logo);
+        neg.foto_portada = bust(neg.foto_portada);
+        neg.productos = (neg.productos || []).map((p) => ({ ...p, imagen: bust(p.imagen) }));
+      }
+      setNegocio(neg);
     } catch (e) {
       Alert.alert('Error', e?.mensajeAmigable || 'No se pudo cargar.');
     } finally {
@@ -41,100 +47,89 @@ export default function FotosNegocioScreen({ navigation }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // ── Picker genérico ──────────────────────────────────────
-  const elegirImagen = async (aspectRatio) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: aspectRatio,
-      quality: 0.75,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return null;
-    const asset = result.assets[0];
-    if (!asset.base64) { Alert.alert('Error', 'No se pudo leer la imagen.'); return null; }
+  // ── Picker: galería sin recorte (imagen completa) ────────
+  // Delegan en utils/imagenes, que pide el permiso y hace visible el error.
+  // Sin el permiso de galería, Android no abre nada y no avisa: el usuario
+  // tocaba el botón y no pasaba nada.
+  const elegirImagen = async () => {
+    const asset = await elegirDeGaleria({ quality: 0.85 });
+    if (asset && !asset.base64) { Alert.alert('Error', 'No se pudo leer la imagen.'); return null; }
     return asset;
   };
 
-  const tomarFoto = async (aspectRatio) => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: aspectRatio,
-      quality: 0.75,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.length) return null;
-    return result.assets[0];
+  const tomarFoto = () => tomarFotoUtil({ quality: 0.85 });
+
+  // ── Muestra opciones galería / cámara → preview modal ───
+  const elegirOTomarFoto = (onConfirm) => {
+    Alert.alert('Subir foto', '¿De dónde tomamos la foto?', [
+      {
+        text: 'Cámara',
+        onPress: async () => {
+          const asset = await tomarFoto();
+          if (asset) setPreview({ asset, onConfirm });
+        },
+      },
+      {
+        text: 'Galería',
+        onPress: async () => {
+          const asset = await elegirImagen();
+          if (asset) setPreview({ asset, onConfirm });
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
-  // ── Muestra opciones galería / cámara ────────────────────
-  const elegirOTomarFoto = (aspect) =>
-    new Promise((resolve) => {
-      Alert.alert('Subir foto', '¿De dónde tomamos la foto?', [
-        { text: 'Cámara',   onPress: async () => resolve(await tomarFoto(aspect)) },
-        { text: 'Galería',  onPress: async () => resolve(await elegirImagen(aspect)) },
-        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) },
-      ]);
-    });
-
   // ── Subir portada ────────────────────────────────────────
-  const subirPortada = async () => {
-    const asset = await elegirOTomarFoto(ASPECT_PORTADA);
-    if (!asset) return;
-    setSubiendo('portada');
-    try {
-      const { data } = await negocioOnboardingAPI.subirDocumento('foto_portada', asset.base64, asset.mimeType || 'image/jpeg');
-      const url = data.data?.url;
-      if (url) setNegocio((n) => ({ ...n, foto_portada: url }));
-      Alert.alert('¡Listo!', 'Foto de portada actualizada. Los clientes ya la verán.');
-    } catch (e) {
-      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
-    } finally {
-      setSubiendo(null);
-    }
+  const subirPortada = () => {
+    elegirOTomarFoto(async (asset) => {
+      setSubiendo('portada');
+      try {
+        await negocioOnboardingAPI.subirDocumento('foto_portada', asset.base64, asset.mimeType || 'image/jpeg');
+        await cargar();
+        Alert.alert('¡Listo!', 'Foto de portada actualizada. Los clientes ya la verán.');
+      } catch (e) {
+        Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
+      } finally {
+        setSubiendo(null);
+      }
+    });
   };
 
   // ── Subir logo ───────────────────────────────────────────
-  const subirLogo = async () => {
-    const asset = await elegirOTomarFoto(ASPECT_LOGO);
-    if (!asset) return;
-    setSubiendo('logo');
-    try {
-      const { data } = await negocioOnboardingAPI.subirDocumento('logo', asset.base64, asset.mimeType || 'image/jpeg');
-      const url = data.data?.url;
-      if (url) setNegocio((n) => ({ ...n, logo: url }));
-      Alert.alert('¡Listo!', 'Logo actualizado.');
-    } catch (e) {
-      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
-    } finally {
-      setSubiendo(null);
-    }
+  const subirLogo = () => {
+    elegirOTomarFoto(async (asset) => {
+      setSubiendo('logo');
+      try {
+        await negocioOnboardingAPI.subirDocumento('logo', asset.base64, asset.mimeType || 'image/jpeg');
+        await cargar();
+        Alert.alert('¡Listo!', 'Logo actualizado.');
+      } catch (e) {
+        Alert.alert('Error', e?.mensajeAmigable || 'No se pudo subir. Intenta de nuevo.');
+      } finally {
+        setSubiendo(null);
+      }
+    });
   };
 
   // ── Subir foto de producto ───────────────────────────────
-  const subirFotoProducto = async (producto) => {
-    const asset = await elegirOTomarFoto(ASPECT_PRODUCT);
-    if (!asset) return;
-    setSubiendo(producto.id);
-    try {
-      const { data } = await negocioOnboardingAPI.subirFotoProducto(
-        producto.id,
-        asset.base64,
-        asset.mimeType || 'image/jpeg',
-      );
-      const url = data.data?.url || data.data?.producto?.imagen;
-      setNegocio((n) => ({
-        ...n,
-        productos: (n.productos || []).map((p) =>
-          p.id === producto.id ? { ...p, imagen: url || p.imagen } : p,
-        ),
-      }));
-      Alert.alert('¡Listo!', 'Foto del producto actualizada.');
-    } catch (e) {
-      Alert.alert('Error', e?.mensajeAmigable || 'No se pudo actualizar la foto.');
-    } finally {
-      setSubiendo(null);
-    }
+  const subirFotoProducto = (producto) => {
+    elegirOTomarFoto(async (asset) => {
+      setSubiendo(producto.id);
+      try {
+        await negocioOnboardingAPI.subirFotoProducto(
+          producto.id,
+          asset.base64,
+          asset.mimeType || 'image/jpeg',
+        );
+        await cargar();
+        Alert.alert('¡Listo!', 'Foto del producto actualizada.');
+      } catch (e) {
+        Alert.alert('Error', e?.mensajeAmigable || 'No se pudo actualizar la foto.');
+      } finally {
+        setSubiendo(null);
+      }
+    });
   };
 
   if (cargando) {
@@ -161,6 +156,36 @@ export default function FotosNegocioScreen({ navigation }) {
 
   return (
     <SafeAreaView style={estilos.contenedor} edges={['bottom']}>
+      {/* ── Modal: vista previa de imagen completa ── */}
+      <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
+        <View style={estilos.previewOverlay}>
+          <Text style={estilos.previewTitulo}>Vista previa</Text>
+          {preview?.asset?.uri && (
+            <Image
+              source={{ uri: preview.asset.uri }}
+              style={estilos.previewImg}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={estilos.previewHint}>¿Se ve bien tu foto? Confirma para subirla.</Text>
+          <View style={estilos.previewBotones}>
+            <Pressable style={estilos.previewBtnCancelar} onPress={() => setPreview(null)}>
+              <Text style={estilos.previewBtnCancelarTxt}>Elegir otra</Text>
+            </Pressable>
+            <Pressable
+              style={estilos.previewBtnConfirmar}
+              onPress={() => {
+                const { asset, onConfirm } = preview;
+                setPreview(null);
+                onConfirm(asset);
+              }}
+            >
+              <Text style={estilos.previewBtnConfirmarTxt}>✅ Subir esta foto</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView contentContainerStyle={{ paddingBottom: espacio.xl * 2 }}>
 
         {/* ── Portada ── */}
@@ -196,9 +221,11 @@ export default function FotosNegocioScreen({ navigation }) {
 
         {/* ── Logo ── */}
         <View style={estilos.seccion}>
-          <Text style={estilos.seccionTitulo}>🏷️ Logo del negocio</Text>
+          <Text style={estilos.seccionTitulo}>🏷️ Foto oficial del negocio</Text>
           <Text style={estilos.seccionDesc}>
-            Aparece en los pedidos confirmados y en las notificaciones. Formato cuadrado.
+            La cara de tu negocio: tu logo o una foto cuadrada que te identifique.
+            El cliente la ve junto a tu nombre al abrir tu menú, en la lista de
+            negocios y en sus pedidos. Formato cuadrado.
           </Text>
           <View style={estilos.logoFila}>
             {negocio.logo ? (
@@ -392,6 +419,41 @@ const estilos = StyleSheet.create({
   },
   btnProductoFotoDeshabilitado: { opacity: 0.5 },
   btnProductoFotoTxt: { color: colors.primario, fontWeight: '700', fontSize: 12 },
+
+  // Modal preview
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: espacio.lg,
+  },
+  previewTitulo: { color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: espacio.md },
+  previewImg: {
+    width: '100%',
+    height: 340,
+    borderRadius: radio.md,
+    backgroundColor: '#111',
+  },
+  previewHint: { color: '#CCC', fontSize: 13, marginTop: espacio.md, textAlign: 'center' },
+  previewBotones: { flexDirection: 'row', gap: espacio.md, marginTop: espacio.lg },
+  previewBtnCancelar: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radio.md,
+    borderWidth: 1.5,
+    borderColor: '#555',
+    alignItems: 'center',
+  },
+  previewBtnCancelarTxt: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  previewBtnConfirmar: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radio.md,
+    backgroundColor: colors.primario,
+    alignItems: 'center',
+  },
+  previewBtnConfirmarTxt: { color: '#FFF', fontWeight: '800', fontSize: 14 },
 
   // Tip
   tip: {
